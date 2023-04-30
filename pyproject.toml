@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "finance-gpt"
+name = "strategy-gpt"
 version = "0.1.0"
 description = "Automation for financial trading strategies"
 authors = ["Alpha <alphagma@gmail.com>"]
