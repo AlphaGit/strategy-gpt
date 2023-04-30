@@ -1,9 +1,11 @@
 import openai
 import os
+from utils.logger import logger
 
 def get_completion(prompt):
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
+    logger.debug(f"OenAI Completion Prompt:\n{prompt}")
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{
@@ -13,4 +15,6 @@ def get_completion(prompt):
         max_tokens=512,
     )
 
-    return response["choices"][0]["message"]["content"]
+    response_content = response["choices"][0]["message"]["content"]
+    logger.debug(f"OpenAI Completion Response:\n{response_content}")
+    return response_content
