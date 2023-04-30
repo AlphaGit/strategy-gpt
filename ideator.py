@@ -1,12 +1,8 @@
-import openai
-import os
-from strategy import strategy, parameters
+from utils.openai_client import get_completion
+from utils.logger import logger
 
-metric = "Win ratio"
-
-print(f"Improving metric: {metric}")
-
-prompt = f"""You are an expert financial investor. Your objective is to improve the {metric} of a strategy.
+def get_hypotheses(strategy, parameters, metric) -> list[str]:
+    prompt = f"""You are an expert financial investor. Your objective is to improve the {metric} of a strategy.
 
 See the strategy description:
 
@@ -22,22 +18,12 @@ Write testable ideas to change the parameters to improve the {metric}, in the fo
 - Allowing a maximum risk of loss of 50% will improve the {metric}.
 - Add a filter to only enter when the 14-day RSI is below to improve the {metric}."""
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+    hypotheses = get_completion(prompt)
+    hypotheses = hypotheses.split("\n")
+    hypotheses = [hypothesis.replace("- ", "", 1) for hypothesis in hypotheses]
+    hypotheses = [hypothesis.strip() for hypothesis in hypotheses]
 
-response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=[{
-        "role": "user",
-        "content": prompt,
-    }],
-    max_tokens=512,
-)
+    hypotheses_to_print = "\n- " + "\n- ".join(hypotheses)
+    logger.debug(f'Hypotheses:{hypotheses_to_print}')
 
-hypotheses = response["choices"][0]["message"]["content"]
-hypotheses = hypotheses.split("\n")
-hypotheses = [hypothesis.replace("- ", "", 1) for hypothesis in hypotheses]
-hypotheses = [hypothesis.strip() for hypothesis in hypotheses]
-
-for hypothesis in hypotheses:
-    print("- ", hypothesis)
-
+    return hypotheses

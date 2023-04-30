@@ -2,7 +2,7 @@ import openai
 import os
 from utils.logger import logger
 
-def get_completion(prompt):
+def get_completion(prompt, max_tokens=512):
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
     logger.debug(f"OenAI Completion Prompt:\n{prompt}")
@@ -12,7 +12,7 @@ def get_completion(prompt):
             "role": "user",
             "content": prompt,
         }],
-        max_tokens=512,
+        max_tokens=max_tokens,
     )
 
     response_content = response["choices"][0]["message"]["content"]
