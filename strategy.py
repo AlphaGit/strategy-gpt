@@ -13,7 +13,7 @@ parameters = """- Position size: 20% of the capital.
 metrics = """- Sharpe ratio: 0.9.
 - Sortino ratio: 0.9.
 - Trade length: 10 days.
-- Maximum drawdown: 10%.
-- Annualized return: 9%.
+- Maximum drawdown: 0.1.
+- Annualized return: 0.09.
 - Profit factor: 1.09.
-- Win ratio: 35%."""
+- Win ratio: 0.3."""

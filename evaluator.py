@@ -1,16 +1,19 @@
 from utils.openai_client import get_completion
 from utils.logger import logger
 
-def evaluate_metrics(strategy, metrics) -> list[str]:
+def evaluate_metrics(metrics) -> list[str]:
     prompt = f"""You are an expert financial investor. Your objective is to evaluate the metrics of a strategy.
 
-See the strategy description:
-
-{strategy}
-
-See the metrics:
+Metrics:
 
 {metrics}
+
+These are the acceptable range for metrics:
+
+- Sharpe Ratio: 1.0 or higher
+- Win Ratio: 0.5 or higher
+- Profit Factor: 1.0 or higher
+- Max Drawdown: 0.3 or lower
 
 List the metrics that need to be improved. If all of the metrics are acceptable, write "None". Do not include the metric value. Use a format like this:
 
