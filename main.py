@@ -8,15 +8,15 @@ logger.setLevel("DEBUG")
 logger.info(f"Strategy:\n{strategy}")
 
 # --------------------
-logger.info(f"Evaluating metrics:\n{metrics}")
-to_improve_metrics = evaluate_metrics(metrics)
+# logger.info(f"Evaluating metrics:\n{metrics}")
+# to_improve_metrics = evaluate_metrics(metrics)
 
-if len(to_improve_metrics) == 0:
-    logger.info("All metrics are acceptable.")
-    exit(0)
-else:
-    to_improve_metrics_to_print = "\n- " + "\n- ".join(to_improve_metrics)
-    logger.info(f'Metrics to improve:{to_improve_metrics_to_print}')
+# if len(to_improve_metrics) == 0:
+#     logger.info("All metrics are acceptable.")
+#     exit(0)
+# else:
+#     to_improve_metrics_to_print = "\n- " + "\n- ".join(to_improve_metrics)
+#     logger.info(f'Metrics to improve:{to_improve_metrics_to_print}')
 # --------------------
 
 to_improve_metrics = ["Sharpe Ratio"]
@@ -29,6 +29,7 @@ for metric in to_improve_metrics:
     hypotheses_to_print = "\n- " + "\n- ".join(hypotheses)
     logger.info(f'Hypotheses:{hypotheses_to_print}')
 
+    # for hypothesis in hypotheses:
     for hypothesis in hypotheses[:1]:
         logger.info(f"Evaluating hypothesis: {hypothesis}")
 

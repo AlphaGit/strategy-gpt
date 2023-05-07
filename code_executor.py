@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from utils.data import get_history
+from utils.data import get_history, Candle
 from utils.openai_client import get_completion
 from utils.logger import logger
 
@@ -18,7 +18,7 @@ class Candle:
 
 def is_idea_true(candles: list[Candle], current_metric_value: float) -> bool:"""
 
-    prompt = f"""You are an expert Python coder for a trading app. Code a function that has the following signature and verifies this idea: {hypothesis}. Do not include comments or docstrings in your code.
+    prompt = f"""You are an expert Python coder for a trading app. Code a function that has the following signature and verifies this idea: "{hypothesis}". Do not include comments or docstrings in your code.
 
 Code snippet:
 
