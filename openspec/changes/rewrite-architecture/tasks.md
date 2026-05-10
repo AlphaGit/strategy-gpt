@@ -133,6 +133,6 @@
 
 - [ ] 13.1 Add a top-level CLI (`strategy-gpt`) exposing common operations: ingest, fetch, run, hypothesize, optimize, replay
 - [ ] 13.2 Add structured logging end-to-end (Rust `tracing` + Python `structlog`) with run-id correlation
-- [ ] 13.3 Add CI: Rust workspace lint+test, Python lint+test, end-to-end smoke on a tiny fixture dataset
+- [ ] 13.3 Add CI: invoke `make lint` and `make test` (canonical entry points defined by the `add-lint-precommit` change), plus end-to-end smoke on a tiny fixture dataset
 - [ ] 13.4 Document the developer workflow in `CLAUDE.md` and a top-level `README.md`
 - [ ] 13.5 Tag a `v0.1.0` once the smoke run in 12.3 passes

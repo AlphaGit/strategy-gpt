@@ -15,7 +15,11 @@ pub struct RunnerVersion {
 
 impl RunnerVersion {
     pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 
     /// Two versions share the same ABI when their major numbers match.

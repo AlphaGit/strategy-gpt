@@ -1,0 +1,58 @@
+# Pre-commit configuration. Tool versions are pinned so local and CI runs match.
+# One-time setup: `pip install pre-commit && pre-commit install`.
+# Manual full-tree run: `make lint` (recommended) or `pre-commit run --all-files`.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        name: ruff check
+        args: ["--config=python/pyproject.toml"]
+        files: ^python/
+      - id: ruff-format
+        name: ruff format --check
+        args: ["--check", "--config=python/pyproject.toml"]
+        files: ^python/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        name: mypy --strict
+        args:
+          - "--config-file=python/pyproject.toml"
+          - "python/strategy_gpt"
+        pass_filenames: false
+        # The mirror provides isolated mypy; runtime deps are not auto-installed.
+        # Add the project's typed runtime deps here as the orchestrator grows.
+        additional_dependencies:
+          - pydantic>=2.9
+          - typer>=0.12
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt --check
+        entry: bash -c 'cd crates && cargo fmt --all -- --check'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy -D warnings
+        entry: bash -c 'cd crates && cargo clippy --workspace --all-targets -- -D warnings'
+        language: system
+        files: \.rs$|crates/.+/Cargo\.toml$|crates/Cargo\.lock$
+        pass_filenames: false

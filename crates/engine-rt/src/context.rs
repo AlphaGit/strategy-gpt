@@ -34,13 +34,7 @@ pub trait Context {
     /// they are not exposed here because strategies do not need them to decide.
     fn get_position(&self, symbol: &str) -> Position;
 
-    fn log_signal(
-        &mut self,
-        name: &str,
-        value: f64,
-        fired: bool,
-        suppressed_by: Option<&str>,
-    );
+    fn log_signal(&mut self, name: &str, value: f64, fired: bool, suppressed_by: Option<&str>);
 
     fn log_decision(&mut self, event: &str, details: Value);
 

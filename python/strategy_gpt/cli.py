@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import typer
 
+from . import __version__
+
 app = typer.Typer(help="Strategy-GPT research loop CLI (scaffolding).")
 
 
@@ -15,8 +17,6 @@ def _root() -> None:
 @app.command()
 def version() -> None:
     """Print the installed version."""
-    from . import __version__
-
     typer.echo(__version__)
 
 

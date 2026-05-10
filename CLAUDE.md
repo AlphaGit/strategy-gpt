@@ -99,7 +99,25 @@ maturin develop -m ../crates/py-bindings/Cargo.toml
 # RUSTC_WRAPPER=sccache (.cargo/config.toml documents the recommended setup).
 ```
 
-No CI yet. No global linter pass yet. Both land in phase 13.
+## Lint and pre-commit
+
+Single source of truth: `make lint`. Same suite runs locally and in CI.
+
+```bash
+# One-time setup
+pre-commit install
+
+# Manual full-tree run
+make lint        # rustfmt --check + clippy + ruff check + ruff format --check + mypy --strict
+make fmt         # write fixes (rustfmt + ruff format)
+```
+
+Stance:
+- **Rust**: tool defaults. No `.rustfmt.toml` or `clippy.toml`. `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets -- -D warnings`.
+- **Python**: strict. Ruff with a wide rule set (`E,F,W,I,B,UP,SIM,RUF,S,N,PT,ANN,C4,ERA,PL`) plus `ruff format --check` plus `mypy --strict`. Mypy strict scope is `python/strategy_gpt/`; `kb/` and tests are excluded explicitly.
+- Tool versions are pinned in `.pre-commit-config.yaml`. Pre-commit hooks scope to staged files; `make lint` covers the whole tree.
+
+No CI yet (lands in `rewrite-architecture` task 13.3 and will call `make lint`).
 
 ## Environment
 
