@@ -285,6 +285,265 @@ fn slippage_reduces_pnl_relative_to_zero_slip_baseline() {
 }
 
 #[test]
+fn monte_carlo_attaches_one_aggregated_stress_scenario() {
+    let bars_data = bars(&[50.0, 52.0, 53.0, 55.0, 60.0, 58.0, 57.0]);
+    let slice = TimeRange {
+        start: ts(1),
+        end: ts(10),
+    };
+    let mut strategy = BuyAndHoldOnce {
+        bought: false,
+        bars_held: 0,
+        exit_after: 3,
+        on_fill_calls: 0,
+    };
+    let cfg = EngineConfig::default();
+    let run = RunSpec {
+        params: serde_json::Value::Null,
+        modes: vec![
+            engine::Mode::Plain,
+            engine::Mode::MonteCarlo {
+                n: 10,
+                block_size: 2,
+            },
+        ],
+        seed: 7,
+        slice,
+    };
+    let mut result = run_one(
+        &mut strategy,
+        &bars_data,
+        &run,
+        &cfg,
+        IndicatorRegistry::new(),
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let factory: Box<dyn StrategyFactory> = Box::new(|| -> Box<dyn Strategy> {
+        Box::new(BuyAndHoldOnce {
+            bought: false,
+            bars_held: 0,
+            exit_after: 3,
+            on_fill_calls: 0,
+        })
+    });
+    engine::apply_modes(
+        &mut result,
+        factory.as_ref(),
+        &IndicatorRegistry::new,
+        &bars_data,
+        &run,
+        &cfg,
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let stress = result.stress.expect("monte carlo populates stress");
+    assert_eq!(stress.scenarios.len(), 1);
+    assert!(stress.scenarios[0].name.starts_with("monte_carlo:"));
+}
+
+#[test]
+fn slippage_sweep_emits_one_scenario_per_bps_value() {
+    let bars_data = bars(&[50.0, 52.0, 53.0, 55.0, 60.0]);
+    let slice = TimeRange {
+        start: ts(1),
+        end: ts(7),
+    };
+    let mut strategy = BuyAndHoldOnce {
+        bought: false,
+        bars_held: 0,
+        exit_after: 3,
+        on_fill_calls: 0,
+    };
+    let cfg = EngineConfig::default();
+    let run = RunSpec {
+        params: serde_json::Value::Null,
+        modes: vec![engine::Mode::Slippage {
+            bps_grid: vec![0.0, 0.0005, 0.002],
+        }],
+        seed: 1,
+        slice,
+    };
+    let mut result = run_one(
+        &mut strategy,
+        &bars_data,
+        &run,
+        &cfg,
+        IndicatorRegistry::new(),
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let factory: Box<dyn StrategyFactory> = Box::new(|| -> Box<dyn Strategy> {
+        Box::new(BuyAndHoldOnce {
+            bought: false,
+            bars_held: 0,
+            exit_after: 3,
+            on_fill_calls: 0,
+        })
+    });
+    engine::apply_modes(
+        &mut result,
+        factory.as_ref(),
+        &IndicatorRegistry::new,
+        &bars_data,
+        &run,
+        &cfg,
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let stress = result.stress.expect("slippage populates stress");
+    assert_eq!(stress.scenarios.len(), 3);
+    assert!(stress
+        .scenarios
+        .iter()
+        .all(|s| s.name.starts_with("slippage:")));
+}
+
+#[test]
+fn regime_filter_runs_only_on_in_range_bars() {
+    let bars_data = bars(&[50.0, 52.0, 53.0, 55.0, 60.0, 58.0, 57.0]);
+    let slice = TimeRange {
+        start: ts(1),
+        end: ts(10),
+    };
+    let mut strategy = BuyAndHoldOnce {
+        bought: false,
+        bars_held: 0,
+        exit_after: 3,
+        on_fill_calls: 0,
+    };
+    let cfg = EngineConfig::default();
+    let run = RunSpec {
+        params: serde_json::Value::Null,
+        modes: vec![engine::Mode::RegimeFilter {
+            ranges: vec![TimeRange {
+                start: ts(3),
+                end: ts(6),
+            }],
+        }],
+        seed: 1,
+        slice,
+    };
+    let mut result = run_one(
+        &mut strategy,
+        &bars_data,
+        &run,
+        &cfg,
+        IndicatorRegistry::new(),
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let factory: Box<dyn StrategyFactory> = Box::new(|| -> Box<dyn Strategy> {
+        Box::new(BuyAndHoldOnce {
+            bought: false,
+            bars_held: 0,
+            exit_after: 3,
+            on_fill_calls: 0,
+        })
+    });
+    engine::apply_modes(
+        &mut result,
+        factory.as_ref(),
+        &IndicatorRegistry::new,
+        &bars_data,
+        &run,
+        &cfg,
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let stress = result.stress.expect("regime_filter populates stress");
+    assert_eq!(stress.scenarios.len(), 1);
+    assert!(stress.scenarios[0].name.starts_with("regime_filter:"));
+}
+
+#[test]
+fn sensitivity_sweep_emits_one_point_per_unique_value() {
+    let bars_data = bars(&[50.0, 52.0, 53.0, 55.0, 60.0]);
+    let slice = TimeRange {
+        start: ts(1),
+        end: ts(7),
+    };
+    let mut strategy = BuyAndHoldOnce {
+        bought: false,
+        bars_held: 0,
+        exit_after: 3,
+        on_fill_calls: 0,
+    };
+    let cfg = EngineConfig::default();
+    let run = RunSpec {
+        params: serde_json::json!({}),
+        modes: vec![engine::Mode::Sensitivity {
+            param: "vol_lo".into(),
+            // Duplicate 1.0 to verify dedup.
+            values: vec![1.0, 1.0, 2.0, 5.0],
+        }],
+        seed: 1,
+        slice,
+    };
+    let mut result = run_one(
+        &mut strategy,
+        &bars_data,
+        &run,
+        &cfg,
+        IndicatorRegistry::new(),
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let factory: Box<dyn StrategyFactory> = Box::new(|| -> Box<dyn Strategy> {
+        Box::new(BuyAndHoldOnce {
+            bought: false,
+            bars_held: 0,
+            exit_after: 3,
+            on_fill_calls: 0,
+        })
+    });
+    engine::apply_modes(
+        &mut result,
+        factory.as_ref(),
+        &IndicatorRegistry::new,
+        &bars_data,
+        &run,
+        &cfg,
+        "art",
+        "ds",
+    )
+    .unwrap();
+    let s = result.sensitivity.expect("sensitivity populated");
+    assert_eq!(s.param, "vol_lo");
+    assert_eq!(s.points.len(), 3);
+}
+
+#[test]
+fn regime_annotation_runs_on_long_enough_input() {
+    // Construct 50 daily bars with rising closes; annotate_regimes should
+    // return at least one tag (uptrend + at least one vol regime).
+    let closes: Vec<f64> = (1..=50).map(|i| 100.0 + i as f64 * 0.5).collect();
+    let bars: Vec<Bar> = closes
+        .iter()
+        .enumerate()
+        .map(|(i, c)| Bar {
+            symbol: "VXX".into(),
+            ts: ts(1) + chrono::Duration::days(i as i64),
+            resolution: Resolution::Day,
+            open: *c,
+            high: *c,
+            low: *c,
+            close: *c,
+            volume: 1.0,
+        })
+        .collect();
+    let tags = engine::annotate_regimes(&bars);
+    assert!(!tags.is_empty());
+}
+
+#[test]
 fn empty_dataset_returns_error() {
     let mut strategy = BuyAndHoldOnce {
         bought: false,

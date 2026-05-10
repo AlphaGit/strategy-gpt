@@ -35,10 +35,10 @@
 - [x] 4.4 Implement abort-on-failure batch semantics: a single run failure cancels remaining runs and reports a structured failure — `run_batch` aborts on first run failure with `BatchError::Run { index, source }`
 - [x] 4.5 Implement deterministic execution: seeded RNG, stable bar iteration, identical output for identical inputs — verified by integration test `determinism_identical_inputs_produce_identical_output`
 - [x] 4.6 Implement enriched output capture: trades, signals (including `suppressed_by`), equity, exec_log — all four channels populated by `run_one`
-- [ ] 4.7 Implement `MonteCarlo` mode with block bootstrap over input bars
-- [ ] 4.8 Implement `Slippage` and `RegimeFilter` stress modes — engine `slippage_bps` config knob exists for fixed slippage; per-mode sweep grid not yet
-- [ ] 4.9 Implement parametric `Sensitivity` sweep mode with per-point sub-results
-- [ ] 4.10 Compute post-hoc regime annotations (volatility regime + trend regime) for `BacktestResult.regimes`
+- [x] 4.7 Implement `MonteCarlo` mode with block bootstrap over input bars — `modes::monte_carlo` resamples blocks with seeded RNG, re-stamps timestamps, aggregates metrics into one `StressScenario`
+- [x] 4.8 Implement `Slippage` and `RegimeFilter` stress modes — `slippage_sweep` clones engine config per bps; `regime_filter` runs per range with filtered bars
+- [x] 4.9 Implement parametric `Sensitivity` sweep mode with per-point sub-results — `sensitivity_sweep` overrides numeric param in `run.params`, dedups identical values
+- [x] 4.10 Compute post-hoc regime annotations (volatility regime + trend regime) for `BacktestResult.regimes` — `regime::annotate_regimes` emits `low_vol`/`med_vol`/`high_vol` and `uptrend`/`downtrend`/`chop` runs
 - [ ] 4.11 Expose the engine control plane to Python via PyO3 (`submit_batch`, `poll`, `cancel`)
 - [ ] 4.12 Determinism golden-test: run a known strategy + dataset twice and assert byte-identical results — basic version exists in `end_to_end.rs`; richer dataset + checked-in fixture pending
 

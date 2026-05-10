@@ -10,7 +10,9 @@ pub mod fill_model;
 pub mod indicators;
 pub mod intent;
 pub mod metrics;
+pub mod modes;
 pub mod position_book;
+pub mod regime;
 pub mod result;
 pub mod runtime;
 pub mod sanity;
@@ -23,7 +25,9 @@ pub use fill_model::FillModel;
 pub use indicators::{Indicator, IndicatorRegistry};
 pub use intent::{IntentBook, IntentStatus, PendingIntent};
 pub use metrics::compute_metrics;
+pub use modes::apply_modes;
 pub use position_book::PositionBook;
+pub use regime::annotate_regimes;
 pub use result::{
     BacktestMetrics, BacktestResult, EquityPoint, RegimeTag, ResultMeta, SensitivityPoint,
     SensitivityResult, StressResult, StressScenario, Trade,
