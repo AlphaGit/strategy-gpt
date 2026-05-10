@@ -68,10 +68,10 @@
 
 ## 7. Objectives Spec
 
-- [ ] 7.1 Define the YAML/JSON schema for objective specs (primary, secondary, tradeoff, walk-forward, oos_min_score)
-- [ ] 7.2 Implement spec validation (metric names valid against engine output, comparison operators, weight non-negativity, pareto requires ≥2 metrics)
-- [ ] 7.3 Implement evaluator: given metrics + spec, return pass/fail and aggregated score under the chosen tradeoff mode
-- [ ] 7.4 Tests: constraint violation, lexicographic tiebreak, weighted_sum scoring, pareto frontier extraction
+- [x] 7.1 Define the YAML/JSON schema for objective specs (primary, secondary, tradeoff, walk-forward, oos_min_score) — serde-derived types in `objectives::spec`; `ObjectiveSpec::from_yaml` / `from_json`; comparison parser accepts `>= 1.5` / `<= 0.20` strings
+- [x] 7.2 Implement spec validation (metric names valid against engine output, comparison operators, weight non-negativity, pareto requires ≥2 metrics) — `objectives::validate` checks all five rules + walk-forward sanity (folds >= 1, gap < folds); metric registry sourced from `engine::BacktestMetrics` fields
+- [x] 7.3 Implement evaluator: given metrics + spec, return pass/fail and aggregated score under the chosen tradeoff mode — `objectives::evaluate` returns `EvaluationOutcome { accepted, score, violations, soft_misses }`; lexicographic = primary value; weighted_sum sums primary + soft secondaries with sign by target direction (`<=`/`<` negate); pareto returns scalar score (frontier accumulated by caller)
+- [x] 7.4 Tests: constraint violation, lexicographic tiebreak, weighted_sum scoring, pareto frontier extraction — 13 integration tests covering YAML parsing, all validation errors, accept/reject paths, soft-miss recording, weighted-sum sign handling, and comparison string round-trip
 
 ## 8. Knowledge Base — `crates/kb` + ingestion
 
