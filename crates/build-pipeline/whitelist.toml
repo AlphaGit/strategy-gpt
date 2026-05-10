@@ -1,0 +1,37 @@
+# Whitelist of crates that LLM-emitted strategies are allowed to depend on.
+#
+# Entries are validated at lint time before invoking cargo. Any dependency
+# (direct or [dev-dependencies]/[build-dependencies]) outside this list is
+# rejected.
+#
+# Versions are NOT pinned — the latest available compatible version within
+# this list is used at build time. If upstream breaks something, the build
+# fails loudly, the strategy is regenerated, and we move on.
+#
+# Add a crate by appending an entry. Removal is breaking and forces existing
+# strategy artifacts to be regenerated.
+schema_version = 1
+
+[[crate]]
+name = "engine-rt"
+purpose = "The strategy ABI surface — required for every strategy."
+
+[[crate]]
+name = "chrono"
+purpose = "Timestamps. Strategies routinely compare bar timestamps."
+
+[[crate]]
+name = "serde"
+purpose = "Serialization for strategy parameters and state."
+
+[[crate]]
+name = "serde_json"
+purpose = "JSON values used by Context::log_decision and state set/get."
+
+[[crate]]
+name = "ndarray"
+purpose = "Numeric arrays for indicator math."
+
+[[crate]]
+name = "polars"
+purpose = "DataFrames for occasional batch computation. Avoid for tight loops."

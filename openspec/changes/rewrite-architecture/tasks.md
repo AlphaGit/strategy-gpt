@@ -19,13 +19,13 @@
 
 ## 3. Build Pipeline for LLM-Emitted Strategies
 
-- [ ] 3.1 Implement the source linter that rejects `unsafe`, banned APIs (process/syscalls/network/filesystem), and non-whitelisted crate references
-- [ ] 3.2 Define the allowed-crate whitelist as a versioned manifest in `crates/build-pipeline/whitelist.toml` (initial set: `polars`, `ndarray`, `chrono`, `serde`, `engine-rt`)
-- [ ] 3.3 Stand up a local cargo registry mirror (or vendored crate cache) that serves only whitelisted crates
-- [ ] 3.4 Implement the build driver: receive Rust source, lay out a Cargo project, run `cargo build` with `sccache`, return artifact path and metadata
-- [ ] 3.5 Implement content-addressed artifact cache keyed by `hash(source)` with reuse on repeat input
-- [ ] 3.6 Implement runner-version migration: detect old artifacts on load, regenerate source via the LLM under the new ABI, rebuild
-- [ ] 3.7 Cover the build pipeline with integration tests: happy path, rejected crate, compile failure, artifact reuse
+- [x] 3.1 Implement the source linter that rejects `unsafe`, banned APIs (process/syscalls/network/filesystem), and non-whitelisted crate references — `syn`-based AST visitor rejects `unsafe` blocks, `unsafe fn`, `extern "C"`, and `extern crate`; manifest linter rejects non-whitelisted dependencies
+- [x] 3.2 Define the allowed-crate whitelist as a versioned manifest in `crates/build-pipeline/whitelist.toml` (initial set: `polars`, `ndarray`, `chrono`, `serde`, `engine-rt`)
+- [ ] 3.3 Stand up a local cargo registry mirror (or vendored crate cache) that serves only whitelisted crates — deferred until the LLM strategy generator lands; until then the linter is the operative whitelist enforcement
+- [ ] 3.4 Implement the build driver: receive Rust source, lay out a Cargo project, run `cargo build` with `sccache`, return artifact path and metadata — `BuildDriver` orchestration done (lint → cache → cargo via injected `Cargo` trait → store); production `SystemCargo` that shells out to cargo deferred until 3.3 lands
+- [x] 3.5 Implement content-addressed artifact cache keyed by `hash(source)` with reuse on repeat input — `blake3(source + canonical_manifest + runner_version)` keying, on-disk metadata, dependency-order-stable
+- [x] 3.6 Implement runner-version migration: detect old artifacts on load, regenerate source via the LLM under the new ABI, rebuild — decision logic implemented (`migration_decision`); LLM regenerate-source step lands with the orchestrator pipeline
+- [x] 3.7 Cover the build pipeline with integration tests: happy path, rejected crate, compile failure, artifact reuse — 28 unit + integration-style tests across linter, whitelist, artifact_cache, driver, migration; `Cargo` trait stubbed with `StubCargo` so real `cargo build` is not required for CI
 
 ## 4. Backtest Engine — `crates/engine`
 

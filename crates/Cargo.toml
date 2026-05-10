@@ -28,6 +28,7 @@ thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "=1.11.0", features = ["v4", "serde"] }
+indexmap = "=2.7.0"
 rusqlite = { version = "0.32", features = ["bundled"] }
 blake3 = "=1.5.5"
 rand = "0.8"

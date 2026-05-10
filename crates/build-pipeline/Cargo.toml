@@ -8,11 +8,17 @@ authors.workspace = true
 description = "Build pipeline for LLM-emitted strategies: lint, allowed-crate enforcement, cargo build, content-addressed artifact cache."
 
 [dependencies]
+engine-rt = { path = "../engine-rt" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 blake3.workspace = true
+syn = { version = "2", features = ["full", "visit", "extra-traits"] }
+toml = "0.8"
+# Force a Rust 1.82-compatible indexmap; toml otherwise pulls 2.14+ which
+# requires the unstable edition2024 cargo feature.
+indexmap.workspace = true
 
 [lib]
 path = "src/lib.rs"
