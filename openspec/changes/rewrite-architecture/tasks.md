@@ -12,10 +12,10 @@
 
 - [x] 2.1 Define the sealed `Strategy` trait with `metadata`, `on_init`, `on_bar`, `on_fill`, `on_end` lifecycle methods
 - [x] 2.2 Define the `Context` capability struct exposing `submit_order`, `cancel_order`, `get_position`, `log_signal`, `log_decision`, `read_indicator`, and engine-managed state get/set
-- [ ] 2.3 Implement the backtest fill simulator and position-accounting primitives that `Context` delegates to (next-bar-open and current-bar-close fill models, fee/slippage hooks, per-symbol position aggregation). No live order book, no cancellation pathway.
-- [ ] 2.4 Define the engine-provided indicator registry and a baseline indicator set (SMA, EMA, RSI, ATR, realized vol)
+- [x] 2.3 Implement the backtest fill simulator and position-accounting primitives that `Context` delegates to (next-bar-open and current-bar-close fill models, fee/slippage hooks, per-symbol position aggregation). No live order book, no cancellation pathway.
+- [x] 2.4 Define the engine-provided indicator registry and a baseline indicator set (SMA, EMA, RSI, ATR, realized vol)
 - [x] 2.5 Add the `RunnerVersion` constant and embed it into every compiled artifact's metadata
-- [ ] 2.6 Write unit tests for `Context` order routing, position math, and signal logging
+- [x] 2.6 Write unit tests for `Context` order routing, position math, and signal logging
 
 ## 3. Build Pipeline for LLM-Emitted Strategies
 
