@@ -1,0 +1,26 @@
+[package]
+name = "ledger"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "SQLite-backed append-only experiment ledger with structured sidecars."
+
+[dependencies]
+engine = { path = "../engine" }
+engine-rt = { path = "../engine-rt" }
+chrono.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+# Sidecars are JSON in v1; parquet upgrade tracked in task 6.3 (note in
+# tasks.md). When swapping to parquet, re-add the polars/arrow workspace
+# dependency here with `default-features = false, features = ["parquet"]`.
+
+[lib]
+path = "src/lib.rs"

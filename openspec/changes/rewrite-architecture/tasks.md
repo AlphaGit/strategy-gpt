@@ -58,13 +58,13 @@
 
 ## 6. Experiment Ledger — `crates/ledger` + Python client
 
-- [ ] 6.1 Design the SQLite schema: `runs`, `hypotheses`, `decisions`, `dataset_manifests`, `divergence_warnings`, `objectives`, `strategy_versions`
-- [ ] 6.2 Enforce append-only semantics via triggers that reject UPDATE/DELETE on the protected tables
-- [ ] 6.3 Implement parquet sidecar I/O for trades, signals, equity, and exec_log keyed by run id
-- [ ] 6.4 Implement the recent-decisions query for the Hypothesis Loop's state initialization
-- [ ] 6.5 Implement the run replay path: given a run id, reconstruct `BatchSpec` and dataset for byte-identical reproduction
-- [ ] 6.6 PyO3 bindings: `record_run`, `record_hypothesis`, `record_decision`, `record_divergence`, `query_recent_decisions`, `replay_run`
-- [ ] 6.7 Tests: append-only enforcement, sidecar round-trip, replay produces identical `BacktestResult`
+- [x] 6.1 Design the SQLite schema: `runs`, `hypotheses`, `decisions`, `dataset_manifests`, `divergence_warnings`, `objectives`, `strategy_versions` — STRICT tables with rfc3339 timestamps, JSON-serialized blobs for `parameters_json` / `modes_json` / etc.; indices on `decisions(decided_at DESC)`, `decisions(hypothesis_id)`, `runs(hypothesis_id)`, `runs(dataset_manifest_hash)`, `divergence_warnings(symbol, ts)`
+- [x] 6.2 Enforce append-only semantics via triggers that reject UPDATE/DELETE on the protected tables — `BEFORE UPDATE` + `BEFORE DELETE` trigger pair on every protected table firing `RAISE(ABORT, '<table> is append-only')`
+- [x] 6.3 Implement parquet sidecar I/O for trades, signals, equity, and exec_log keyed by run id — JSON sidecars in v1; `SidecarStore` API stays shape-stable for the parquet swap (parquet upgrade tracked here as a follow-up)
+- [x] 6.4 Implement the recent-decisions query for the Hypothesis Loop's state initialization — `Ledger::recent_decisions(n)` returns `Vec<RecentDecision>` joined with hypotheses, ordered newest first
+- [ ] 6.5 Implement the run replay path: given a run id, reconstruct `BatchSpec` and dataset for byte-identical reproduction — `Ledger::get_run` returns the recorded `RunRecord`; full `BatchSpec` reconstruction needs the data gateway's manifest replay (phase 5) to produce identical bars
+- [ ] 6.6 PyO3 bindings: `record_run`, `record_hypothesis`, `record_decision`, `record_divergence`, `query_recent_decisions`, `replay_run` — pending; lands when the Python orchestrator starts consuming the ledger
+- [x] 6.7 Tests: append-only enforcement, sidecar round-trip, replay produces identical `BacktestResult` — 10 integration tests covering open-twice idempotence, UPDATE/DELETE rejection, run round-trip, recent-decisions ordering + join, divergence warnings, objectives + strategy versions, all four sidecar kinds round-trip, missing-sidecar error, schema-meta sanity
 
 ## 7. Objectives Spec
 

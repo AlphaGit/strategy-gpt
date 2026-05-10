@@ -1,7 +1,7 @@
 .venv/
 __pycache__/
-cache/
-ledger/
+/cache/
+/ledger/
 target/
 *.egg-info/
 .pytest_cache/
