@@ -29,18 +29,18 @@
 
 ## 4. Backtest Engine — `crates/engine`
 
-- [ ] 4.1 Define `BatchSpec`, `RunSpec`, `Mode` enum (`Plain`, `MonteCarlo`, `Slippage`, `RegimeFilter`, `Sensitivity`), and the `BacktestResult` schema
-- [ ] 4.2 Implement the worker process binary that loads a strategy artifact, drives the lifecycle methods over a bar stream, and streams `BacktestResult` over Arrow IPC on stdout
-- [ ] 4.3 Implement the coordinator: spawn N worker processes, dispatch runs, enforce per-run time and memory caps via OS primitives, kill on exceedance
-- [ ] 4.4 Implement abort-on-failure batch semantics: a single run failure cancels remaining runs and reports a structured failure
-- [ ] 4.5 Implement deterministic execution: seeded RNG, stable bar iteration, identical output for identical inputs
-- [ ] 4.6 Implement enriched output capture: trades, signals (including `suppressed_by`), equity, exec_log
+- [x] 4.1 Define `BatchSpec`, `RunSpec`, `Mode` enum (`Plain`, `MonteCarlo`, `Slippage`, `RegimeFilter`, `Sensitivity`), and the `BacktestResult` schema — all variants defined; only `Plain` wired into the executor
+- [ ] 4.2 Implement the worker process binary that loads a strategy artifact, drives the lifecycle methods over a bar stream, and streams `BacktestResult` over Arrow IPC on stdout — pending; in-process executor exists and shares the loop with the eventual worker
+- [ ] 4.3 Implement the coordinator: spawn N worker processes, dispatch runs, enforce per-run time and memory caps via OS primitives, kill on exceedance — pending; depends on 4.2
+- [x] 4.4 Implement abort-on-failure batch semantics: a single run failure cancels remaining runs and reports a structured failure — `run_batch` aborts on first run failure with `BatchError::Run { index, source }`
+- [x] 4.5 Implement deterministic execution: seeded RNG, stable bar iteration, identical output for identical inputs — verified by integration test `determinism_identical_inputs_produce_identical_output`
+- [x] 4.6 Implement enriched output capture: trades, signals (including `suppressed_by`), equity, exec_log — all four channels populated by `run_one`
 - [ ] 4.7 Implement `MonteCarlo` mode with block bootstrap over input bars
-- [ ] 4.8 Implement `Slippage` and `RegimeFilter` stress modes
+- [ ] 4.8 Implement `Slippage` and `RegimeFilter` stress modes — engine `slippage_bps` config knob exists for fixed slippage; per-mode sweep grid not yet
 - [ ] 4.9 Implement parametric `Sensitivity` sweep mode with per-point sub-results
 - [ ] 4.10 Compute post-hoc regime annotations (volatility regime + trend regime) for `BacktestResult.regimes`
 - [ ] 4.11 Expose the engine control plane to Python via PyO3 (`submit_batch`, `poll`, `cancel`)
-- [ ] 4.12 Determinism golden-test: run a known strategy + dataset twice and assert byte-identical results
+- [ ] 4.12 Determinism golden-test: run a known strategy + dataset twice and assert byte-identical results — basic version exists in `end_to_end.rs`; richer dataset + checked-in fixture pending
 
 ## 5. Data Gateway — `crates/data-gateway`
 
