@@ -1,0 +1,24 @@
+[package]
+name = "data-gateway"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Multi-provider market data fetching, cache, normalization, consolidation."
+
+[dependencies]
+chrono.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+blake3.workspace = true
+
+# Re-add when implemented:
+# polars.workspace = true
+
+[lib]
+path = "src/lib.rs"

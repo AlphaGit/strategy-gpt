@@ -1,0 +1,22 @@
+[package]
+name = "py-bindings"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "PyO3 module exposing trusted Rust crates to the Python orchestrator."
+
+[lib]
+name = "strategy_gpt_native"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+pyo3.workspace = true
+engine = { path = "../engine" }
+engine-rt = { path = "../engine-rt" }
+data-gateway = { path = "../data-gateway" }
+ledger = { path = "../ledger" }
+kb = { path = "../kb" }
+build-pipeline = { path = "../build-pipeline" }

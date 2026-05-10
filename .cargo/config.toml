@@ -1,0 +1,13 @@
+# sccache is configured via the RUSTC_WRAPPER environment variable rather than
+# pinned here so cargo still works on machines where sccache is not installed.
+#
+# Recommended local setup:
+#   $ cargo install sccache
+#   $ export RUSTC_WRAPPER=sccache
+#   $ export SCCACHE_CACHE_SIZE=20G
+#
+# CI sets the same envs explicitly. Once sccache is a hard dependency, move this
+# to a top-level [build] rustc-wrapper directive.
+
+[net]
+git-fetch-with-cli = true

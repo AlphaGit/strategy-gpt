@@ -1,0 +1,60 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "strategy-gpt"
+version = "0.1.0"
+description = "LLM-driven research loop for quantitative trading strategies."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Alpha", email = "jraimondi@makingsense.com" }]
+license = { text = "MIT OR Apache-2.0" }
+
+dependencies = [
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "anthropic>=0.40",
+    "openai>=1.50",
+    "pydantic>=2.9",
+    "pyarrow>=17",
+    "polars>=1.10",
+    "structlog>=24.4",
+    "typer>=0.12",
+    "rich>=13.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "maturin>=1.7",
+]
+ingestion = [
+    "pypdf>=5.0",
+    "tiktoken>=0.8",
+]
+
+[project.scripts]
+strategy-gpt = "strategy_gpt.cli:app"
+
+[tool.maturin]
+manifest-path = "../crates/py-bindings/Cargo.toml"
+module-name = "strategy_gpt._native"
+features = ["pyo3/extension-module"]
+python-source = "."
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true

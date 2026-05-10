@@ -1,0 +1,19 @@
+[package]
+name = "kb"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Knowledge base: Kuzu (graph) + LanceDB (vector) hybrid retrieval."
+
+[dependencies]
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[lib]
+path = "src/lib.rs"

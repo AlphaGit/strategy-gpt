@@ -1,0 +1,18 @@
+[package]
+name = "build-pipeline"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Build pipeline for LLM-emitted strategies: lint, allowed-crate enforcement, cargo build, content-addressed artifact cache."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+blake3.workspace = true
+
+[lib]
+path = "src/lib.rs"
