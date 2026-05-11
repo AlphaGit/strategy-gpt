@@ -146,6 +146,7 @@ dependencies = [
  "blake3",
  "chrono",
  "engine-rt",
+ "libc",
  "libloading",
  "rand",
  "rand_chacha",

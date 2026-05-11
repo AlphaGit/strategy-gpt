@@ -4,6 +4,7 @@
 //!
 //! See specs `backtest-engine` and `strategy-runtime`.
 
+pub mod coordinator;
 pub mod equity_recorder;
 pub mod executor;
 pub mod fill_model;
@@ -19,7 +20,9 @@ pub mod runtime;
 pub mod sanity;
 pub mod spec;
 pub mod trade_log;
+pub mod wire;
 
+pub use coordinator::{Coordinator, CoordinatorError, ResourceCaps};
 pub use equity_recorder::EquityRecorder;
 pub use executor::{run_batch, run_one, BatchError, ExecutionError, StrategyFactory};
 pub use fill_model::FillModel;

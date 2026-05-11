@@ -44,11 +44,33 @@ class JobStatus(BaseModel):
 
 
 class Engine:
-    """High-level wrapper over `strategy_gpt._native.engine.Engine`."""
+    """High-level wrapper over `strategy_gpt._native.engine.Engine`.
 
-    def __init__(self) -> None:
+    ``worker_path`` is the filesystem path to the compiled ``engine-worker``
+    binary the underlying coordinator spawns for every run (one subprocess
+    per :class:`~strategy_gpt.types.RunSpec` in a batch). Strategy execution
+    happens entirely inside the worker subprocess; the orchestrator never
+    loads strategy code in-process.
+
+    ``time_cap_secs`` and ``mem_cap_bytes`` are forwarded to the coordinator
+    as per-run resource caps. The memory cap is best-effort on macOS (see
+    ``crates/engine/src/bin/engine_worker.rs`` for the cross-platform
+    setrlimit notes).
+    """
+
+    def __init__(
+        self,
+        worker_path: Path | str,
+        *,
+        time_cap_secs: float | None = None,
+        mem_cap_bytes: int | None = None,
+    ) -> None:
         native = require_native()
-        self._engine = native.engine.Engine()
+        self._engine = native.engine.Engine(
+            str(worker_path),
+            time_cap_secs,
+            mem_cap_bytes,
+        )
 
     def submit_batch(
         self,

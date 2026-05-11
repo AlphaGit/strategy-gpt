@@ -47,6 +47,21 @@ def _build_example_strategy() -> Path:
     return artifact
 
 
+def _build_engine_worker() -> Path:
+    """Build the engine-worker bin and return its absolute path."""
+    repo_root = Path(__file__).resolve().parents[2]
+    crates_root = repo_root / "crates"
+    subprocess.run(
+        ["cargo", "build", "-p", "engine", "--bin", "engine-worker"],  # noqa: S607
+        cwd=crates_root,
+        check=True,
+    )
+    name = "engine-worker.exe" if sys.platform == "win32" else "engine-worker"
+    binary = crates_root / "target" / "debug" / name
+    assert binary.exists(), f"missing binary {binary}"
+    return binary
+
+
 def _synthetic_bars(n: int = 30) -> list[Bar]:
     start = datetime(2024, 1, 1, tzinfo=UTC)
     return [
@@ -111,7 +126,7 @@ def test_submit_batch_completes_with_results() -> None:
     bars = _synthetic_bars(30)
     spec = _spec_for(bars)
 
-    engine = Engine()
+    engine = Engine(_build_engine_worker())
     handle = engine.submit_batch(artifact, bars, spec, "manifest_hash")
     status = _wait_for_terminal(engine, handle)
 
@@ -123,7 +138,7 @@ def test_submit_batch_completes_with_results() -> None:
 
 
 def test_poll_unknown_handle_raises() -> None:
-    engine = Engine()
+    engine = Engine(_build_engine_worker())
     with pytest.raises(ValueError, match="unknown handle"):
         engine.poll("not-a-real-handle")
 
@@ -133,7 +148,7 @@ def test_drop_handle_releases_state() -> None:
     bars = _synthetic_bars(10)
     spec = _spec_for(bars)
 
-    engine = Engine()
+    engine = Engine(_build_engine_worker())
     handle = engine.submit_batch(artifact, bars, spec, "manifest_hash")
     _wait_for_terminal(engine, handle)
 
@@ -142,7 +157,7 @@ def test_drop_handle_releases_state() -> None:
 
 
 def test_cancel_unknown_handle_raises() -> None:
-    engine = Engine()
+    engine = Engine(_build_engine_worker())
     with pytest.raises(ValueError, match="unknown handle"):
         engine.cancel("not-a-real-handle")
 
@@ -152,7 +167,7 @@ def test_poll_payload_is_valid_json() -> None:
     artifact = _build_example_strategy()
     bars = _synthetic_bars(5)
     spec = _spec_for(bars)
-    engine = Engine()
+    engine = Engine(_build_engine_worker())
     handle = engine.submit_batch(artifact, bars, spec, "manifest_hash")
     status = _wait_for_terminal(engine, handle)
     # Round-trip through model_dump_json to confirm consistency.
