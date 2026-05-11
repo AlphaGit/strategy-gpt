@@ -529,7 +529,10 @@ dependencies = [
  "engine-rt",
  "kb",
  "ledger",
+ "objectives",
  "pyo3",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

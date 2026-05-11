@@ -20,3 +20,6 @@ data-gateway = { path = "../data-gateway" }
 ledger = { path = "../ledger" }
 kb = { path = "../kb" }
 build-pipeline = { path = "../build-pipeline" }
+objectives = { path = "../objectives" }
+serde.workspace = true
+serde_json.workspace = true
