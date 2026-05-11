@@ -19,8 +19,41 @@ def test_version_prints() -> None:
 def test_help_lists_subcommands() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for cmd in ("version", "fetch", "cache-stats", "recent-decisions"):
+    for cmd in (
+        "version",
+        "fetch",
+        "cache-stats",
+        "recent-decisions",
+        "replay",
+        "run",
+        "ingest",
+        "hypothesize",
+        "optimize",
+    ):
         assert cmd in result.stdout
+
+
+def test_replay_help_documents_options() -> None:
+    result = runner.invoke(app, ["replay", "--help"])
+    assert result.exit_code == 0
+    for opt in ("--run-id", "--ledger-root", "--gateway-root"):
+        assert opt in result.stdout
+
+
+def test_ingest_exits_unimplemented() -> None:
+    result = runner.invoke(app, ["ingest"])
+    assert result.exit_code == 2
+    assert "not implemented" in result.stderr
+
+
+def test_hypothesize_exits_unimplemented() -> None:
+    result = runner.invoke(app, ["hypothesize"])
+    assert result.exit_code == 2
+
+
+def test_optimize_exits_unimplemented() -> None:
+    result = runner.invoke(app, ["optimize"])
+    assert result.exit_code == 2
 
 
 def test_fetch_help_documents_options() -> None:

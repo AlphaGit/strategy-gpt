@@ -67,6 +67,35 @@ class Ledger:
         result: str = self._led.recent_decisions(limit)
         return result
 
+    def replay_run(self, gateway: object, run_id: str) -> str:
+        """Reconstruct the BatchSpec + dataset for a recorded run.
+
+        `gateway` is a `strategy_gpt.gateway.DataGateway`; we accept the
+        higher-level wrapper and forward its native handle so the native
+        side can drive both stores from the same call. Returns the raw
+        JSON envelope (``{batch_spec, bars, manifest_hash, warnings,
+        run}``) produced by the native `replay_run` binding. Callers
+        deserialize as appropriate for their downstream use.
+        """
+        native_handle = getattr(gateway, "_gw", gateway)
+        result: str = self._led.replay_run(native_handle, run_id)
+        return result
+
+    def get_dataset_manifest(self, manifest_hash: str) -> str | None:
+        """Retrieve a recorded dataset manifest by content hash. Returns
+        the raw JSON `DatasetManifestRecord` shape (or ``None`` if
+        missing). Used by the orchestrator to look up the inputs needed
+        for a manual replay path that bypasses `replay_run`."""
+        result: str | None = self._led.get_dataset_manifest(manifest_hash)
+        return result
+
+    def record_dataset_manifest(self, record_json: str) -> None:
+        """Record a dataset manifest. The orchestrator is responsible for
+        producing the canonical `{ "request": ..., "blobs": [...] }`
+        shape that the replay path expects (see
+        `data_gateway::DataGateway::load_dataset_from_manifest`)."""
+        self._led.record_dataset_manifest(record_json)
+
     def store_sidecar(self, run_id: str, kind: SidecarKind, records_json: str) -> None:
         if kind not in _VALID_SIDECARS:
             msg = f"unknown sidecar kind `{kind}`"

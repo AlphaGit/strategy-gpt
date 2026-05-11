@@ -134,6 +134,43 @@ class RunnerVersion(BaseModel):
     patch: int
 
 
+class TimeRange(BaseModel):
+    """Half-open `[start, end)` UTC slice. Mirrors `engine::spec::TimeRange`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    start: datetime
+    end: datetime
+
+
+class FillModel(StrEnum):
+    """Mirrors `engine::fill_model::FillModel`."""
+
+    NEXT_BAR_OPEN = "NextBarOpen"
+    CURRENT_BAR_CLOSE = "CurrentBarClose"
+
+
+class SanityBounds(BaseModel):
+    """Mirrors `engine::sanity::SanityBounds`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    max_intent_size: float
+    max_position_size: float
+
+
+class EngineConfig(BaseModel):
+    """Mirrors `engine::spec::EngineConfig`. Required for byte-identical replay."""
+
+    model_config = ConfigDict(frozen=True)
+
+    fill_model: FillModel
+    initial_capital: float
+    commission_per_fill: float
+    slippage_bps: float
+    sanity: SanityBounds
+
+
 class RunRecord(BaseModel):
     """Mirrors `ledger::records::RunRecord`."""
 
@@ -147,6 +184,9 @@ class RunRecord(BaseModel):
     modes: Any
     seed: int
     runner_version: RunnerVersion
+    slice: TimeRange
+    engine_config: EngineConfig
+    parallelism: int
     verdict: Any | None = None
     metrics: Any | None = None
     sidecar_root: str | None = None
@@ -233,10 +273,14 @@ __all__ = [
     "DivergenceRecord",
     "DivergenceSeverity",
     "DivergenceWarning",
+    "EngineConfig",
     "EvaluationOutcome",
+    "FillModel",
     "HypothesisRecord",
     "Resolution",
     "RunRecord",
     "RunnerVersion",
+    "SanityBounds",
+    "TimeRange",
     "ValidationReport",
 ]

@@ -11,6 +11,7 @@
 //! - Sidecar I/O routed through `Ledger::sidecars` for trade/signal/equity/
 //!   exec-log lists keyed by run id.
 
+use engine::spec::{BatchSpec, DatasetRef, Mode, RunSpec, StrategyArtifactRef};
 use ledger::{
     records::{
         DatasetManifestRecord, DecisionRecord, DivergenceWarning, HypothesisRecord,
@@ -21,6 +22,7 @@ use ledger::{
 use pyo3::prelude::*;
 use std::sync::{Arc, Mutex};
 
+use crate::gateway::PyDataGateway;
 use crate::{json_err, runtime_err};
 
 #[pyclass(module = "strategy_gpt_native.ledger", name = "Ledger", unsendable)]
@@ -115,6 +117,15 @@ impl PyLedger {
         }
     }
 
+    fn get_dataset_manifest(&self, hash: &str) -> PyResult<Option<String>> {
+        let l = self.inner.lock().map_err(runtime_err)?;
+        let r = l.get_dataset_manifest(hash).map_err(runtime_err)?;
+        match r {
+            Some(rec) => Ok(Some(serde_json::to_string(&rec).map_err(runtime_err)?)),
+            None => Ok(None),
+        }
+    }
+
     fn recent_decisions(&self, limit: usize) -> PyResult<String> {
         let l = self.inner.lock().map_err(runtime_err)?;
         let rows = l.recent_decisions(limit).map_err(runtime_err)?;
@@ -153,6 +164,75 @@ impl PyLedger {
             }
         }
         Ok(())
+    }
+
+    /// Reconstruct the `BatchSpec` + dataset for a recorded run and return
+    /// them as a JSON envelope. Drives the
+    /// `experiment-ledger::reproducibility-from-ledger-alone` scenario: the
+    /// ledger together with the local cache is sufficient to byte-
+    /// identically reproduce the run.
+    ///
+    /// Returns JSON `{ batch_spec, bars, manifest_hash, warnings, run }`.
+    /// Replay uses `parallelism = 1` regardless of how the original batch
+    /// was submitted; per-run output is invariant to worker count.
+    fn replay_run(&self, gateway: &PyDataGateway, run_id: &str) -> PyResult<String> {
+        let ledger = self.inner.lock().map_err(runtime_err)?;
+        let run = ledger
+            .get_run(run_id)
+            .map_err(runtime_err)?
+            .ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "run `{run_id}` not found in ledger"
+                ))
+            })?;
+        let manifest_rec = ledger
+            .get_dataset_manifest(&run.dataset_manifest_hash)
+            .map_err(runtime_err)?
+            .ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "dataset manifest `{}` not found",
+                    run.dataset_manifest_hash
+                ))
+            })?;
+        drop(ledger);
+
+        let gateway_handle = gateway.handle();
+        let gw = gateway_handle.lock().map_err(runtime_err)?;
+        let dataset = gw
+            .load_dataset_from_manifest(&manifest_rec.manifest)
+            .map_err(runtime_err)?;
+        drop(gw);
+
+        if dataset.manifest_hash != manifest_rec.hash {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "dataset manifest hash mismatch on replay: \
+                 recorded={} reconstructed={}",
+                manifest_rec.hash, dataset.manifest_hash
+            )));
+        }
+
+        let modes: Vec<Mode> = serde_json::from_value(run.modes.clone()).map_err(json_err)?;
+        let batch_spec = BatchSpec {
+            strategy: StrategyArtifactRef(run.strategy_artifact.clone()),
+            dataset: DatasetRef(run.dataset_manifest_hash.clone()),
+            runs: vec![RunSpec {
+                params: run.parameters.clone(),
+                modes,
+                seed: run.seed,
+                slice: run.slice,
+            }],
+            engine: run.engine_config.clone(),
+            parallelism: 1,
+        };
+
+        let payload = serde_json::json!({
+            "batch_spec": batch_spec,
+            "bars": dataset.bars,
+            "manifest_hash": dataset.manifest_hash,
+            "warnings": dataset.warnings,
+            "run": run,
+        });
+        serde_json::to_string(&payload).map_err(runtime_err)
     }
 
     fn load_sidecar(&self, run_id: &str, kind: &str) -> PyResult<String> {

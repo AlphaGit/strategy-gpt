@@ -2,8 +2,9 @@
 
 use std::path::PathBuf;
 
-use chrono::Utc;
+use chrono::{TimeZone, Utc};
 use engine::result::{EquityPoint, Trade};
+use engine::spec::{EngineConfig, TimeRange};
 use engine_rt::{DecisionEvent, Side, SignalEvent, RUNNER_VERSION};
 use ledger::{
     DatasetManifestRecord, DecisionKind, DecisionRecord, DivergenceSeverity, DivergenceWarning,
@@ -55,6 +56,12 @@ fn fake_run(id: &str, manifest_hash: &str, hypothesis_id: Option<&str>) -> RunRe
         modes: json!([{ "kind": "plain" }]),
         seed: 42,
         runner_version: RUNNER_VERSION,
+        slice: TimeRange {
+            start: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
+            end: Utc.with_ymd_and_hms(2024, 12, 31, 0, 0, 0).unwrap(),
+        },
+        engine_config: EngineConfig::default(),
+        parallelism: 1,
         verdict: Some(json!({ "verdict": true })),
         metrics: Some(json!({ "sharpe": 1.7 })),
         sidecar_root: Some(format!("sidecars/{id}")),
@@ -225,6 +232,51 @@ fn missing_sidecar_returns_not_found() {
     let l = Ledger::open(&root).unwrap();
     let err = l.sidecars().read_trades("absent").unwrap_err();
     assert!(format!("{err}").contains("not found"));
+}
+
+#[test]
+fn record_and_get_run_round_trips_new_replay_fields() {
+    let root = tmpdir("run-replay-fields");
+    let l = Ledger::open(&root).unwrap();
+    l.record_dataset_manifest(&DatasetManifestRecord {
+        hash: "manifest-replay".into(),
+        manifest: json!({ "request": null, "blobs": [] }),
+        created_at: Utc::now(),
+    })
+    .unwrap();
+    let mut r = fake_run("run-replay", "manifest-replay", None);
+    r.slice = TimeRange {
+        start: Utc.with_ymd_and_hms(2024, 6, 1, 0, 0, 0).unwrap(),
+        end: Utc.with_ymd_and_hms(2024, 7, 1, 0, 0, 0).unwrap(),
+    };
+    r.engine_config = EngineConfig {
+        initial_capital: 50_000.0,
+        commission_per_fill: 0.5,
+        slippage_bps: 2.0,
+        ..EngineConfig::default()
+    };
+    r.parallelism = 4;
+    l.record_run(&r).unwrap();
+    let loaded = l.get_run("run-replay").unwrap().expect("run exists");
+    assert_eq!(loaded.slice, r.slice);
+    assert_eq!(loaded.engine_config, r.engine_config);
+    assert_eq!(loaded.parallelism, 4);
+}
+
+#[test]
+fn get_dataset_manifest_round_trips() {
+    let root = tmpdir("manifest-get");
+    let l = Ledger::open(&root).unwrap();
+    let m = DatasetManifestRecord {
+        hash: "manifest-xyz".into(),
+        manifest: json!({ "request": { "symbol": "VXX" }, "blobs": ["aa", "bb"] }),
+        created_at: Utc::now(),
+    };
+    l.record_dataset_manifest(&m).unwrap();
+    let loaded = l.get_dataset_manifest("manifest-xyz").unwrap().unwrap();
+    assert_eq!(loaded.hash, "manifest-xyz");
+    assert_eq!(loaded.manifest, m.manifest);
+    assert!(l.get_dataset_manifest("absent").unwrap().is_none());
 }
 
 #[test]

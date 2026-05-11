@@ -1,6 +1,7 @@
 //! Ledger record types. One per table.
 
 use chrono::{DateTime, Utc};
+use engine::spec::{EngineConfig, TimeRange};
 use engine_rt::RunnerVersion;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,6 +16,16 @@ pub struct RunRecord {
     pub modes: Value,
     pub seed: u64,
     pub runner_version: RunnerVersion,
+    /// Half-open time slice the run was executed over. Required for byte-
+    /// identical replay (`spec::reproducibility-from-ledger-alone`).
+    pub slice: TimeRange,
+    /// Engine configuration (fill model, capital, fees, slippage, sanity
+    /// bounds). Required for byte-identical replay.
+    pub engine_config: EngineConfig,
+    /// Parallelism the batch was issued with. Recorded for completeness;
+    /// replay uses `1` regardless because per-run determinism does not
+    /// depend on worker count.
+    pub parallelism: usize,
     pub verdict: Option<Value>,
     pub metrics: Option<Value>,
     /// Path to the directory holding this run's sidecars (trades.json,

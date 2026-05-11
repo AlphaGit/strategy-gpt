@@ -57,6 +57,25 @@ impl BlobKey {
         }
         s
     }
+
+    /// Inverse of [`Self::as_hex`]. Required by the replay path so a
+    /// recorded manifest hash list can be turned back into cache keys.
+    pub fn from_hex(hex: &str) -> Result<Self, DataGatewayError> {
+        if hex.len() != 64 {
+            return Err(DataGatewayError::Internal(format!(
+                "blob hex must be 64 chars, got {}",
+                hex.len()
+            )));
+        }
+        let mut out = [0u8; 32];
+        for (i, byte) in out.iter_mut().enumerate() {
+            let s = &hex[i * 2..i * 2 + 2];
+            *byte = u8::from_str_radix(s, 16).map_err(|e| {
+                DataGatewayError::Internal(format!("blob hex `{hex}` malformed at byte {i}: {e}"))
+            })?;
+        }
+        Ok(Self(out))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -65,6 +65,28 @@ impl PyDataGateway {
         let stats = compute_cache_stats(g.blobs().root()).map_err(io_err)?;
         serde_json::to_string(&stats).map_err(runtime_err)
     }
+
+    /// Reconstruct a dataset from a ledger-stored manifest. `manifest_json`
+    /// is the `DatasetManifestRecord.manifest` field (the
+    /// `{ "request": ..., "blobs": [...] }` shape — see
+    /// [`data_gateway::DataGateway::load_dataset_from_manifest`]). Returns
+    /// the same JSON-serialized [`data_gateway::DatasetResponse`] shape as
+    /// `fetch`.
+    fn load_dataset_from_manifest(&self, manifest_json: &str) -> PyResult<String> {
+        let manifest: serde_json::Value = serde_json::from_str(manifest_json).map_err(json_err)?;
+        let g = self.inner.lock().map_err(runtime_err)?;
+        let response = g
+            .load_dataset_from_manifest(&manifest)
+            .map_err(runtime_err)?;
+        serde_json::to_string(&response).map_err(runtime_err)
+    }
+}
+
+/// Internal accessor for cross-pyclass replay (see `ledger_mod::replay_run`).
+impl PyDataGateway {
+    pub(crate) fn handle(&self) -> Arc<Mutex<DataGateway>> {
+        Arc::clone(&self.inner)
+    }
 }
 
 fn parse_cache_mode(s: &str) -> PyResult<CacheMode> {

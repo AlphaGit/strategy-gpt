@@ -55,8 +55,9 @@ impl Ledger {
         self.conn.execute(
             "INSERT INTO runs (id, strategy_artifact, dataset_manifest_hash, hypothesis_id,
                                parameters_json, modes_json, seed, runner_version,
+                               slice_json, engine_config_json, parallelism,
                                verdict_json, metrics_json, sidecar_root, created_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
             params![
                 r.id,
                 r.strategy_artifact,
@@ -66,6 +67,9 @@ impl Ledger {
                 serde_json::to_string(&r.modes)?,
                 r.seed as i64,
                 format!("{}", r.runner_version),
+                serde_json::to_string(&r.slice)?,
+                serde_json::to_string(&r.engine_config)?,
+                r.parallelism as i64,
                 r.verdict.as_ref().map(serde_json::to_string).transpose()?,
                 r.metrics.as_ref().map(serde_json::to_string).transpose()?,
                 r.sidecar_root,
@@ -238,6 +242,7 @@ impl Ledger {
         let mut stmt = self.conn.prepare(
             "SELECT id, strategy_artifact, dataset_manifest_hash, hypothesis_id,
                     parameters_json, modes_json, seed, runner_version,
+                    slice_json, engine_config_json, parallelism,
                     verdict_json, metrics_json, sidecar_root, created_at
              FROM runs WHERE id = ?1",
         )?;
@@ -252,10 +257,13 @@ impl Ledger {
                     modes_json: row.get(5)?,
                     seed: row.get(6)?,
                     runner_version_str: row.get(7)?,
-                    verdict_json: row.get(8)?,
-                    metrics_json: row.get(9)?,
-                    sidecar_root: row.get(10)?,
-                    created_at_str: row.get(11)?,
+                    slice_json: row.get(8)?,
+                    engine_config_json: row.get(9)?,
+                    parallelism: row.get(10)?,
+                    verdict_json: row.get(11)?,
+                    metrics_json: row.get(12)?,
+                    sidecar_root: row.get(13)?,
+                    created_at_str: row.get(14)?,
                 })
             })
             .optional()?;
@@ -269,10 +277,42 @@ impl Ledger {
             modes: serde_json::from_str(&r.modes_json)?,
             seed: r.seed as u64,
             runner_version: parse_version(&r.runner_version_str)?,
+            slice: serde_json::from_str(&r.slice_json)?,
+            engine_config: serde_json::from_str(&r.engine_config_json)?,
+            parallelism: r.parallelism as usize,
             verdict: opt_parse_json(r.verdict_json)?,
             metrics: opt_parse_json(r.metrics_json)?,
             sidecar_root: r.sidecar_root,
             created_at: parse_ts(&r.created_at_str)?,
+        }))
+    }
+
+    /// Look up a previously recorded dataset manifest by its content hash.
+    /// Required by the replay path (`spec::reproducibility-from-ledger-alone`).
+    pub fn get_dataset_manifest(
+        &self,
+        hash: &str,
+    ) -> Result<Option<DatasetManifestRecord>, LedgerError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT hash, manifest_json, created_at
+             FROM dataset_manifests WHERE hash = ?1",
+        )?;
+        let row = stmt
+            .query_row(params![hash], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .optional()?;
+        let Some((hash, manifest_str, created_str)) = row else {
+            return Ok(None);
+        };
+        Ok(Some(DatasetManifestRecord {
+            hash,
+            manifest: serde_json::from_str(&manifest_str)?,
+            created_at: parse_ts(&created_str)?,
         }))
     }
 }
@@ -360,6 +400,9 @@ struct RawRun {
     modes_json: String,
     seed: i64,
     runner_version_str: String,
+    slice_json: String,
+    engine_config_json: String,
+    parallelism: i64,
     verdict_json: Option<String>,
     metrics_json: Option<String>,
     sidecar_root: Option<String>,

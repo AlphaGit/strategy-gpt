@@ -67,4 +67,11 @@ impl BlobStore {
         std::fs::write(&path, &bytes)?;
         Ok(bytes.len() as u64)
     }
+
+    /// Read by the hex form returned from [`BlobKey::as_hex`]. Used by the
+    /// replay path, which gets blob ids back from the ledger as strings.
+    pub fn read_by_hex(&self, hex: &str) -> Result<Option<Vec<Bar>>, DataGatewayError> {
+        let key = BlobKey::from_hex(hex)?;
+        self.read(key)
+    }
 }

@@ -5,7 +5,7 @@
 //! existing rows is forbidden by trigger; mutating the schema is allowed
 //! through `ALTER TABLE`-additive only.
 
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 pub const CREATE_SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS meta (
@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS runs (
     modes_json            TEXT NOT NULL,
     seed                  INTEGER NOT NULL,
     runner_version        TEXT NOT NULL,
+    slice_json            TEXT NOT NULL,
+    engine_config_json    TEXT NOT NULL,
+    parallelism           INTEGER NOT NULL,
     verdict_json          TEXT,
     metrics_json          TEXT,
     sidecar_root          TEXT,

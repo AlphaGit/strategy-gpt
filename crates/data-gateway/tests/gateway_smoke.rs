@@ -287,6 +287,77 @@ fn multi_provider_picks_precedence_for_resolution() {
 }
 
 #[test]
+fn load_dataset_from_manifest_reproduces_response_byte_identically() {
+    let (_cache, gw) = open_gateway_with_csv();
+    let req = vxx_request_2024();
+    let original = gw.fetch(&req, CacheMode::PreferCache).unwrap();
+    let manifest_payload = serde_json::json!({
+        "request": req,
+        "blobs": original.manifest,
+    });
+    let replayed = gw.load_dataset_from_manifest(&manifest_payload).unwrap();
+    assert_eq!(replayed.bars, original.bars);
+    assert_eq!(replayed.manifest, original.manifest);
+    assert_eq!(replayed.manifest_hash, original.manifest_hash);
+    assert_eq!(replayed.warnings, original.warnings);
+}
+
+#[test]
+fn load_dataset_from_manifest_errors_when_blob_missing() {
+    let cache_dir = tempdir().unwrap();
+    let gw = DataGateway::open(cache_dir.path()).unwrap();
+    let request = vxx_request_2024();
+    let manifest_payload = serde_json::json!({
+        "request": request,
+        "blobs": ["deadbeef".to_string()],
+    });
+    let err = gw
+        .load_dataset_from_manifest(&manifest_payload)
+        .unwrap_err();
+    assert!(
+        matches!(err, DataGatewayError::OfflineMiss { .. }),
+        "expected OfflineMiss, got {err:?}"
+    );
+}
+
+#[test]
+fn load_dataset_from_manifest_detects_blob_list_drift() {
+    let (_cache, gw) = open_gateway_with_csv();
+    let req = vxx_request_2024();
+    let original = gw.fetch(&req, CacheMode::PreferCache).unwrap();
+    let mut drifted = original.manifest.clone();
+    drifted.push("0".repeat(64)); // append a bogus extra blob hash
+    let manifest_payload = serde_json::json!({
+        "request": req,
+        "blobs": drifted,
+    });
+    let err = gw
+        .load_dataset_from_manifest(&manifest_payload)
+        .unwrap_err();
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("blob list drift") || msg.contains("internal"),
+        "got {msg}"
+    );
+}
+
+#[test]
+fn blob_key_from_hex_round_trips() {
+    let key = data_gateway::BlobKey::from_inputs(
+        "csv",
+        "VXX",
+        Resolution::Day,
+        2024,
+        AdjustmentPolicy::BackAdjusted,
+    );
+    let hex = key.as_hex();
+    let parsed = data_gateway::BlobKey::from_hex(&hex).unwrap();
+    assert_eq!(parsed, key);
+    let bad = data_gateway::BlobKey::from_hex("xyz").unwrap_err();
+    assert!(format!("{bad}").contains("64 chars"));
+}
+
+#[test]
 fn multi_provider_within_tolerance_emits_no_warning() {
     // Tiny difference (10 bps), both providers agree within close_tolerance_pct.
     let cache_dir = tempdir().unwrap();

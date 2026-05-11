@@ -94,12 +94,30 @@ def test_run_record_optional_fields() -> None:
         "modes": [],
         "seed": 0,
         "runner_version": {"major": 0, "minor": 1, "patch": 0},
+        "slice": {
+            "start": "2024-01-01T00:00:00Z",
+            "end": "2024-12-31T00:00:00Z",
+        },
+        "engine_config": {
+            "fill_model": "NextBarOpen",
+            "initial_capital": 100000.0,
+            "commission_per_fill": 0.0,
+            "slippage_bps": 0.0,
+            "sanity": {
+                "max_intent_size": 1.0e9,
+                "max_position_size": 1.0e9,
+            },
+        },
+        "parallelism": 1,
         "created_at": "2024-01-01T00:00:00Z",
     }
     rec = RunRecord.model_validate(raw)
     assert rec.hypothesis_id is None
     assert rec.sidecar_root is None
     assert rec.runner_version == RunnerVersion(major=0, minor=1, patch=0)
+    assert rec.engine_config.fill_model.value == "NextBarOpen"
+    assert rec.slice.start.year == 2024
+    assert rec.parallelism == 1
 
 
 def test_decision_record_kind_enum() -> None:

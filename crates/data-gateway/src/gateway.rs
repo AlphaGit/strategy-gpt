@@ -139,6 +139,101 @@ impl DataGateway {
         })
     }
 
+    /// Replay-path entry point. Reconstruct the dataset previously emitted
+    /// by [`Self::fetch`] from cached blobs alone — no provider calls. The
+    /// orchestrator records the original [`BarRequest`] and the ordered
+    /// `manifest` blob-hash list into the ledger's `dataset_manifests`
+    /// table under the shape:
+    ///
+    /// ```json
+    /// { "request": <BarRequest>, "blobs": ["<hex>", ...] }
+    /// ```
+    ///
+    /// Replay deserializes that shape, reads each blob from the cache by
+    /// recomputing its [`BlobKey`] from the request fields, runs the same
+    /// consolidator + normalizer pipeline `fetch` uses, and verifies the
+    /// resulting `manifest` matches the recorded `blobs` list. Any drift
+    /// (missing blob, hash mismatch) is surfaced as
+    /// [`DataGatewayError::OfflineMiss`] or
+    /// [`DataGatewayError::Internal`].
+    pub fn load_dataset_from_manifest(
+        &self,
+        manifest: &serde_json::Value,
+    ) -> Result<DatasetResponse, DataGatewayError> {
+        let request: BarRequest =
+            serde_json::from_value(manifest.get("request").cloned().ok_or_else(|| {
+                DataGatewayError::Internal("manifest missing `request` field".into())
+            })?)
+            .map_err(|e| {
+                DataGatewayError::Internal(format!("manifest `request` field unparseable: {e}"))
+            })?;
+        let expected_blobs: Vec<String> =
+            serde_json::from_value(manifest.get("blobs").cloned().ok_or_else(|| {
+                DataGatewayError::Internal("manifest missing `blobs` field".into())
+            })?)
+            .map_err(|e| {
+                DataGatewayError::Internal(format!("manifest `blobs` field unparseable: {e}"))
+            })?;
+
+        if request.start >= request.end {
+            return Err(DataGatewayError::InvalidRange {
+                start: request.start.to_rfc3339(),
+                end: request.end.to_rfc3339(),
+            });
+        }
+
+        let provider_names: Vec<String> = std::iter::once(request.provider.clone())
+            .chain(request.secondary_providers.iter().cloned())
+            .collect();
+
+        let mut per_provider: Vec<(String, Vec<Bar>)> = Vec::with_capacity(provider_names.len());
+        let mut blob_hashes: Vec<String> = Vec::new();
+        for name in &provider_names {
+            let mut bars: Vec<Bar> = Vec::new();
+            for year in request.years_in_range() {
+                let key = BlobKey::from_inputs(
+                    name,
+                    &request.symbol,
+                    request.resolution,
+                    year,
+                    request.adjustment,
+                );
+                let cached =
+                    self.blobs
+                        .read(key)?
+                        .ok_or_else(|| DataGatewayError::OfflineMiss {
+                            provider: name.clone(),
+                            symbol: request.symbol.clone(),
+                            year,
+                        })?;
+                blob_hashes.push(key.as_hex());
+                bars.extend(cached);
+            }
+            per_provider.push((name.clone(), bars));
+        }
+
+        let outcome = self
+            .consolidator
+            .merge(per_provider)
+            .map_err(|e| DataGatewayError::Internal(format!("consolidation failed: {e}")))?;
+        let bars = normalize_bars(outcome.bars, request.start, request.end)?;
+        let manifest_hash = compute_manifest_hash(&blob_hashes);
+
+        if blob_hashes != expected_blobs {
+            return Err(DataGatewayError::Internal(format!(
+                "replay blob list drift: recorded={expected_blobs:?} \
+                 reconstructed={blob_hashes:?}"
+            )));
+        }
+
+        Ok(DatasetResponse {
+            bars,
+            manifest: blob_hashes,
+            manifest_hash,
+            warnings: outcome.warnings,
+        })
+    }
+
     fn resolve_provider(&self, name: &str) -> Result<Arc<dyn Provider>, DataGatewayError> {
         self.providers
             .get(name)
