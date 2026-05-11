@@ -40,7 +40,7 @@
 - [x] 4.9 Implement parametric `Sensitivity` sweep mode with per-point sub-results — `sensitivity_sweep` overrides numeric param in `run.params`, dedups identical values
 - [x] 4.10 Compute post-hoc regime annotations (volatility regime + trend regime) for `BacktestResult.regimes` — `regime::annotate_regimes` emits `low_vol`/`med_vol`/`high_vol` and `uptrend`/`downtrend`/`chop` runs
 - [ ] 4.11 Expose the engine control plane to Python via PyO3 (`submit_batch`, `poll`, `cancel`)
-- [ ] 4.12 Determinism golden-test: run a known strategy + dataset twice and assert byte-identical results — basic version exists in `end_to_end.rs`; richer dataset + checked-in fixture pending
+- [x] 4.12 Determinism golden-test: run a known strategy + dataset twice and assert byte-identical results — `determinism_golden_full_pipeline_with_all_modes_byte_identical` exercises run_one + apply_modes across Plain + MonteCarlo + Slippage + Sensitivity on a 60-bar synthetic dataset with fixed seed; asserts full `BacktestResult` equality plus sanity checks on stress/sensitivity output
 
 ## 5. Data Gateway — `crates/data-gateway`
 
@@ -50,8 +50,8 @@
 - [x] 5.4 Implement the year-segmented content-addressed cache: parquet blobs under `cache/`, manifest table in SQLite — JSON blobs in v1 (parquet upgrade tracked here); SQLite `blobs` table at `<root>/manifest.sqlite`, blake3 key over (provider, symbol, resolution, year, adjustment)
 - [x] 5.5 Implement cache modes: `prefer-cache`, `validate`, `force-refresh`, `offline` — all four wired in `DataGateway::fetch`; `Validate` aliases `PreferCache` in v1 with a documented follow-up
 - [x] 5.6 Implement the normalizer: timezone conversion, calendar alignment per session calendar, adjustment-policy tagging — UTC enforcement, sort, dedup, range clip, OHLC sanity; calendar alignment is task 5.6 follow-up
-- [x] 5.7 Implement the consolidator with internal-only configuration: precedence order, close/volume tolerance, on-disagree behavior, missing-bar handling — `Consolidator` + `ConsolidatorConfig` types in place with single-provider passthrough; multi-provider divergence resolution is task 5.7 + 5.8 follow-up
-- [ ] 5.8 Emit divergence warnings and route them to the experiment ledger — pending; lands with multi-provider consolidation
+- [x] 5.7 Implement the consolidator with internal-only configuration: precedence order, close/volume tolerance, on-disagree behavior, missing-bar handling — `Consolidator` aligns per-provider bars by `(symbol, ts)` in a `BTreeMap`, applies close/volume tolerance via `diverges_pct`, resolves disagreements via `DivergencePolicy` (`PickPrecedence` / `Fail` / `Median`)
+- [x] 5.8 Emit divergence warnings and route them to the experiment ledger — `Consolidator::merge` returns `ConsolidationOutcome { bars, warnings: Vec<DivergenceRecord> }`; gateway surfaces them in `DatasetResponse.warnings`; one-way wire (orchestrator translates `data_gateway::DivergenceRecord` → `ledger::DivergenceWarning` on ledger record); 3 integration tests cover close-mismatch, precedence resolution, within-tolerance no-op
 - [x] 5.9 Issue manifests with every returned dataset that uniquely identify the cache blobs used — `DatasetResponse { bars, manifest, manifest_hash }`; `manifest_hash` is blake3 over the ordered blob-hash list
 - [ ] 5.10 Expose the gateway to Python via PyO3 (`fetch`, `manifest_for`, `cache_stats`) — pending; lands with Python orchestrator
 - [x] 5.11 Tests: cache hit/miss, year-segment merging, multi-provider divergence, offline mode error — 10 integration tests covering populate, cache hit, year-segmented fetch, manifest hash change, force-refresh, offline error + warm-cache serve, unknown provider, invalid range, normalizer sort+dedup. Multi-provider divergence test lands with 5.8

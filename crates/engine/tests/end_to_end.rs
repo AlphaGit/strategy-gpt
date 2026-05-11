@@ -172,6 +172,124 @@ fn determinism_identical_inputs_produce_identical_output() {
     assert_eq!(a, b);
 }
 
+/// Golden determinism fixture: a 60-bar synthetic VXX-like price path driven
+/// through the full executor (`run_one`) plus every stress/sensitivity mode
+/// (`apply_modes`) under a fixed seed. Two back-to-back runs must produce a
+/// byte-identical `BacktestResult` across trades, signals, equity, exec_log,
+/// metrics, stress scenarios, and sensitivity points. Regression guard for any
+/// non-determinism leaking into the RNG path or output channels.
+#[test]
+fn determinism_golden_full_pipeline_with_all_modes_byte_identical() {
+    // Deterministic synthetic dataset: 60 daily bars, drift + sin oscillation
+    // so trades close at non-trivial PnL and stress modes have real signal.
+    let n_bars = 60usize;
+    let closes: Vec<f64> = (0..n_bars)
+        .map(|i| {
+            let drift = 50.0 + i as f64 * 0.3;
+            let osc = ((i as f64) * 0.4).sin() * 2.5;
+            drift + osc
+        })
+        .collect();
+    let start = ts(1);
+    let bars_data: Vec<Bar> = closes
+        .iter()
+        .enumerate()
+        .map(|(i, c)| Bar {
+            symbol: "VXX".into(),
+            ts: start + chrono::Duration::days(i as i64),
+            resolution: Resolution::Day,
+            open: c - 0.5,
+            high: c + 1.0,
+            low: c - 1.0,
+            close: *c,
+            volume: 1_000.0,
+        })
+        .collect();
+    let slice = TimeRange {
+        start,
+        end: start + chrono::Duration::days(n_bars as i64 + 1),
+    };
+    let run = RunSpec {
+        params: serde_json::json!({ "exit_after": 3 }),
+        modes: vec![
+            engine::Mode::Plain,
+            engine::Mode::MonteCarlo {
+                n: 16,
+                block_size: 4,
+            },
+            engine::Mode::Slippage {
+                bps_grid: vec![0.0, 0.0005, 0.002],
+            },
+            engine::Mode::Sensitivity {
+                param: "vol_lo".into(),
+                values: vec![1.0, 2.0, 5.0],
+            },
+        ],
+        seed: 4_242_424_242,
+        slice,
+    };
+    let cfg = EngineConfig::default();
+    let make_strategy = || -> Box<dyn Strategy> {
+        Box::new(BuyAndHoldOnce {
+            bought: false,
+            bars_held: 0,
+            exit_after: 3,
+            on_fill_calls: 0,
+        })
+    };
+    let factory_a: Box<dyn StrategyFactory> = Box::new(make_strategy);
+    let factory_b: Box<dyn StrategyFactory> = Box::new(make_strategy);
+
+    let make_result = |factory: &dyn StrategyFactory| -> BacktestResult {
+        let mut strategy = factory.make();
+        let mut result = run_one(
+            strategy.as_mut(),
+            &bars_data,
+            &run,
+            &cfg,
+            IndicatorRegistry::new(),
+            "golden-artifact",
+            "golden-dataset",
+        )
+        .expect("run_one");
+        engine::apply_modes(
+            &mut result,
+            factory,
+            &IndicatorRegistry::new,
+            &bars_data,
+            &run,
+            &cfg,
+            "golden-artifact",
+            "golden-dataset",
+        )
+        .expect("apply_modes");
+        result
+    };
+    let a = make_result(factory_a.as_ref());
+    let b = make_result(factory_b.as_ref());
+
+    assert_eq!(a, b, "golden fixture: full pipeline must be byte-identical");
+    // Sanity: every mode contributed output, so a == b is a strong assertion.
+    assert!(!a.trades.is_empty(), "expected at least one closed trade");
+    let stress = a.stress.as_ref().expect("stress populated");
+    assert!(
+        stress
+            .scenarios
+            .iter()
+            .any(|s| s.name.starts_with("monte_carlo:")),
+        "monte carlo scenario missing"
+    );
+    assert!(
+        stress
+            .scenarios
+            .iter()
+            .any(|s| s.name.starts_with("slippage:")),
+        "slippage scenarios missing"
+    );
+    let sensitivity = a.sensitivity.as_ref().expect("sensitivity populated");
+    assert_eq!(sensitivity.points.len(), 3);
+}
+
 #[test]
 fn run_batch_executes_every_run() {
     let bars_data = bars(&[50.0, 52.0, 53.0, 55.0, 60.0]);
