@@ -35,6 +35,12 @@ pub struct BarRequest {
     pub end: DateTime<Utc>,
     pub resolution: Resolution,
     pub adjustment: AdjustmentPolicy,
+    /// Optional cross-check providers. When non-empty, the gateway fetches
+    /// from each, runs the consolidator across the per-provider streams, and
+    /// emits `DivergenceRecord`s for any disagreement. Empty = single-provider
+    /// passthrough (the default).
+    #[serde(default)]
+    pub secondary_providers: Vec<String>,
 }
 
 impl BarRequest {

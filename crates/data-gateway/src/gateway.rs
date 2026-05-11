@@ -1,6 +1,7 @@
-//! Orchestrator: routes fetch requests through cache → provider → normalizer
+//! Orchestrator: routes fetch requests through cache → providers → normalizer
 //! → consolidator → caller. Issues a [`DatasetResponse`] whose `manifest_hash`
-//! uniquely identifies the cache blobs used to assemble the dataset.
+//! uniquely identifies the cache blobs used to assemble the dataset and
+//! whose `warnings` list captures cross-provider divergence.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::bar::BarRequest;
 use crate::cache::{BlobStore, CacheMode};
 use crate::consolidator::{Consolidator, ConsolidatorConfig};
+use crate::divergence::DivergenceRecord;
 use crate::error::DataGatewayError;
 use crate::manifest::{BlobKey, BlobMetadata, ManifestStore};
 use crate::normalizer::normalize_bars;
@@ -28,6 +30,11 @@ pub struct DatasetResponse {
     /// `blake3` over the concatenation of `manifest` entries — a single hash
     /// identifying the dataset.
     pub manifest_hash: String,
+    /// Cross-provider divergence records (empty when no `secondary_providers`
+    /// were requested or when all providers agreed within tolerance). Callers
+    /// route these to the experiment ledger.
+    #[serde(default)]
+    pub warnings: Vec<DivergenceRecord>,
 }
 
 pub struct DataGateway {
@@ -82,9 +89,12 @@ impl DataGateway {
         &self.blobs
     }
 
-    /// Fetch a dataset for `request` honoring `mode`. The result is a
-    /// time-sorted, range-clipped, normalized [`Vec<Bar>`] plus the manifest
-    /// of cache blobs used.
+    /// Fetch a dataset for `request` honoring `mode`.
+    ///
+    /// When `request.secondary_providers` is empty, the primary provider is
+    /// the single source. When non-empty, all named providers are fetched and
+    /// consolidated; any disagreement appears in `warnings` and is resolved
+    /// per the consolidator's policy.
     pub fn fetch(
         &self,
         request: &BarRequest,
@@ -96,14 +106,54 @@ impl DataGateway {
                 end: request.end.to_rfc3339(),
             });
         }
-        let provider = self
-            .providers
-            .get(&request.provider)
-            .ok_or_else(|| DataGatewayError::UnknownProvider(request.provider.clone()))?
-            .clone();
 
-        let mut provider_bars: Vec<Bar> = Vec::new();
+        // Resolve every provider up front so we fail fast on unknown names.
+        let primary = self.resolve_provider(&request.provider)?;
+        let secondary: Vec<Arc<dyn Provider>> = request
+            .secondary_providers
+            .iter()
+            .map(|n| self.resolve_provider(n))
+            .collect::<Result<_, _>>()?;
+
+        // Collect per-provider bars (range-clipped) and the blob manifest.
+        let mut per_provider: Vec<(String, Vec<Bar>)> = Vec::with_capacity(1 + secondary.len());
         let mut blob_hashes: Vec<String> = Vec::new();
+
+        for provider in std::iter::once(&primary).chain(secondary.iter()) {
+            let bars = self.load_provider_bars(provider, request, mode, &mut blob_hashes)?;
+            per_provider.push((provider.name().to_string(), bars));
+        }
+
+        let outcome = self
+            .consolidator
+            .merge(per_provider)
+            .map_err(|e| DataGatewayError::Internal(format!("consolidation failed: {e}")))?;
+        let bars = normalize_bars(outcome.bars, request.start, request.end)?;
+
+        let manifest_hash = compute_manifest_hash(&blob_hashes);
+        Ok(DatasetResponse {
+            bars,
+            manifest: blob_hashes,
+            manifest_hash,
+            warnings: outcome.warnings,
+        })
+    }
+
+    fn resolve_provider(&self, name: &str) -> Result<Arc<dyn Provider>, DataGatewayError> {
+        self.providers
+            .get(name)
+            .cloned()
+            .ok_or_else(|| DataGatewayError::UnknownProvider(name.to_string()))
+    }
+
+    fn load_provider_bars(
+        &self,
+        provider: &Arc<dyn Provider>,
+        request: &BarRequest,
+        mode: CacheMode,
+        blob_hashes: &mut Vec<String>,
+    ) -> Result<Vec<Bar>, DataGatewayError> {
+        let mut out = Vec::new();
         for year in request.years_in_range() {
             let key = BlobKey::from_inputs(
                 provider.name(),
@@ -112,9 +162,8 @@ impl DataGateway {
                 year,
                 request.adjustment,
             );
-
             let bars = match mode {
-                CacheMode::ForceRefresh => self.refresh_year(&provider, request, year, key)?,
+                CacheMode::ForceRefresh => self.refresh_year(provider, request, year, key)?,
                 CacheMode::Offline => match self.blobs.read(key)? {
                     Some(b) => b,
                     None => {
@@ -127,24 +176,13 @@ impl DataGateway {
                 },
                 CacheMode::PreferCache | CacheMode::Validate => match self.blobs.read(key)? {
                     Some(b) => b,
-                    None => self.refresh_year(&provider, request, year, key)?,
+                    None => self.refresh_year(provider, request, year, key)?,
                 },
             };
             blob_hashes.push(key.as_hex());
-            provider_bars.extend(bars);
+            out.extend(bars);
         }
-
-        let combined = self
-            .consolidator
-            .merge(vec![(provider.name().to_string(), provider_bars)]);
-        let bars = normalize_bars(combined, request.start, request.end)?;
-
-        let manifest_hash = compute_manifest_hash(&blob_hashes);
-        Ok(DatasetResponse {
-            bars,
-            manifest: blob_hashes,
-            manifest_hash,
-        })
+        Ok(out)
     }
 
     fn refresh_year(
