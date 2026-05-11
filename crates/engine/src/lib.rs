@@ -11,6 +11,7 @@ pub mod indicators;
 pub mod intent;
 pub mod metrics;
 pub mod modes;
+pub mod plugin;
 pub mod position_book;
 pub mod regime;
 pub mod result;
@@ -26,6 +27,7 @@ pub use indicators::{Indicator, IndicatorRegistry};
 pub use intent::{IntentBook, IntentStatus, PendingIntent};
 pub use metrics::compute_metrics;
 pub use modes::apply_modes;
+pub use plugin::{PluginError, PluginStrategy, StrategyPlugin};
 pub use position_book::PositionBook;
 pub use regime::annotate_regimes;
 pub use result::{

@@ -1,0 +1,15 @@
+[package]
+name = "example-strategy"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Hand-authored reference strategy cdylib exercising the `strategy_entry!` plugin macro."
+
+[lib]
+name = "example_strategy"
+crate-type = ["cdylib"]
+
+[dependencies]
+engine-rt = { path = "../engine-rt" }

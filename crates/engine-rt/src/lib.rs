@@ -11,6 +11,7 @@ mod decision;
 mod error;
 mod indicator;
 mod order;
+mod plugin;
 mod sealed;
 mod signal;
 mod state;

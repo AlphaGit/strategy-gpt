@@ -18,6 +18,7 @@ uuid.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 blake3.workspace = true
+libloading.workspace = true
 
 # Re-add when implemented:
 # arrow.workspace = true
