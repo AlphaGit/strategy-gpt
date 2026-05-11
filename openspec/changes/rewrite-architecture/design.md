@@ -162,16 +162,29 @@ The ingestion pipeline is curated: a human-approved list of books, papers, and r
 
 **Why:** Different strategies optimize different things. A volatility-harvesting strategy cares about drawdown control over Sharpe; a directional momentum strategy cares about Sharpe over win rate. Parametrizing keeps the loop strategy-agnostic.
 
-### Decision 13: Allowed-crate whitelist, no version pinning
+### Decision 13: Allowed-crate whitelist, documented + lint-enforced (no registry mirror)
 
-**Choice:** LLM-emitted strategies are restricted to a whitelist of crates (e.g., `polars`, `ndarray`, `chrono`, `serde`, plus our own `engine-rt`). Versions are *not* pinned: the latest version within the whitelist is used. The whitelist is enforced by hosting a local registry mirror or by parsing/rewriting Cargo.toml before build.
+**Choice:** LLM-emitted strategies are restricted to a whitelist of crates (e.g., `polars`, `ndarray`, `chrono`, `serde`, plus our own `engine-rt`). Versions are *not* pinned: the latest version within the whitelist is used. The whitelist lives in `crates/build-pipeline/whitelist.toml` and is included verbatim in the LLM strategy-generation prompt; the build pipeline's source/manifest linter rejects any strategy whose `Cargo.toml` declares a non-whitelisted dependency. We do *not* maintain a private cargo registry mirror. Residual risk — an LLM sidestep that also evades the manifest linter could pull a non-whitelisted crate at `cargo build` time — is accepted because worker-process isolation is the load-bearing safety boundary regardless.
 
-**Why:** Whitelist prevents obvious abuse (e.g., `tokio`, `reqwest`, `std::process` shells) and constrains the LLM's choices to crates we have vetted. Skipping version pinning keeps the whitelist easy to maintain; if upstream breaks something, the build fails loudly, we update the strategy, and move on.
+**Why:** Whitelist prevents obvious abuse (e.g., `tokio`, `reqwest`, `std::process` shells) and constrains the LLM's choices to crates we have vetted. Skipping version pinning keeps the whitelist easy to maintain; if upstream breaks something, the build fails loudly, we update the strategy, and move on. The documented-whitelist + linter combination is sufficient for a single-user research system; reintroducing a registry mirror is a follow-up if real abuse materializes.
 
 **Alternatives considered:**
 
 - *Pinned versions.* Rejected per owner: maintenance overhead not justified.
 - *No whitelist, full crates.io.* Rejected: invites supply-chain and dependency-bloat issues.
+- *Private cargo registry mirror.* Rejected: maintenance burden outweighs the marginal safety benefit given that the worker-process boundary is the real isolation.
+
+### Decision 13b: Strategy artifacts are cdylibs loaded via libloading
+
+**Choice:** Compiled strategy artifacts are `cdylib`s implementing `engine_rt::Strategy`. A registration macro exported from `engine-rt` (`strategy_entry!`) emits a `#[no_mangle] extern "C"` entry point so the worker can `libloading`-load the artifact and obtain a `Box<dyn Strategy>` without recompiling the worker. Strategy authors never write `unsafe` or `extern "C"` themselves — the macro generates them on the author's behalf and the trusted `engine-rt` source is exempt from the strategy linter.
+
+**Why:** Plugins fit the loop: every accepted hypothesis recompiles only the strategy crate, then the worker reloads. cdylib + libloading is the standard Rust plugin pattern. Sidesteps writing a custom registry / linker mechanism. Process isolation continues to come from the worker subprocess, not from the loading mechanism.
+
+**Alternatives considered:**
+
+- *Static linking with `inventory`/`linkme`.* Rejected: each new strategy would require recompiling the worker binary.
+- *WASM module via `wasmtime`.* Rejected: compile-and-run latency higher; benchmarking / indicator native code not free under WASM; sandboxing benefit not needed (worker isolation already in place).
+- *Strategy as a separate executable communicating over a bar stream.* Rejected: doubles the subprocess count per hypothesis batch; serialization cost on the hot loop.
 
 ### Decision 14: Experiment Ledger — SQLite, append-only
 
