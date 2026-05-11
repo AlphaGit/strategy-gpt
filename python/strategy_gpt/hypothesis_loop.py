@@ -29,9 +29,11 @@ Termination semantics (`hypothesis-loop::internal-iteration-loop`):
 
 from __future__ import annotations
 
-from datetime import datetime
+import json
+import uuid
+from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -110,6 +112,25 @@ class TerminationReason(StrEnum):
     SIMILARITY_SATURATION = "similarity_saturation"
 
 
+class PriorDecision(BaseModel):
+    """A decision recorded by an earlier hypothesis-loop run.
+
+    Mirrors the Rust `ledger::RecentDecision` join shape so the
+    orchestrator can load past accepted/rejected hypotheses into the
+    current workflow's context. Consumed by ``critique`` to honour
+    `hypothesis-loop::past-rejected-ideas-inform-future-rejections`.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    decision_id: str
+    kind: DecisionKind
+    rationale: str
+    evidence: Any
+    decided_at: datetime
+    hypothesis: HypothesisRecord
+
+
 class HypothesisLoopState(BaseModel):
     """LangGraph state passed between hypothesis-loop nodes.
 
@@ -138,6 +159,7 @@ class HypothesisLoopState(BaseModel):
     accepted: list[AcceptedHypothesis] = Field(default_factory=list)
     rejected: list[RejectedHypothesis] = Field(default_factory=list)
     kb_cites: list[KbCitation] = Field(default_factory=list)
+    prior_decisions: list[PriorDecision] = Field(default_factory=list)
     diagnosis: Any = None
     termination_reason: TerminationReason = TerminationReason.RUNNING
 
@@ -203,14 +225,139 @@ def rejected_to_decision_record(
     )
 
 
+def parse_prior_decisions(json_array: str) -> list[PriorDecision]:
+    """Parse the JSON array returned by ``Ledger.recent_decisions``.
+
+    The native side returns a string instead of a pre-parsed list because
+    the join shape lived only on the Rust side. Hypothesis-loop bootstrap
+    needs typed records, so this helper deserializes once and validates
+    against :class:`PriorDecision`.
+    """
+    raw = json.loads(json_array)
+    if not isinstance(raw, list):
+        msg = "expected a JSON array of recent decisions"
+        raise ValueError(msg)
+    return [PriorDecision.model_validate(item) for item in raw]
+
+
+class _LedgerLike(Protocol):
+    """Subset of :class:`strategy_gpt.ledger.Ledger` used by the loop.
+
+    Declared structurally to avoid a hard import (the ledger module
+    already imports types from this module — the cycle would be
+    unwelcome) and to keep tests free of a native-extension dependency.
+    """
+
+    def recent_decisions(self, limit: int) -> str: ...
+
+    def record_hypothesis(self, record: HypothesisRecord) -> None: ...
+
+    def record_decision(self, record: DecisionRecord) -> None: ...
+
+
+class PersistedDecision(BaseModel):
+    """ID pair returned for each entry persisted by :func:`persist_decisions`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    hypothesis_id: str
+    decision_id: str
+    kind: DecisionKind
+
+
+def _new_id() -> str:
+    return uuid.uuid4().hex
+
+
+def persist_decisions(
+    ledger: _LedgerLike,
+    state: HypothesisLoopState,
+    *,
+    now: datetime | None = None,
+) -> list[PersistedDecision]:
+    """Append every ``accepted`` and ``rejected`` entry in ``state`` to the
+    experiment ledger.
+
+    Each entry is persisted in two records: a :class:`HypothesisRecord`
+    (carrying name, target metric, falsification criterion, proposed
+    change, and KB citations — `hypothesis-loop::decision-log-
+    persistence`) followed by a :class:`DecisionRecord` (carrying the
+    rationale and timestamp). Fresh UUID hexes are assigned for both
+    rows; the IDs are returned in submission order so callers can
+    correlate. The ledger is append-only, so repeat calls record
+    duplicates — idempotency is the caller's responsibility.
+
+    Submission order: accepted entries before rejected, matching the
+    state's own ordering. ``now`` is the timestamp stamped onto each
+    hypothesis row (defaults to :func:`datetime.now`); decisions use
+    the entry's own ``accepted_at`` / ``rejected_at``.
+    """
+    stamp = now if now is not None else datetime.now(UTC)
+    persisted: list[PersistedDecision] = []
+
+    for accepted in state.accepted:
+        hid = _new_id()
+        did = _new_id()
+        ledger.record_hypothesis(
+            candidate_to_hypothesis_record(accepted.candidate, hypothesis_id=hid, created_at=stamp)
+        )
+        ledger.record_decision(
+            accepted_to_decision_record(accepted, decision_id=did, hypothesis_id=hid)
+        )
+        persisted.append(
+            PersistedDecision(hypothesis_id=hid, decision_id=did, kind=DecisionKind.ACCEPTED)
+        )
+
+    for rejected in state.rejected:
+        hid = _new_id()
+        did = _new_id()
+        ledger.record_hypothesis(
+            candidate_to_hypothesis_record(rejected.candidate, hypothesis_id=hid, created_at=stamp)
+        )
+        ledger.record_decision(
+            rejected_to_decision_record(rejected, decision_id=did, hypothesis_id=hid)
+        )
+        persisted.append(
+            PersistedDecision(hypothesis_id=hid, decision_id=did, kind=DecisionKind.REJECTED)
+        )
+
+    return persisted
+
+
+def bootstrap_state_from_ledger(
+    ledger: _LedgerLike,
+    *,
+    limit: int = 50,
+    state: HypothesisLoopState | None = None,
+) -> HypothesisLoopState:
+    """Initialise a :class:`HypothesisLoopState` with recent ledger
+    decisions attached as ``prior_decisions``.
+
+    Calls ``ledger.recent_decisions(limit)``, parses the JSON, and
+    returns a new state with ``prior_decisions`` populated. Existing
+    ``state`` fields are preserved when one is supplied; the typical
+    caller passes no state and uses the bootstrap output as the
+    workflow's entry state.
+    """
+    json_array: str = ledger.recent_decisions(limit)
+    decisions = parse_prior_decisions(json_array)
+    base = state if state is not None else HypothesisLoopState()
+    return base.model_copy(update={"prior_decisions": decisions})
+
+
 __all__ = [
     "AcceptedHypothesis",
     "HypothesisCandidate",
     "HypothesisLoopState",
     "KbCitation",
+    "PersistedDecision",
+    "PriorDecision",
     "RejectedHypothesis",
     "TerminationReason",
     "accepted_to_decision_record",
+    "bootstrap_state_from_ledger",
     "candidate_to_hypothesis_record",
+    "parse_prior_decisions",
+    "persist_decisions",
     "rejected_to_decision_record",
 ]

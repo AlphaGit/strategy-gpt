@@ -261,12 +261,168 @@ class ValidationReport(BaseModel):
     errors: list[str]
 
 
+# ---------------------------------------------------------------------------
+# engine: BacktestResult and its sub-records
+# ---------------------------------------------------------------------------
+
+
+class Side(StrEnum):
+    """Mirrors `engine_rt::Side` (serde default = PascalCase)."""
+
+    LONG = "Long"
+    SHORT = "Short"
+
+
+class Trade(BaseModel):
+    """Mirrors `engine::result::Trade`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entry_ts: datetime
+    exit_ts: datetime
+    symbol: str
+    side: Side
+    size: float
+    entry_price: float
+    exit_price: float
+    pnl: float
+    fees: float
+    reason_in: str | None = None
+    reason_out: str | None = None
+    signals_at_entry: list[str] = Field(default_factory=list)
+
+
+class EquityPoint(BaseModel):
+    """Mirrors `engine::result::EquityPoint`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ts: datetime
+    equity: float
+    drawdown: float
+    exposure: float
+
+
+class BacktestMetrics(BaseModel):
+    """Mirrors `engine::result::BacktestMetrics`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    sharpe: float
+    sortino: float
+    profit_factor: float
+    win_ratio: float
+    max_drawdown: float
+    annualized_return: float
+    n_trades: int
+    avg_trade_length_bars: float
+
+
+class ResultMeta(BaseModel):
+    """Mirrors `engine::result::ResultMeta`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    strategy_artifact: str
+    dataset_manifest: str
+    seed: int
+    runner_version: RunnerVersion
+
+
+class SignalEvent(BaseModel):
+    """Mirrors `engine_rt::SignalEvent`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    ts: datetime
+    value: float
+    fired: bool
+    suppressed_by: str | None = None
+
+
+class DecisionEvent(BaseModel):
+    """Mirrors `engine_rt::DecisionEvent`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ts: datetime
+    event: str
+    details: Any
+
+
+class RegimeTag(BaseModel):
+    """Mirrors `engine::result::RegimeTag`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    start: datetime
+    end: datetime
+    label: str
+
+
+class StressScenario(BaseModel):
+    """Mirrors `engine::result::StressScenario`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    perturbation: Any
+    metrics: BacktestMetrics
+
+
+class StressResult(BaseModel):
+    """Mirrors `engine::result::StressResult`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    scenarios: list[StressScenario]
+
+
+class SensitivityPoint(BaseModel):
+    """Mirrors `engine::result::SensitivityPoint`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    value: float
+    metrics: BacktestMetrics
+
+
+class SensitivityResult(BaseModel):
+    """Mirrors `engine::result::SensitivityResult`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    param: str
+    points: list[SensitivityPoint]
+
+
+class BacktestResult(BaseModel):
+    """Mirrors `engine::result::BacktestResult`. Sole input to the diagnose
+    node and a primary cross-FFI artifact."""
+
+    model_config = ConfigDict(frozen=True)
+
+    meta: ResultMeta
+    metrics: BacktestMetrics
+    trades: list[Trade]
+    signals: list[SignalEvent]
+    equity: list[EquityPoint]
+    exec_log: list[DecisionEvent]
+    regimes: list[RegimeTag] = Field(default_factory=list)
+    stress: StressResult | None = None
+    sensitivity: SensitivityResult | None = None
+
+
 __all__ = [
     "AdjustmentPolicy",
+    "BacktestMetrics",
+    "BacktestResult",
     "Bar",
     "BarRequest",
     "CacheMode",
     "DatasetResponse",
+    "DecisionEvent",
     "DecisionKind",
     "DecisionRecord",
     "DivergenceReason",
@@ -274,13 +430,23 @@ __all__ = [
     "DivergenceSeverity",
     "DivergenceWarning",
     "EngineConfig",
+    "EquityPoint",
     "EvaluationOutcome",
     "FillModel",
     "HypothesisRecord",
+    "RegimeTag",
     "Resolution",
+    "ResultMeta",
     "RunRecord",
     "RunnerVersion",
     "SanityBounds",
+    "SensitivityPoint",
+    "SensitivityResult",
+    "Side",
+    "SignalEvent",
+    "StressResult",
+    "StressScenario",
     "TimeRange",
+    "Trade",
     "ValidationReport",
 ]

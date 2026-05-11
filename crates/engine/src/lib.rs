@@ -10,6 +10,7 @@ pub mod executor;
 pub mod fill_model;
 pub mod indicators;
 pub mod intent;
+pub mod logging;
 pub mod metrics;
 pub mod modes;
 pub mod plugin;

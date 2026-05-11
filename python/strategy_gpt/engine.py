@@ -78,16 +78,28 @@ class Engine:
         bars: list[Bar],
         spec: dict[str, Any],
         dataset_manifest: str,
+        *,
+        run_id: str | None = None,
     ) -> str:
         """Submit a batch and return an opaque handle id.
 
         ``spec`` is a `BatchSpec` dict matching the Rust serde shape
         (``strategy``, ``dataset``, ``runs``, ``engine``, ``parallelism``).
+
+        ``run_id``, when set, is exported as ``STRATEGY_GPT_RUN_ID`` on
+        every worker subprocess so the Rust tracing layer stamps it onto
+        each event. The orchestrator's structlog context binds the same
+        id; both log streams join on ``run_id`` for cross-process
+        correlation (task 13.2).
         """
         bars_json = _BARS_ADAPTER.dump_json(bars).decode()
         spec_json = json.dumps(spec)
         handle: str = self._engine.submit_batch(
-            str(artifact_path), bars_json, spec_json, dataset_manifest
+            str(artifact_path),
+            bars_json,
+            spec_json,
+            dataset_manifest,
+            run_id,
         )
         return handle
 

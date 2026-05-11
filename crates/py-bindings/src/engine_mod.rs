@@ -110,12 +110,20 @@ impl PyEngine {
 
     /// Validate the spec, register a handle, spawn a dispatch thread, return
     /// the opaque handle id.
+    ///
+    /// `run_id`, when provided, is exported as `STRATEGY_GPT_RUN_ID` on
+    /// every worker subprocess so the Rust tracing layer stamps it onto
+    /// each event. The orchestrator's structlog context binds the same
+    /// id; both log streams join on `run_id` for cross-process
+    /// correlation (task 13.2).
+    #[pyo3(signature = (artifact_path, bars_json, spec_json, dataset_manifest, run_id=None))]
     fn submit_batch(
         &self,
         artifact_path: &str,
         bars_json: &str,
         spec_json: &str,
         dataset_manifest: &str,
+        run_id: Option<&str>,
     ) -> PyResult<String> {
         let bars: Vec<Bar> = serde_json::from_str(bars_json).map_err(json_err)?;
         let spec: BatchSpec = serde_json::from_str(spec_json).map_err(json_err)?;
@@ -133,7 +141,10 @@ impl PyEngine {
         }
         let artifact_path = PathBuf::from(artifact_path);
         let manifest = dataset_manifest.to_string();
-        let coordinator = Coordinator::new(self.worker_path.clone()).with_caps(self.caps);
+        let mut coordinator = Coordinator::new(self.worker_path.clone()).with_caps(self.caps);
+        if let Some(rid) = run_id.filter(|s| !s.is_empty()) {
+            coordinator = coordinator.with_env([("STRATEGY_GPT_RUN_ID", rid.to_string())]);
+        }
         let id_clone = id.clone();
         let handles = Arc::clone(&self.handles);
         thread::spawn(move || {

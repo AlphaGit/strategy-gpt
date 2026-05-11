@@ -33,6 +33,7 @@ use engine::wire::{read_message, write_message, WorkerRequest, WorkerResponse};
 use engine::{apply_modes, run_one};
 
 fn main() -> ExitCode {
+    engine::logging::init();
     apply_resource_limits();
     apply_test_hooks();
 
