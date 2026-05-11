@@ -23,3 +23,4 @@ build-pipeline = { path = "../build-pipeline" }
 objectives = { path = "../objectives" }
 serde.workspace = true
 serde_json.workspace = true
+uuid.workspace = true

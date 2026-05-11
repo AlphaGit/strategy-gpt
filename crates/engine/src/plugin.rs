@@ -22,9 +22,14 @@
 use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::path::Path;
+use std::sync::Arc;
 
-use engine_rt::{Strategy, RUNNER_VERSION};
+use engine_rt::{
+    Bar, Context, Fill, Result as RtResult, Sealed, Strategy, StrategyMeta, RUNNER_VERSION,
+};
 use libloading::{Library, Symbol};
+
+use crate::executor::StrategyFactory;
 
 type CreateFn = unsafe extern "C" fn() -> *mut c_void;
 type DropFn = unsafe extern "C" fn(*mut c_void);
@@ -126,6 +131,20 @@ impl StrategyPlugin {
             _plugin: PhantomData,
         }
     }
+
+    /// Construct a fresh strategy instance whose lifetime is tied to a shared
+    /// reference to the plugin, returned as a `Box<dyn Strategy>` for use
+    /// with [`StrategyFactory`].
+    ///
+    /// The returned box owns an `Arc<StrategyPlugin>` clone; the plugin's
+    /// library stays loaded for as long as any instance survives.
+    pub fn make_owned(self: &Arc<Self>) -> Box<dyn Strategy> {
+        let raw = unsafe { (self.create_sym)() };
+        Box::new(OwnedPluginStrategy {
+            plugin: Arc::clone(self),
+            raw,
+        })
+    }
 }
 
 /// Owned strategy instance produced by a [`StrategyPlugin`].
@@ -160,6 +179,84 @@ impl Drop for PluginStrategy<'_> {
         // and has not been dropped before (drop is idempotent against
         // null inside the plugin).
         unsafe { (self.drop_sym)(self.raw) };
+    }
+}
+
+/// Strategy instance whose lifetime is anchored to a shared
+/// [`StrategyPlugin`] rather than a borrow.
+///
+/// Produced by [`StrategyPlugin::make_owned`]. Holds an `Arc` to the plugin
+/// so the underlying `cdylib` stays loaded while any instance lives.
+pub struct OwnedPluginStrategy {
+    plugin: Arc<StrategyPlugin>,
+    raw: *mut c_void,
+}
+
+// SAFETY: `raw` points into the plugin's allocator, which lives as long as
+// `plugin` (held via Arc). The strategy is single-threaded by construction —
+// the engine drives one instance at a time on one thread. Moving the
+// instance between threads is sound; concurrent access from multiple threads
+// is not (no Sync impl).
+unsafe impl Send for OwnedPluginStrategy {}
+
+impl OwnedPluginStrategy {
+    unsafe fn as_strategy_ref(&self) -> &dyn Strategy {
+        let outer = self.raw.cast::<Box<dyn Strategy>>();
+        (*outer).as_ref()
+    }
+
+    unsafe fn as_strategy_mut(&mut self) -> &mut dyn Strategy {
+        let outer = self.raw.cast::<Box<dyn Strategy>>();
+        (*outer).as_mut()
+    }
+}
+
+impl Sealed for OwnedPluginStrategy {}
+
+impl Strategy for OwnedPluginStrategy {
+    fn metadata(&self) -> StrategyMeta {
+        // SAFETY: `raw` is a valid `*mut Box<dyn Strategy>` owned by `plugin`.
+        unsafe { self.as_strategy_ref().metadata() }
+    }
+
+    fn on_init(&mut self, ctx: &mut dyn Context) -> RtResult<()> {
+        // SAFETY: see `as_strategy_mut`.
+        unsafe { self.as_strategy_mut().on_init(ctx) }
+    }
+
+    fn on_bar(&mut self, bar: &Bar, ctx: &mut dyn Context) -> RtResult<()> {
+        // SAFETY: see `as_strategy_mut`.
+        unsafe { self.as_strategy_mut().on_bar(bar, ctx) }
+    }
+
+    fn on_fill(&mut self, fill: &Fill, ctx: &mut dyn Context) -> RtResult<()> {
+        // SAFETY: see `as_strategy_mut`.
+        unsafe { self.as_strategy_mut().on_fill(fill, ctx) }
+    }
+
+    fn on_end(&mut self, ctx: &mut dyn Context) -> RtResult<()> {
+        // SAFETY: see `as_strategy_mut`.
+        unsafe { self.as_strategy_mut().on_end(ctx) }
+    }
+}
+
+impl Drop for OwnedPluginStrategy {
+    fn drop(&mut self) {
+        // SAFETY: `raw` was produced by the matching `_strategy_gpt_create`
+        // and has not been dropped before. The plugin Arc is still live so
+        // `drop_sym` is callable.
+        unsafe { (self.plugin.drop_sym)(self.raw) };
+    }
+}
+
+/// [`StrategyFactory`] adapter that constructs fresh strategy instances from
+/// a shared plugin handle on each `make()` call. Suitable for use with
+/// [`crate::run_batch`] and [`crate::apply_modes`].
+pub struct PluginFactory(pub Arc<StrategyPlugin>);
+
+impl StrategyFactory for PluginFactory {
+    fn make(&self) -> Box<dyn Strategy> {
+        self.0.make_owned()
     }
 }
 

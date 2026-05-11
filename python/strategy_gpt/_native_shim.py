@@ -13,6 +13,7 @@ Module shape (mirrors `crates/py-bindings/src/lib.rs`):
 - ``strategy_gpt._native.gateway.DataGateway``
 - ``strategy_gpt._native.ledger.Ledger``
 - ``strategy_gpt._native.objectives.{validate_spec, evaluate_spec, engine_metrics}``
+- ``strategy_gpt._native.engine.Engine``
 """
 
 from __future__ import annotations

@@ -27,7 +27,7 @@ pub use indicators::{Indicator, IndicatorRegistry};
 pub use intent::{IntentBook, IntentStatus, PendingIntent};
 pub use metrics::compute_metrics;
 pub use modes::apply_modes;
-pub use plugin::{PluginError, PluginStrategy, StrategyPlugin};
+pub use plugin::{OwnedPluginStrategy, PluginError, PluginFactory, PluginStrategy, StrategyPlugin};
 pub use position_book::PositionBook;
 pub use regime::annotate_regimes;
 pub use result::{

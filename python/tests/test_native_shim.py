@@ -22,7 +22,7 @@ def test_require_native_returns_module_with_submodules() -> None:
     if not native_available():
         pytest.skip("native extension not built")
     module = require_native()
-    for submod in ("gateway", "ledger", "objectives"):
+    for submod in ("gateway", "ledger", "objectives", "engine"):
         assert hasattr(module, submod), f"native module missing submodule `{submod}`"
 
 

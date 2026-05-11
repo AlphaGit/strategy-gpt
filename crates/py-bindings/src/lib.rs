@@ -7,11 +7,12 @@
 //! at orchestrator-call granularity.
 //!
 //! Module name: `strategy_gpt_native` (matched by `[lib]` in Cargo.toml).
-//! Submodules: `gateway`, `ledger`, `objectives`.
+//! Submodules: `gateway`, `ledger`, `objectives`, `engine`.
 
 use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
+mod engine_mod;
 mod gateway;
 mod ledger_mod;
 mod objectives_mod;
@@ -33,6 +34,10 @@ fn strategy_gpt_native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> 
     o.add_function(wrap_pyfunction!(objectives_mod::evaluate_spec, &o)?)?;
     o.add_function(wrap_pyfunction!(objectives_mod::engine_metrics, &o)?)?;
     m.add_submodule(&o)?;
+
+    let e = PyModule::new_bound(py, "engine")?;
+    e.add_class::<engine_mod::PyEngine>()?;
+    m.add_submodule(&e)?;
 
     Ok(())
 }
