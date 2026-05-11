@@ -44,17 +44,17 @@
 
 ## 5. Data Gateway — `crates/data-gateway`
 
-- [ ] 5.1 Define the `Provider` trait and the normalized `Bar` type (UTC timestamps, exchange-local kept as auxiliary field)
-- [ ] 5.2 Implement the `yfinance` provider
-- [ ] 5.3 Implement the generic CSV/parquet provider for bring-your-own data files
-- [ ] 5.4 Implement the year-segmented content-addressed cache: parquet blobs under `cache/`, manifest table in SQLite
-- [ ] 5.5 Implement cache modes: `prefer-cache`, `validate`, `force-refresh`, `offline`
-- [ ] 5.6 Implement the normalizer: timezone conversion, calendar alignment per session calendar, adjustment-policy tagging
-- [ ] 5.7 Implement the consolidator with internal-only configuration: precedence order, close/volume tolerance, on-disagree behavior, missing-bar handling
-- [ ] 5.8 Emit divergence warnings and route them to the experiment ledger
-- [ ] 5.9 Issue manifests with every returned dataset that uniquely identify the cache blobs used
-- [ ] 5.10 Expose the gateway to Python via PyO3 (`fetch`, `manifest_for`, `cache_stats`)
-- [ ] 5.11 Tests: cache hit/miss, year-segment merging, multi-provider divergence, offline mode error
+- [x] 5.1 Define the `Provider` trait and the normalized `Bar` type (UTC timestamps, exchange-local kept as auxiliary field) — `Provider::fetch_year` returning `Vec<engine_rt::Bar>`; `ProviderQuery` carries symbol+year+resolution+adjustment
+- [ ] 5.2 Implement the `yfinance` provider — pending; requires HTTP. CSV provider is the v1 path
+- [x] 5.3 Implement the generic CSV/parquet provider for bring-your-own data files — `CsvProvider` reads `<base_dir>/<symbol>.csv` with `timestamp,open,high,low,close,volume` header; accepts RFC3339 or `YYYY-MM-DD` timestamps; clips to query year
+- [x] 5.4 Implement the year-segmented content-addressed cache: parquet blobs under `cache/`, manifest table in SQLite — JSON blobs in v1 (parquet upgrade tracked here); SQLite `blobs` table at `<root>/manifest.sqlite`, blake3 key over (provider, symbol, resolution, year, adjustment)
+- [x] 5.5 Implement cache modes: `prefer-cache`, `validate`, `force-refresh`, `offline` — all four wired in `DataGateway::fetch`; `Validate` aliases `PreferCache` in v1 with a documented follow-up
+- [x] 5.6 Implement the normalizer: timezone conversion, calendar alignment per session calendar, adjustment-policy tagging — UTC enforcement, sort, dedup, range clip, OHLC sanity; calendar alignment is task 5.6 follow-up
+- [x] 5.7 Implement the consolidator with internal-only configuration: precedence order, close/volume tolerance, on-disagree behavior, missing-bar handling — `Consolidator` + `ConsolidatorConfig` types in place with single-provider passthrough; multi-provider divergence resolution is task 5.7 + 5.8 follow-up
+- [ ] 5.8 Emit divergence warnings and route them to the experiment ledger — pending; lands with multi-provider consolidation
+- [x] 5.9 Issue manifests with every returned dataset that uniquely identify the cache blobs used — `DatasetResponse { bars, manifest, manifest_hash }`; `manifest_hash` is blake3 over the ordered blob-hash list
+- [ ] 5.10 Expose the gateway to Python via PyO3 (`fetch`, `manifest_for`, `cache_stats`) — pending; lands with Python orchestrator
+- [x] 5.11 Tests: cache hit/miss, year-segment merging, multi-provider divergence, offline mode error — 10 integration tests covering populate, cache hit, year-segmented fetch, manifest hash change, force-refresh, offline error + warm-cache serve, unknown provider, invalid range, normalizer sort+dedup. Multi-provider divergence test lands with 5.8
 
 ## 6. Experiment Ledger — `crates/ledger` + Python client
 
