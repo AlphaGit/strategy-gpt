@@ -10,6 +10,7 @@ members = [
     "objectives",
     "py-bindings",
     "example-strategy",
+    "vxx-strategy",
 ]
 
 [workspace.package]

@@ -4,7 +4,27 @@ LLM-driven research loop for **creating and testing** quantitative trading strat
 
 This is a research platform, not a trading platform. The engine simulates fills inside a backtest only to evaluate hypotheses; there is no live trading, broker integration, or real-time position management.
 
-> Currently undergoing a full rewrite. The pre-rewrite reference implementation is preserved at the `pre-rewrite` git tag. See `openspec/changes/rewrite-architecture/` for the current scope and `CLAUDE.md` for the durable architecture and contracts.
+> The architecture rewrite specified in `openspec/changes/rewrite-architecture/` is feature-complete at v0.1.0. The pre-rewrite reference implementation is preserved at the `pre-rewrite` git tag. See `CLAUDE.md` for the durable architecture and contracts.
+
+## Workflow at a glance
+
+```
+data fetch → engine batch → ledger record → KB-aware hypothesis loop → tester → engine → verdict
+```
+
+- **data-gateway** fetches, caches, normalizes, and consolidates multi-provider bars.
+- **engine** runs batched backtests with native stress + sensitivity modes.
+- **ledger** records every run/hypothesis/decision append-only with parquet sidecars.
+- **kb** retrieves citations from a curated corpus (graph + vector hybrid).
+- **hypothesis-loop** diagnoses results, queries KB, generates + critiques candidates.
+- **tester** translates a hypothesis into a strategy diff or new Rust source, smoke-tests, then submits a full batch.
+- **optimizer** runs grid / random / TPE search over walk-forward folds, with an LLM-grounded rationale.
+
+The reference VXX volatility-range strategy lives in `crates/vxx-strategy/`; its objective spec is `crates/vxx-strategy/objective.yaml`. Run the recorded smoke pass with:
+
+```bash
+cd python && python -c "from strategy_gpt.smoke import run_smoke; print(run_smoke())"
+```
 
 ## Repo layout
 
@@ -17,32 +37,40 @@ crates/                 Rust workspace
   kb/                   Kuzu (graph) + LanceDB (vector) hybrid retrieval
   build-pipeline/       lint, allowed-crate enforcement, cargo build
   py-bindings/          PyO3 module exposing trusted crates as `strategy_gpt._native`
+  vxx-strategy/         Reference VXX volatility-range smoke strategy cdylib
+  example-strategy/     No-op fixture used by plugin-loader tests
 python/strategy_gpt/    Orchestrator (LangGraph workflows, optimizer, tester, CLI)
-kb/                     Curated source list and ingestion scripts
+kb/                     Curated source list, starter corpus, and recorded fixtures
 openspec/               Change proposals and capability specs
 ```
 
 ## Develop
 
 ```bash
-# Rust workspace
+# 1. Rust workspace
 cd crates && cargo check --workspace
 
-# Python orchestrator
-cd python && pip install -e '.[dev]'
+# 2. Python orchestrator + native extension
+cd ../python && pip install -e '.[dev]'
+pip install maturin
 maturin develop -m ../crates/py-bindings/Cargo.toml
+
+# 3. Build the reference strategy + worker so end-to-end tests can load them
+cd ../crates && cargo build -p vxx-strategy -p example-strategy --bin engine-worker
 ```
 
-## Lint and pre-commit
+`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` are required only when running the hypothesis loop with a real reasoning model. The smoke run (`python -m strategy_gpt.smoke`, the recorded fixture under `kb/fixtures/smoke_run.json`, and the offline tests) use stubbed reasoning so they run without credentials.
+
+## Lint and test
 
 ```bash
 pre-commit install   # one-time
-make lint            # full suite (Rust + Python)
+make lint            # rustfmt + clippy + ruff + mypy
 make fmt             # apply formatters
-make test            # cargo test + (later) pytest
+make test            # cargo test --workspace + pytest
 ```
 
-The same `make lint` runs in CI when it lands. See `CLAUDE.md` for the full lint stance (Rust defaults, strict Python).
+CI runs the same `make lint` + `make test` plus a smoke-fixture byte-identity check; see `.github/workflows/ci.yml`. The full lint stance (Rust defaults, strict Python) is documented in `CLAUDE.md`.
 
 ## OpenSpec
 

@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 mod build_mod;
 mod engine_mod;
 mod gateway;
+mod kb_mod;
 mod ledger_mod;
 mod objectives_mod;
 
@@ -43,6 +44,10 @@ fn strategy_gpt_native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> 
     let b = PyModule::new_bound(py, "build")?;
     b.add_class::<build_mod::PyBuildPipeline>()?;
     m.add_submodule(&b)?;
+
+    let k = PyModule::new_bound(py, "kb")?;
+    k.add_class::<kb_mod::PyKnowledgeBase>()?;
+    m.add_submodule(&k)?;
 
     Ok(())
 }

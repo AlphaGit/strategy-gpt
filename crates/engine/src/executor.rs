@@ -58,6 +58,12 @@ pub fn run_one(
     let mut signals = Vec::new();
     let mut decisions = Vec::new();
     let mut state: HashMap<String, serde_json::Value> = HashMap::new();
+    // Surface `RunSpec.params` to the strategy under a reserved key. Strategies
+    // read this via `Context::state_get(&StateKey::from("__params__"))` and
+    // deserialize the JSON into their own typed parameter struct. Using the
+    // existing state surface (rather than adding a new method to `Context`)
+    // keeps the ABI shape stable across runner versions.
+    state.insert("__params__".to_string(), run.params.clone());
     let mut trades = TradeLog::new();
     let mut equity = EquityRecorder::new(engine.initial_capital);
     let mut realized_pnl_running = 0.0;

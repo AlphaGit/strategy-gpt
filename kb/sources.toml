@@ -1,0 +1,38 @@
+# Curated source list for strategy-gpt's knowledge base.
+#
+# Spec `knowledge-base::curated-ingestion-pipeline`: every source listed here is
+# human-approved. The ingestion pipeline never auto-scrapes; new sources must
+# be added to this file by an operator.
+#
+# `path` is resolved against the KB's `base_dir` (defaults to this directory).
+# `chunk_size` and `chunk_overlap` are character counts.
+
+[[source]]
+id = "starter-vol-regimes"
+kind = "note"
+title = "Volatility Regimes and the VIX Term Structure"
+author = "strategy-gpt starter corpus"
+year = 2026
+path = "starter/vol_regimes.md"
+chunk_size = 600
+chunk_overlap = 80
+
+[[source]]
+id = "starter-mean-reversion"
+kind = "note"
+title = "Mean Reversion in Equity Index Futures"
+author = "strategy-gpt starter corpus"
+year = 2026
+path = "starter/mean_reversion.md"
+chunk_size = 600
+chunk_overlap = 80
+
+[[source]]
+id = "starter-walk-forward"
+kind = "note"
+title = "Walk-Forward Validation for Trading Strategies"
+author = "strategy-gpt starter corpus"
+year = 2026
+path = "starter/walk_forward.md"
+chunk_size = 600
+chunk_overlap = 80

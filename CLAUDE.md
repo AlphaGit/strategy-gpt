@@ -2,7 +2,7 @@
 
 Guidance for Claude Code working in this repository.
 
-> **Status:** the rewrite specified in `openspec/changes/rewrite-architecture/` is in progress. The pre-rewrite reference implementation is preserved at the `pre-rewrite` git tag; it has been removed from `main`. The architecture, contracts, and flows below reflect the rewrite, not the old code.
+> **Status:** the rewrite specified in `openspec/changes/rewrite-architecture/` is feature-complete at **v0.1.0**. The pre-rewrite reference implementation is preserved at the `pre-rewrite` git tag; it has been removed from `main`. The architecture, contracts, and flows below reflect the current implementation.
 
 ## Purpose
 
@@ -48,10 +48,15 @@ crates/                 Rust workspace
   data-gateway/         providers, cache, normalizer, consolidator
   ledger/               SQLite append-only + parquet sidecars
   kb/                   Kuzu (graph) + LanceDB (vector) hybrid retrieval
+                        (v1 ships a SQLite-backed stand-in matching the same
+                        retrieval contract; swap is a localized refactor)
   build-pipeline/       lint, allowed-crate enforcement, cargo build
   py-bindings/          PyO3 module exposing trusted crates as `strategy_gpt._native`
-python/strategy_gpt/    Orchestrator (LangGraph workflows, optimizer, tester, CLI)
-kb/                     Curated source list and ingestion scripts
+  vxx-strategy/         Reference VXX volatility-range smoke strategy cdylib
+  example-strategy/     No-op fixture used by plugin-loader tests
+python/strategy_gpt/    Orchestrator (LangGraph workflows, optimizer, tester,
+                        CLI, smoke run)
+kb/                     Curated source list, starter corpus, recorded fixtures
 cache/                  Year-segmented content-addressed parquet (gitignored)
 ledger/                 SQLite ledger + parquet sidecars (gitignored)
 openspec/               Change proposals and capability specs
