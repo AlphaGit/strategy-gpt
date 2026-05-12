@@ -12,6 +12,7 @@
 use pyo3::exceptions::{PyIOError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
+mod build_mod;
 mod engine_mod;
 mod gateway;
 mod ledger_mod;
@@ -38,6 +39,10 @@ fn strategy_gpt_native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> 
     let e = PyModule::new_bound(py, "engine")?;
     e.add_class::<engine_mod::PyEngine>()?;
     m.add_submodule(&e)?;
+
+    let b = PyModule::new_bound(py, "build")?;
+    b.add_class::<build_mod::PyBuildPipeline>()?;
+    m.add_submodule(&b)?;
 
     Ok(())
 }
