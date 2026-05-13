@@ -50,7 +50,7 @@ class KbClient(Protocol):
     def retrieve(self, query: str, k: int) -> _KbResult: ...
 
 
-def _provenance_to_citation(item: _KbItem) -> KbCitation:
+def provenance_to_citation(item: _KbItem) -> KbCitation:
     """Project a KB retrieval item to a :class:`KbCitation` record.
 
     ``locator`` composes the most specific reference available — section,
@@ -95,7 +95,7 @@ def kb_query_node(
         # list; this just means the run gets no KB grounding this turn.
         return state
     result = client.retrieve(resolved_query, k)
-    new_cites = [_provenance_to_citation(item) for item in result.items]
+    new_cites = [provenance_to_citation(item) for item in result.items]
     return state.model_copy(update={"kb_cites": [*state.kb_cites, *new_cites]})
 
 
@@ -125,4 +125,4 @@ def _derive_query(state: HypothesisLoopState) -> str:
     return " ".join(parts).strip()
 
 
-__all__ = ["KbClient", "kb_query_node"]
+__all__ = ["KbClient", "kb_query_node", "provenance_to_citation"]

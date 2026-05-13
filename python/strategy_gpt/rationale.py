@@ -28,12 +28,17 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from .hypothesis_loop import KbCitation
+from .kb_query import KbClient, provenance_to_citation
 from .optimizer import OptimizerResult, Trial
 
 # Surface-feature thresholds. Kept as constants so the heuristics are
 # auditable from the ledger entry that records the rationale.
 _MIN_TRIALS_FOR_CORRELATION = 4
 _CORRELATION_REPORT_THRESHOLD = 0.2
+# Default top-k for the rationale's own KB consultation. Small because the
+# rationale prompt has a tight token budget and the citations are summary
+# context, not the primary evidence.
+_DEFAULT_KB_TOP_K = 4
 _PLATEAU_RATIO_THRESHOLD = 0.5
 _TIGHT_FEASIBLE_REGION_THRESHOLD = 0.5
 _MIN_OBS_FOR_PEARSON = 2
@@ -69,10 +74,68 @@ class RationaleClient(Protocol):
     def write_rationale(self, inputs: RationaleInputs) -> str: ...
 
 
+def _kb_query_for_best(result: OptimizerResult, *, strategy_name: str | None) -> str:
+    """Compose a KB query from the optimizer's chosen region.
+
+    Joins the strategy name (when supplied) with the best-trial parameter
+    names. Values are intentionally omitted — the KB indexes concepts, not
+    numeric ranges, so ``"vxx vol_lo vol_hi"`` retrieves the volatility-
+    regime note while ``"vxx 0.008 0.05"`` would not.
+    """
+    if result.best is None:
+        return strategy_name or ""
+    parts: list[str] = []
+    if strategy_name:
+        parts.append(strategy_name)
+    parts.extend(sorted(result.best.params.keys()))
+    return " ".join(parts).strip()
+
+
+def _retrieve_kb_citations(
+    result: OptimizerResult,
+    *,
+    kb_client: KbClient,
+    strategy_name: str | None,
+    k: int,
+) -> list[KbCitation]:
+    """Run one retrieval call against the KB and project to citations.
+
+    Empty result (no best trial → empty query) returns ``[]``. Errors are
+    not swallowed: a misconfigured KB should surface immediately so the
+    operator fixes it before the rationale is recorded into the ledger.
+    """
+    query = _kb_query_for_best(result, strategy_name=strategy_name)
+    if not query:
+        return []
+    retrieved = kb_client.retrieve(query, k)
+    return [provenance_to_citation(item) for item in retrieved.items]
+
+
+def _dedup_citations(citations: list[KbCitation]) -> list[KbCitation]:
+    """Drop duplicate ``(source, locator)`` pairs while preserving order.
+
+    Caller-supplied citations come from the hypothesis loop's ``kb_cites``
+    field; the rationale's own retrieval can return the same chunks. The
+    ledger record should not double-cite the same locator.
+    """
+    seen: set[tuple[str, str]] = set()
+    out: list[KbCitation] = []
+    for c in citations:
+        key = (c.source, c.locator)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+    return out
+
+
 def build_rationale_inputs(
     result: OptimizerResult,
     *,
     citations: list[KbCitation] | None = None,
+    kb_client: KbClient | None = None,
+    strategy_name: str | None = None,
+    kb_top_k: int = _DEFAULT_KB_TOP_K,
 ) -> RationaleInputs:
     """Compute the surface features that ground the rationale.
 
@@ -88,6 +151,17 @@ def build_rationale_inputs(
     - The acceptance ratio: accepted / total trials. Low acceptance means
       the constraint surface is tight, which the LLM should mention.
     """
+    caller_cites = list(citations) if citations else []
+    kb_cites: list[KbCitation] = []
+    if kb_client is not None:
+        kb_cites = _retrieve_kb_citations(
+            result,
+            kb_client=kb_client,
+            strategy_name=strategy_name,
+            k=kb_top_k,
+        )
+    merged_cites = _dedup_citations([*caller_cites, *kb_cites])
+
     if result.best is None:
         return RationaleInputs(
             best_params={},
@@ -101,7 +175,7 @@ def build_rationale_inputs(
                     weight=1.0,
                 )
             ],
-            citations=citations or [],
+            citations=merged_cites,
             accepted_trial_count=0,
             rejected_trial_count=result.rejected_count,
         )
@@ -177,7 +251,7 @@ def build_rationale_inputs(
         best_params=dict(result.best.params),
         best_score=result.best.outcome.score,
         surface_features=features,
-        citations=citations or [],
+        citations=merged_cites,
         accepted_trial_count=len(accepted),
         rejected_trial_count=result.rejected_count,
     )
@@ -266,21 +340,41 @@ def _format_value(v: object) -> str:
 # ---------------------------------------------------------------------------
 
 
-def generate_rationale(
+def generate_rationale(  # noqa: PLR0913 — distinct knobs; collapsing them is worse
     result: OptimizerResult,
     *,
     citations: list[KbCitation] | None = None,
     client: RationaleClient | None = None,
+    kb_client: KbClient | None = None,
+    strategy_name: str | None = None,
+    kb_top_k: int = _DEFAULT_KB_TOP_K,
 ) -> str:
     """Compute surface features, call the rationale client, return text.
 
-    The optimizer's caller passes the KB citations gathered from the
-    hypothesis loop (if the optimizer is invoked as part of a tested
-    hypothesis) or from a side-channel KB query keyed by the strategy
-    name. When ``client`` is ``None``, the deterministic template client
-    is used — convenient for tests and for offline runs.
+    Two citation sources are merged into the rationale (deduplicated on
+    ``(source, locator)``):
+
+    - ``citations`` — already-attached cites from the hypothesis loop's
+      ``state.kb_cites``, threaded through when the optimizer is invoked
+      as part of a tested hypothesis.
+    - ``kb_client.retrieve(query, kb_top_k)`` — the rationale generator's
+      own KB consultation, required by
+      `param-optimizer::optimized-output-and-rationale` ("rationale
+      generator MUST consult the Knowledge Base in addition to optimizer
+      output"). The query is composed from ``strategy_name`` (when
+      supplied) plus the best-trial parameter names. Skip the second
+      retrieval by passing ``kb_client=None``.
+
+    When ``client`` is ``None``, the deterministic template client is used
+    — convenient for tests and offline runs.
     """
-    inputs = build_rationale_inputs(result, citations=citations)
+    inputs = build_rationale_inputs(
+        result,
+        citations=citations,
+        kb_client=kb_client,
+        strategy_name=strategy_name,
+        kb_top_k=kb_top_k,
+    )
     chosen = client if client is not None else TemplateRationaleClient()
     return chosen.write_rationale(inputs)
 

@@ -23,7 +23,7 @@
   },
   "optimizer_best_score": 1.5,
   "optimizer_trial_count": 12,
-  "rationale": "Selected parameters: vol_hi=0.05, vol_lo=0.008 (score 1.5000, 3 accepted of 12 candidates).\n- only 1 of 3 accepted trials are within 5% of the best \u2014 narrow optimum, sensitive to parameter drift.\n- 9 of 12 candidates rejected by the objective constraints \u2014 the feasible region is tight.\nSupporting evidence from the knowledge base: [starter-vol-regimes: Empirical Properties of the VIX Term Structure]; [starter-vol-regimes: Empirical Properties of the VIX Term Structure].",
+  "rationale": "Selected parameters: vol_hi=0.05, vol_lo=0.008 (score 1.5000, 3 accepted of 12 candidates).\n- only 1 of 3 accepted trials are within 5% of the best \u2014 narrow optimum, sensitive to parameter drift.\n- 9 of 12 candidates rejected by the objective constraints \u2014 the feasible region is tight.\nSupporting evidence from the knowledge base: [starter-vol-regimes: Empirical Properties of the VIX Term Structure].",
   "rejected_hypotheses": [
     "rewrite_entry_logic"
   ]

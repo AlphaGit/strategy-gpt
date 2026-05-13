@@ -353,7 +353,12 @@ def run_smoke(*, write_fixture_to: Path | None = None) -> SmokeReport:
         }
     )
     opt_result: OptimizerResult = optimize(searcher, _evaluate_fn, _score_fn)
-    rationale = generate_rationale(opt_result, citations=state.kb_cites)
+    rationale = generate_rationale(
+        opt_result,
+        citations=state.kb_cites,
+        kb_client=kb_client,
+        strategy_name="vxx_volatility_range",
+    )
 
     report = SmokeReport(
         diagnosis_summary={
