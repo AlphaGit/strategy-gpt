@@ -1,0 +1,59 @@
+# strategy-gpt — example direnv config.
+#
+# Usage:
+#   cp .envrc.example .envrc
+#   # fill in the values below
+#   direnv allow
+#
+# `.envrc` is gitignored; `.envrc.example` is committed. Never put real
+# secrets in `.envrc.example`.
+#
+# direnv: https://direnv.net (`brew install direnv` then add the shell hook).
+# If you don't use direnv, you can `source .envrc` manually or copy the
+# `export` lines into your shell rc file.
+
+# ---------------------------------------------------------------------------
+# Reasoning model API keys
+# ---------------------------------------------------------------------------
+# At least one of these must be set for live hypothesis-loop runs. The
+# smoke fixture (`python -m strategy_gpt.smoke`) and the offline test
+# suite use stubs and run without credentials.
+#
+# Priority (see python/strategy_gpt/reasoning.py):
+#   1. ANTHROPIC_API_KEY  -> claude-opus-4-7, then claude-sonnet-4-6
+#   2. OPENAI_API_KEY     -> o3, then o1
+export ANTHROPIC_API_KEY=""
+export OPENAI_API_KEY=""
+
+# ---------------------------------------------------------------------------
+# Rust build cache
+# ---------------------------------------------------------------------------
+# `sccache` speeds up the strategy build pipeline. Install with
+# `brew install sccache` (or `cargo install sccache`). Comment out if not
+# installed.
+export RUSTC_WRAPPER="sccache"
+
+# Optional: cap sccache disk usage (default 10G).
+# export SCCACHE_CACHE_SIZE="20G"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+# strategy_gpt.logging_config reads LOG_LEVEL from the environment.
+# Accepted values: DEBUG, INFO, WARNING, ERROR.
+export LOG_LEVEL="INFO"
+
+# ---------------------------------------------------------------------------
+# Optional overrides
+# ---------------------------------------------------------------------------
+# The CLI defaults cache root to ./cache and ledger root to ./ledger.
+# Uncomment and point elsewhere if you keep them outside the repo (e.g.
+# on a faster disk).
+# export STRATEGY_GPT_CACHE_ROOT="$PWD/cache"
+# export STRATEGY_GPT_LEDGER_ROOT="$PWD/ledger"
+
+# Auto-activate the project virtualenv when entering the repo.
+# Requires `python -m venv .venv` first.
+# if [ -f .venv/bin/activate ]; then
+#   source .venv/bin/activate
+# fi
