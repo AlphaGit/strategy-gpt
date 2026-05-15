@@ -20,7 +20,7 @@ mod ledger_mod;
 mod objectives_mod;
 
 #[pymodule]
-fn strategy_gpt_native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
 
     let g = PyModule::new_bound(py, "gateway")?;
