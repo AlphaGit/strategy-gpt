@@ -52,6 +52,25 @@ impl PyDataGateway {
         Ok(())
     }
 
+    #[pyo3(signature = (name, base_url=None, timeout_secs=None))]
+    fn register_yfinance_provider(
+        &self,
+        name: &str,
+        base_url: Option<&str>,
+        timeout_secs: Option<u64>,
+    ) -> PyResult<()> {
+        let mut provider = data_gateway::providers::YfinanceProvider::new(name);
+        if let Some(url) = base_url {
+            provider = provider.with_base_url(url);
+        }
+        if let Some(t) = timeout_secs {
+            provider = provider.with_timeout_secs(t);
+        }
+        let mut g = self.inner.lock().map_err(runtime_err)?;
+        g.register_provider(Arc::new(provider));
+        Ok(())
+    }
+
     fn fetch(&self, request_json: &str, mode: &str) -> PyResult<String> {
         let request: BarRequest = serde_json::from_str(request_json).map_err(json_err)?;
         let cache_mode = parse_cache_mode(mode)?;

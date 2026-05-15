@@ -45,6 +45,15 @@ class Gateway:
         """Register a CSV provider rooted at `base_dir` under `name`."""
         self._gw.register_csv_provider(name, str(base_dir))
 
+    def register_yfinance_provider(
+        self,
+        name: str,
+        base_url: str | None = None,
+        timeout_secs: int | None = None,
+    ) -> None:
+        """Register a Yahoo Finance provider under `name`."""
+        self._gw.register_yfinance_provider(name, base_url, timeout_secs)
+
     def fetch(self, request: BarRequest, mode: CacheMode = "prefer_cache") -> DatasetResponse:
         """Fetch a dataset for `request` honoring `mode`."""
         payload = request.model_dump_json()

@@ -16,7 +16,7 @@ path = "src/lib.rs"
 pyo3.workspace = true
 engine = { path = "../engine" }
 engine-rt = { path = "../engine-rt" }
-data-gateway = { path = "../data-gateway" }
+data-gateway = { path = "../data-gateway", features = ["yfinance"] }
 ledger = { path = "../ledger" }
 kb = { path = "../kb" }
 build-pipeline = { path = "../build-pipeline" }

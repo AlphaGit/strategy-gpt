@@ -18,7 +18,7 @@ Surface (rewrite-architecture task 13.1):
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -68,6 +68,12 @@ def fetch(  # noqa: PLR0913 — typer commands naturally accept many CLI options
     gw = Gateway(root)
     if csv_provider_dir is not None:
         gw.register_csv_provider(provider, csv_provider_dir)
+    elif provider == "yfinance":
+        gw.register_yfinance_provider(provider)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=UTC)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=UTC)
     request = BarRequest(
         provider=provider,
         symbol=symbol,
