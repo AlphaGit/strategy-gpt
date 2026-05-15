@@ -400,7 +400,7 @@ Operator-facing reference docs live in [`docs/`](./docs/). Capability specs (the
 
 | Doc | Topic |
 |---|---|
-| [`docs/batch-spec.md`](./docs/batch-spec.md) | Full JSON reference for the `BatchSpec` files consumed by `strategy-gpt run --spec ...` — top-level fields, `RunSpec`, `Mode` variants, `EngineConfig`, `SanityBounds`, worked examples (single run + parameter sweep), reproducibility invariants. |
+| [`BatchSpec` JSON reference](./docs/batch-spec.md) | Full JSON reference for the `BatchSpec` files consumed by `strategy-gpt run --spec ...` — top-level fields, `RunSpec`, `Mode` variants, `EngineConfig`, `SanityBounds`, worked examples (single run + parameter sweep), reproducibility invariants. |
 
 Additional docs land here as new operator-facing surfaces ship. Capability changes still go through OpenSpec; `docs/` is for usage and shape references that complement the specs.
 

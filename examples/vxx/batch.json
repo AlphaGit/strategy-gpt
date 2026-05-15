@@ -4,8 +4,8 @@
   "runs": [
     {
       "params": {
-        "vol_lo": 0.01,
-        "vol_hi": 0.04,
+        "vol_lo": 0.35,
+        "vol_hi": 0.80,
         "size": 100.0,
         "symbol": "VXX"
       },

@@ -144,18 +144,39 @@ def run(  # noqa: PLR0913 — typer command surface; resource caps + paths.
     ] = "",
     time_cap_secs: Annotated[float | None, typer.Option(help="Per-run wall-clock cap.")] = None,
     mem_cap_bytes: Annotated[int | None, typer.Option(help="Per-run memory cap (Linux).")] = None,
+    wait: Annotated[
+        bool,
+        typer.Option(help="Block until the job finishes; print JobStatus JSON instead of handle."),
+    ] = False,
+    poll_interval_secs: Annotated[
+        float, typer.Option(help="Poll interval when --wait is set.")
+    ] = 0.5,
 ) -> None:
-    """Submit a BatchSpec to the engine and print the result handle.
+    """Submit a BatchSpec to the engine.
 
-    The engine runs one subprocess per `RunSpec`; this command returns the
-    opaque job handle so callers can poll separately. Use ``--time-cap-secs``
-    and ``--mem-cap-bytes`` to enforce coordinator caps.
+    Default behavior prints the opaque job handle so callers can poll
+    separately. Pass ``--wait`` to block until the job reaches a terminal
+    state and print the full ``JobStatus`` JSON (status + results / error).
     """
+    from pydantic import TypeAdapter
+
+    from .types import Bar
+
     spec_payload = json.loads(spec.read_text())
-    bars_payload = json.loads(bars.read_text())
+    bars_payload = TypeAdapter(list[Bar]).validate_json(bars.read_text())
     eng = Engine(worker, time_cap_secs=time_cap_secs, mem_cap_bytes=mem_cap_bytes)
     handle = eng.submit_batch(artifact, bars_payload, spec_payload, dataset_manifest)
-    typer.echo(handle)
+    if not wait:
+        typer.echo(handle)
+        return
+    import time
+
+    while True:
+        status = eng.poll(handle)
+        if status.status in ("completed", "failed", "cancelled"):
+            typer.echo(status.model_dump_json(indent=2))
+            return
+        time.sleep(poll_interval_secs)
 
 
 @app.command()
