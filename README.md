@@ -19,6 +19,7 @@ The product is the *loop*: `hypothesis → code → backtest → verdict → nex
 - [Improving an existing strategy](#improving-an-existing-strategy)
 - [Creating a new strategy](#creating-a-new-strategy)
 - [Repo layout](#repo-layout)
+- [Documentation](#documentation)
 - [Lint, test, CI](#lint-test-ci)
 - [OpenSpec](#openspec)
 - [License](#license)
@@ -388,7 +389,20 @@ kb/                     Curated source list, starter corpus, recorded fixtures
 cache/                  Year-segmented content-addressed parquet (gitignored)
 ledger/                 SQLite ledger + parquet sidecars (gitignored)
 openspec/               Change proposals and capability specs
+docs/                   Operator-facing reference docs (see below)
 ```
+
+---
+
+## Documentation
+
+Operator-facing reference docs live in [`docs/`](./docs/). Capability specs (the *normative* contracts every subsystem implements) live in [`openspec/changes/rewrite-architecture/specs/`](./openspec/changes/rewrite-architecture/specs/) and are linked inline throughout the sections above.
+
+| Doc | Topic |
+|---|---|
+| [`docs/batch-spec.md`](./docs/batch-spec.md) | Full JSON reference for the `BatchSpec` files consumed by `strategy-gpt run --spec ...` — top-level fields, `RunSpec`, `Mode` variants, `EngineConfig`, `SanityBounds`, worked examples (single run + parameter sweep), reproducibility invariants. |
+
+Additional docs land here as new operator-facing surfaces ship. Capability changes still go through OpenSpec; `docs/` is for usage and shape references that complement the specs.
 
 ---
 
