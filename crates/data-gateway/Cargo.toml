@@ -18,9 +18,17 @@ tracing.workspace = true
 uuid.workspace = true
 blake3.workspace = true
 
+# HTTP client for the yfinance provider. Optional so CSV-only builds avoid
+# pulling rustls + ring. Enable with `--features yfinance`.
+ureq = { version = "=2.10.1", default-features = false, features = ["tls", "json", "gzip"], optional = true }
+
 # Bar blobs are JSON in v1 (same swap-stable approach as the ledger sidecars).
 # Parquet upgrade is task 5.4 follow-up; re-add polars with parquet feature
 # (default-features = false) when swapping.
+
+[features]
+default = []
+yfinance = ["dep:ureq"]
 
 [lib]
 path = "src/lib.rs"

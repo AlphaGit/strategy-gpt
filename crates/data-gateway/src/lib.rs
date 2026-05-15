@@ -1,9 +1,9 @@
 //! Multi-provider market data fetching, year-segmented cache, normalization,
 //! and consolidation. See spec `data-gateway`.
 //!
-//! Out of v1 scope (tracked as task 5.2 / 5.10): yfinance provider, PyO3
-//! bindings. Calendar alignment (5.6) and the parquet upgrade of cache blobs
-//! (5.4) remain follow-ups.
+//! The yfinance provider is feature-gated (`yfinance`) so CSV-only builds
+//! avoid the HTTP/TLS dependency surface. Calendar alignment (5.6) and the
+//! parquet upgrade of cache blobs (5.4) remain follow-ups.
 
 pub mod bar;
 pub mod cache;
