@@ -6,6 +6,70 @@ The canonical Rust source is [`crates/engine/src/spec.rs`](../crates/engine/src/
 
 ---
 
+## Concepts at a glance
+
+Strategy-GPT is a research loop, not a trading platform. Every backtest reduces to "run this strategy against these historical bars, with these knobs, and tell me how it performed." The schema below names the moving parts.
+
+### `BatchSpec` — the unit of work the engine accepts
+
+A `BatchSpec` is **one strategy + one dataset + N independent runs**. It's the *only* input shape the engine ever takes. Whether you want a single backtest, a 200-point parameter sweep, or a Monte-Carlo bootstrap of stress scenarios, it all comes in as a `BatchSpec`.
+
+Why batch them? Because the strategy is compiled **once per batch** and reused across every run. Compilation dominates wall-clock time for many runs of the same strategy; batching amortizes it. The engine fans the runs out to a worker subprocess pool so they execute in parallel, subject to `parallelism`.
+
+A `BatchSpec` is the level at which the ledger records lineage. Every accepted hypothesis, every optimizer iteration, every smoke test eventually becomes a `BatchSpec` whose hash, dataset reference, and verdict are written to the ledger.
+
+### `RunSpec` — one backtest configuration
+
+A `RunSpec` is the smallest re-executable unit: **one parameter set, one set of execution modes, one time slice, one seed**. Each run produces one `BacktestResult`.
+
+Multiple `RunSpec`s in the same `BatchSpec` are how you express things like:
+
+- A parameter sweep — same strategy, different `params` per run, same slice. The **parameter optimizer** (`python/strategy_gpt/optimizer.py`) emits these for you when you optimize against an `objective.yaml`.
+- A walk-forward evaluation — same params, different `slice` per fold. Folds are declared in the strategy's objective spec.
+- A stress matrix — same params and slice, different `modes` (e.g. Monte-Carlo on one run, slippage grid on another).
+
+### `Mode` — what kind of run this is
+
+Modes turn a single run into a family of runs the engine knows how to aggregate. They live on the `RunSpec` so the strategy itself never has to know whether it's executing in plain, stress, or sensitivity context — the engine reshuffles the bars or sweeps the parameter on its own.
+
+- **`plain`** — straight backtest over the slice. Default.
+- **`monte_carlo`** — block-bootstrap resamples of the input bars; produces confidence intervals on the metrics.
+- **`slippage`** — re-execute with a grid of slippage values to see how cost-sensitive the strategy is.
+- **`regime_filter`** — restrict execution to specific historical windows (e.g. only 2020 Q1 + 2022 Q4) to test regime fragility.
+- **`sensitivity`** — sweep a single parameter across values; produces a metric surface keyed by the swept dimension.
+
+Today only `plain` is wired in the executor; the other variants are reserved in the schema so optimizer/tester code can emit them ahead of executor support landing.
+
+### `EngineConfig` — how trades are simulated
+
+This is the **simulation environment**, not the strategy. It applies uniformly to every run in the batch. It says when a submitted order intent gets a price (`fill_model`), how much starting equity the run has (`initial_capital`), what costs to apply (`commission_per_fill`, `slippage_bps`), and what ceilings catch obviously-broken strategies (`sanity`).
+
+Importantly: this is a **backtest harness**. There is no broker, no real-time tick feed, no live position. "Fill" means "the engine picks a price off the next bar and updates the simulated position book." Sanity bounds are *backtest-validity* checks (they catch a strategy that submits 1000× equity in size), not live risk controls. Trips don't halt the run — they appear in `exec_log` so the diagnostic record is preserved.
+
+### `TimeRange` and `slice` — which bars the strategy sees
+
+A half-open `[start, end)` UTC window. Bars outside the slice are dropped before the strategy's `on_bar` is called. The slice is the obvious dial for walk-forward evaluation: each fold is a different slice over the same dataset.
+
+### `params` — strategy knobs
+
+Opaque JSON object. The engine doesn't inspect it; it goes into `state["__params__"]` and the strategy's `on_init` deserializes it. Two `RunSpec`s differing only in `params` are how you sweep a parameter without recompiling — same artifact hash, different inputs.
+
+The shape of `params` is defined by the strategy, not the engine. For the VXX reference strategy: `{"vol_lo": <float>, "vol_hi": <float>, "size": <float>, "symbol": <string>}`. For your strategy, whatever your `Strategy::on_init` chooses to read.
+
+### `seed` — determinism anchor
+
+`(strategy artifact, dataset, params, modes, slice, seed, runner version)` is the full reproducibility key. Identical key ⇒ byte-identical `BacktestResult`. Change any of these and you get a new run record on the ledger.
+
+### `strategy` / `dataset` — ledger labels
+
+Both are opaque strings. The engine doesn't load anything from them; the actual compiled artifact arrives via `--artifact <path>` and the bars via `--bars <path>`. These strings exist so the ledger has a stable identifier to show on `recent-decisions` and `replay`. Convention: use the strategy artifact's content hash and the gateway's manifest hash so the labels also serve as deduplication keys.
+
+### `parallelism` — soft fan-out cap
+
+Hint to the worker coordinator: don't run more than N worker subprocesses concurrently. Useful when you have a 200-point sweep on a laptop with 8 cores. Local single-process executors ignore this.
+
+---
+
 ## Top-level shape
 
 ```json
