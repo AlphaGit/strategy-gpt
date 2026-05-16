@@ -1,4 +1,4 @@
-"""End-to-end Tester integration tests (task 10.7).
+"""End-to-end Tester integration tests.
 
 These tests exercise the full pipeline against the in-tree
 ``example-strategy`` fixture: build pipeline → engine submission → smoke

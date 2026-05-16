@@ -1,9 +1,8 @@
 //! In-process synchronous backtest executor.
 //!
 //! `run_one` drives a single strategy across a stream of bars and returns a
-//! [`BacktestResult`]. The worker process binary (task 4.2) and coordinator
-//! (task 4.3) wrap this same loop with IPC and resource limits; the loop
-//! itself is shared.
+//! [`BacktestResult`]. The `engine-worker` binary and the coordinator wrap
+//! this same loop with IPC and resource limits; the loop itself is shared.
 
 use std::collections::HashMap;
 
@@ -23,8 +22,7 @@ use crate::runtime::RuntimeContext;
 use crate::spec::{BatchSpec, EngineConfig, RunSpec};
 use crate::trade_log::TradeLog;
 
-/// Annualization factor for daily bars. Other resolutions land with `Mode`
-/// expansion (4.7+) and a richer config knob.
+/// Annualization factor for daily bars.
 const DAILY_ANNUALIZATION: f64 = 252.0;
 
 #[derive(Clone, Debug, thiserror::Error)]
@@ -71,8 +69,8 @@ pub fn run_one(
     // Symbol set held in any bar in the slice (for equity exposure calc).
     let mut symbol_set: Vec<String> = Vec::new();
 
-    // Seeded RNG threaded through to fee perturbation; reserved for future
-    // stochastic stress modes (4.7-4.8).
+    // Seeded RNG threaded through to fee perturbation; reserved for
+    // stochastic stress modes.
     let _rng = ChaCha8Rng::seed_from_u64(run.seed);
 
     {

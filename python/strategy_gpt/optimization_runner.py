@@ -10,8 +10,8 @@ Drives a single optimization run:
 3. Cross-validate every fold winner across every fold's *OOS* slice in
    one additional packed batch.
 4. Score the per-candidate OOS aggregate via the strategy's objective
-   spec (``aggregator: mean`` for v1) and pick the best; break ties by
-   lower per-fold OOS-score variance.
+   spec (``aggregator: mean`` is the only supported aggregator) and pick
+   the best; break ties by lower per-fold OOS-score variance.
 
 The orchestrator is engine-IO-aware (knows how to pack a
 :class:`BatchSpec`, submit it, poll until completion, classify per-run

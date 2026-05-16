@@ -45,7 +45,7 @@ from .types import BacktestMetrics, Bar, DecisionKind, DecisionRecord
 
 # Keys in a ``proposed_change`` that mark it as a logic change rather than
 # a parameter-only diff. Presence of any of these forces the Tester to route
-# through the build pipeline (task 10.2) instead of the fast path.
+# through the build pipeline instead of the fast path.
 _LOGIC_CHANGE_KEYS: frozenset[str] = frozenset(
     {"source", "code", "rewrite", "diff", "patch", "new_strategy"}
 )
@@ -83,8 +83,8 @@ def parse_param_only_change(proposed_change: object) -> list[ParamDiff]:
     keys from :data:`_LOGIC_CHANGE_KEYS` (``source`` / ``code`` /
     ``rewrite`` / ``diff`` / ``patch`` / ``new_strategy``) — raises
     :class:`ParamOnlyTranslationError`. The tester upstream uses this
-    error to fall back to the logic-change translation path (10.2)
-    instead of treating the failure as fatal.
+    error to fall back to the logic-change translation path instead of
+    treating the failure as fatal.
     """
     if not isinstance(proposed_change, Mapping):
         msg = (
@@ -98,8 +98,7 @@ def parse_param_only_change(proposed_change: object) -> list[ParamDiff]:
     if logic_keys:
         msg = (
             "proposed_change carries logic-change keys "
-            f"{sorted(logic_keys)}; route via translate_logic_change "
-            "(task 10.2)"
+            f"{sorted(logic_keys)}; route via translate_logic_change"
         )
         raise ParamOnlyTranslationError(msg)
 
@@ -224,7 +223,7 @@ def parse_logic_change(proposed_change: object) -> LogicChangePayload:
 
     Raises :class:`LogicChangeTranslationError` for any malformed shape.
     Param-only payloads (no ``source``) are rejected so the caller can
-    route through :func:`translate_param_only` (task 10.1) instead.
+    route through :func:`translate_param_only` instead.
     """
     if not isinstance(proposed_change, Mapping):
         msg = f"proposed_change must be a mapping; got {type(proposed_change).__name__}"
@@ -232,7 +231,7 @@ def parse_logic_change(proposed_change: object) -> LogicChangePayload:
     if "source" not in proposed_change:
         msg = (
             "proposed_change is missing `source`; for parameter-only diffs "
-            "route through translate_param_only (task 10.1)"
+            "route through translate_param_only"
         )
         raise LogicChangeTranslationError(msg)
     if "manifest" not in proposed_change:
@@ -273,7 +272,7 @@ def translate_logic_change(
     The resulting library path becomes the strategy artifact; any
     ``params`` in the payload merge onto ``base_params``. The caller
     catches :class:`~strategy_gpt.build_pipeline.BuildFailure` to record
-    a ``rejected: build_failed`` decision (task 10.3).
+    a ``rejected: build_failed`` decision.
     """
     payload = parse_logic_change(candidate.proposed_change)
     outcome = build_pipeline.build(payload.source, payload.manifest)
@@ -695,7 +694,7 @@ def build_full_batch_spec(  # noqa: PLR0913 — all kwargs are part of the Batch
 
 
 # ---------------------------------------------------------------------------
-# Verdict evaluation (task 10.6)
+# Verdict evaluation
 # ---------------------------------------------------------------------------
 
 

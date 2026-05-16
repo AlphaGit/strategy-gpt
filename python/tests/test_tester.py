@@ -1,5 +1,4 @@
-"""Tester translation tests — parameter-only fast path (task 10.1) and
-logic-change path (task 10.2)."""
+"""Tester translation tests — parameter-only fast path and logic-change path."""
 
 from __future__ import annotations
 
@@ -159,7 +158,7 @@ def test_param_diff_alias_round_trip_via_validate() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Logic-change path (task 10.2)
+# Logic-change path
 # ---------------------------------------------------------------------------
 
 
@@ -298,7 +297,7 @@ def test_translate_logic_change_rejects_non_logic_payload() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Build-failed rejection path (task 10.3)
+# Build-failed rejection path
 # ---------------------------------------------------------------------------
 
 
@@ -401,7 +400,7 @@ def test_attempt_logic_change_records_rejection_on_parse_failure() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Smoke backtest (task 10.4)
+# Smoke backtest
 # ---------------------------------------------------------------------------
 
 
@@ -571,7 +570,7 @@ def test_run_smoke_sanity_violation_tagged() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Full batch spec (task 10.5)
+# Full batch spec
 # ---------------------------------------------------------------------------
 
 
@@ -634,7 +633,7 @@ def test_build_full_batch_spec_defaults_engine_config() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Verdict evaluation (task 10.6)
+# Verdict evaluation
 # ---------------------------------------------------------------------------
 
 

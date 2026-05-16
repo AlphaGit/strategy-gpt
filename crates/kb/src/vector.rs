@@ -1,9 +1,9 @@
-//! Vector store (v1: SQLite-backed brute-force cosine; future: lancedb).
+//! Vector store, SQLite-backed brute-force cosine.
 //!
-//! Each chunk has a single row in `embeddings`. Top-k retrieval scans the full
-//! table — fine at curated-KB scale (low thousands of chunks) and keeps the v1
-//! footprint minimal. Swap to a LanceDB collection at the trait boundary
-//! (`VectorStore::top_k`) when scale justifies the dependency cost.
+//! Each chunk has a single row in `embeddings`. Top-k retrieval scans the
+//! full table — fine at curated-KB scale (low thousands of chunks) and
+//! keeps the dependency footprint minimal. The [`VectorStore`] trait is
+//! the swap point (`top_k`) if scale justifies a dedicated vector DB.
 
 use rusqlite::params;
 

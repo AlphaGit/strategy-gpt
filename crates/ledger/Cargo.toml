@@ -18,9 +18,9 @@ thiserror.workspace = true
 tracing.workspace = true
 uuid.workspace = true
 
-# Sidecars are JSON in v1; parquet upgrade tracked in task 6.3 (note in
-# tasks.md). When swapping to parquet, re-add the polars/arrow workspace
-# dependency here with `default-features = false, features = ["parquet"]`.
+# Sidecars are JSON. When swapping to parquet, re-add the polars/arrow
+# workspace dependency here with
+# `default-features = false, features = ["parquet"]`.
 
 [lib]
 path = "src/lib.rs"

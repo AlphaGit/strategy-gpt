@@ -7,10 +7,9 @@
 //! [`WorkerResponse`]. Stderr is reserved for human-readable diagnostics and
 //! is never decoded.
 //!
-//! JSON-over-pipes is the v1 transport. The schema is shape-compatible with
-//! Arrow IPC framing (single record batch per message), so the upgrade path
-//! when columnar payloads become useful for the broader pipeline is a
-//! mechanical swap.
+//! The transport is JSON-over-pipes. The schema is shape-compatible with
+//! Arrow IPC framing (single record batch per message), so an upgrade to
+//! columnar payloads is a mechanical swap when justified.
 
 use std::io::{Read, Write};
 

@@ -42,7 +42,7 @@ Save the `manifest_hash` — that's how every downstream surface (engine, ledger
 | `--mode`        | Behavior |
 |-----------------|----------|
 | `prefer_cache`  | (default) Use cache when keys match; fetch only the missing years. |
-| `validate`      | Re-fetch and diff against the cached blob; emit divergence warnings on disagreement. Treat as `prefer_cache` in v1 with a follow-up. |
+| `validate`      | Re-fetch and diff against the cached blob; emit divergence warnings on disagreement. Currently aliased to `prefer_cache` (the full re-fetch/diff path is a planned follow-up). |
 | `force_refresh` | Bypass cache entirely; refetch every year and overwrite blobs. |
 | `offline`       | Never hit the network. Fail if any year is missing from the cache. Use for reproducibility-sensitive CI. |
 
@@ -175,7 +175,8 @@ Each `results[i]` is a `RunResult` discriminated entry — successful runs carry
 ```bash
 HANDLE=$(strategy-gpt run --spec examples/vxx/experiment.yaml)
 echo "submitted: $HANDLE"
-# Poll later via the Python engine surface; CLI poll subcommand lands with phase 13.
+# Poll later via the Python engine surface (`Engine.poll(handle)`); the CLI
+# currently only exposes `--wait` for blocking polls.
 ```
 
 ### Tweak parameters without recompiling
@@ -213,10 +214,10 @@ Every accepted *and* rejected decision is persisted to the ledger with its ratio
 
 ```bash
 strategy-gpt hypothesize
-# `hypothesize` is not implemented yet; lands with phase 9 (hypothesis-loop).
+# `hypothesize` is not implemented yet.
 ```
 
-The CLI subcommand is reserved but the driver isn't wired. Until it lands, drive the loop from Python directly.
+The CLI subcommand is reserved but the driver isn't wired. Drive the loop from Python directly.
 
 ### Python invocation pattern
 
@@ -266,7 +267,7 @@ Requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (see [.envrc.example](../.envrc
 7. (loop)                          # verdict feeds the next diagnose
 ```
 
-Steps 4-5 collapse into `strategy-gpt hypothesize` once the CLI driver lands.
+Steps 4-5 will collapse into `strategy-gpt hypothesize` once that CLI driver is wired (currently a stub).
 
 ---
 
@@ -457,8 +458,8 @@ same trial set is always preserved.
 | Replay a run | `strategy-gpt replay --run-id <id>` |
 | Submit batch (await) | `strategy-gpt run --spec <experiment.yaml> --wait` |
 | Submit batch (async) | same, drop `--wait` (returns handle) |
-| KB ingest | *(stub — phase 8)* |
-| Hypothesis loop | *(stub — drive via Python; see above)* |
+| KB ingest | *(CLI stub; drive via Python)* |
+| Hypothesis loop | *(CLI stub; drive via Python — see above)* |
 | Optimize | `strategy-gpt optimize --spec <experiment.yaml>` |
 | Benchmark before optimizing | `strategy-gpt optimize --spec <experiment.yaml> --benchmark --yes` |
 | Inspect an optimization | `strategy-gpt optimize inspect <opt_id>` |

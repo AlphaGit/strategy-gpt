@@ -1,4 +1,5 @@
-//! Graph store (v1: SQLite-backed; future: kuzu crate).
+//! Graph store, SQLite-backed. The [`GraphStore`] trait is the swap point
+//! if the storage choice changes (e.g. to a dedicated graph DB).
 
 use rusqlite::params;
 

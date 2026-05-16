@@ -29,7 +29,7 @@ pub struct SourceConfig {
     pub author: Option<String>,
     #[serde(default)]
     pub year: Option<i32>,
-    /// Filesystem path to the resource text. Plain UTF-8 only at v1; pdf/epub
+    /// Filesystem path to the resource text. Plain UTF-8 only; pdf/epub
     /// extraction happens upstream in the `kb/` ingestion glue.
     pub path: String,
     /// Optional default section label applied to all chunks unless overridden.

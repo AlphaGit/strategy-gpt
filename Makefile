@@ -1,8 +1,7 @@
 # strategy-gpt — top-level developer commands.
-# `make lint` runs the same suite as `pre-commit run --all-files`.
-#
-# TODO(rewrite-architecture/13.3): wire CI to call `make lint` and `make test`.
-# This Makefile is the canonical entry point; CI YAML should not duplicate the
+# `make lint` runs the same suite as `pre-commit run --all-files`. CI
+# (`.github/workflows/ci.yml`) invokes `make lint` + `make test`; this
+# Makefile is the canonical entry point and CI YAML should not duplicate the
 # rule selection or tool invocations.
 
 SHELL := /bin/bash
@@ -37,5 +36,5 @@ test: test-rust test-python ## Run all tests.
 test-rust: ## cargo test --workspace
 	cd crates && cargo test --workspace
 
-test-python: ## pytest (no-op until tests land)
-	@if [ -d python/tests ]; then cd python && pytest; else echo "no python tests yet"; fi
+test-python: ## pytest
+	cd python && pytest

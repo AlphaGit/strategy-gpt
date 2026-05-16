@@ -51,7 +51,7 @@ def test_hypothesize_exits_unimplemented() -> None:
     assert result.exit_code == 2
 
 
-def test_optimize_exits_unimplemented() -> None:
+def test_optimize_requires_spec_or_subcommand() -> None:
     result = runner.invoke(app, ["optimize"])
     assert result.exit_code == 2
 

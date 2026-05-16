@@ -1,7 +1,6 @@
 //! SQLite-backed storage layer.
 //!
-//! Owns the connection and schema. v1 stand-in for Kuzu (graph) + LanceDB
-//! (vectors); see `lib.rs`.
+//! Owns the connection and schema. See `lib.rs` for the swap-point traits.
 
 use std::path::Path;
 

@@ -1,8 +1,8 @@
 //! Bulk per-run array storage.
 //!
-//! v1 writes JSON sidecars under `<ledger_root>/sidecars/<run_id>/`. Parquet
-//! upgrade is task 6.3 follow-up; the [`SidecarKind`] enum and [`SidecarStore`]
-//! API stay shape-stable so the swap is internal.
+//! Writes JSON sidecars under `<ledger_root>/sidecars/<run_id>/`. The
+//! [`SidecarKind`] enum and [`SidecarStore`] API are shape-stable, so a
+//! parquet upgrade is an internal swap.
 
 use std::path::{Path, PathBuf};
 

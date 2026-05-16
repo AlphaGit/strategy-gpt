@@ -2,8 +2,6 @@
 
 Guidance for Claude Code working in this repository.
 
-> **Status:** the rewrite specified in `openspec/changes/rewrite-architecture/` is feature-complete at **v0.1.0**. The pre-rewrite reference implementation is preserved at the `pre-rewrite` git tag; it has been removed from `main`. The architecture, contracts, and flows below reflect the current implementation.
-
 ## Purpose
 
 Strategy-GPT is an **LLM-driven research loop for creating and testing quantitative trading strategies**. Given a strategy plus its parameters and recent backtest performance, the loop diagnoses weaknesses, generates testable hypotheses informed by a curated knowledge base, codes and backtests them, and persists every accepted/rejected decision so the system improves over time.
@@ -47,9 +45,9 @@ crates/                 Rust workspace
   engine/               BatchSpec, coordinator, worker, modes
   data-gateway/         providers, cache, normalizer, consolidator
   ledger/               SQLite append-only + parquet sidecars
-  kb/                   Kuzu (graph) + LanceDB (vector) hybrid retrieval
-                        (v1 ships a SQLite-backed stand-in matching the same
-                        retrieval contract; swap is a localized refactor)
+  kb/                   Hybrid retrieval (graph + vector) over a SQLite-backed
+                        store. The retrieval contract is the load-bearing
+                        interface, not the storage choice.
   build-pipeline/       lint, allowed-crate enforcement, cargo build
   py-bindings/          PyO3 module exposing trusted crates as `strategy_gpt._native`
   vxx-strategy/         Reference VXX volatility-range smoke strategy cdylib
@@ -79,7 +77,7 @@ openspec/               Change proposals and capability specs
 - **opt_id** — content-addressed identifier (blake2b of the canonical experiment-spec JSON) for a single optimization run. Names the persistence directory `ledger/optimizations/<opt_id>/`.
 - **Trial** — one backtest the optimizer commissioned: a row in `trials.parquet` carrying `(trial_id, round, phase, fold_index, params, seed, metrics, score, accepted, reject_reason, wall_secs)`.
 - **Fold winner** — the best-scoring accepted candidate for one fold's *train* search. Each fold yields exactly one winner.
-- **OOS aggregate** — mean of a fold winner's per-fold OOS metrics across all folds (only `aggregator: mean` in v1). The final candidate is the fold winner with the best OOS-aggregate score, ties broken by lower per-fold OOS-score variance.
+- **OOS aggregate** — mean of a fold winner's per-fold OOS metrics across all folds (`aggregator: mean` is the only supported aggregator). The final candidate is the fold winner with the best OOS-aggregate score, ties broken by lower per-fold OOS-score variance.
 - **Selection layer** — overfitting-aware gate + re-ranking that sits *above* the search method. Operates on `trials.parquet` + `manifest.json`; pure function of the trial set + knobs. Records `decision`, `pbo`, `deflated_sharpe`, `sensitivity_score`, and `would_have_picked` in `best.json`. See `docs/optimization.md`.
 - **PBO** — Probability of Backtest Overfitting (Bailey, Borwein, López de Prado, Zhu 2017). Computed by Combinatorially Symmetric Cross-Validation (CSCV) over the per-fold OOS metric matrix. If PBO exceeds the threshold (default 0.5), the run is `rejected_pbo` and no `best` is published without `--force`.
 - **DSR** — Deflated Sharpe Ratio (Bailey & López de Prado 2014). Adjusts the raw Sharpe for multiple-testing inflation against the expected maximum under the null; reports the probability that the true Sharpe exceeds zero. Default final-rank metric.
@@ -94,8 +92,8 @@ openspec/               Change proposals and capability specs
 - **Build Pipeline** — lint, allowed-crate whitelist (no version pinning), `cargo build` with sccache, content-addressed artifact cache.
 - **Hypothesis Loop** — LangGraph workflow (`diagnose`, `kb_query`, `generate`, `critique`, `rank`, `select`) with internal iteration and persisted decision log.
 - **Tester** — translate hypothesis to artifact, run lint + smoke + full batch, report verdict against falsification criterion.
-- **Parameter Optimizer** — in-house grid/random/Bayesian over the experiment-spec fold scheme, multi-metric objectives, LLM-generated rationale.
-- **Knowledge Base** — Kuzu + LanceDB hybrid, curated ingestion, citation-friendly retrieval.
+- **Parameter Optimizer** — in-house per-fold search (grid, random, Sobol, Bayesian/TPE, recursive grid, LHS+Hooke-Jeeves, successive halving, CMA-ES, differential evolution) over the experiment-spec fold scheme, multi-metric objectives, overfitting-aware selection layer, LLM-generated rationale.
+- **Knowledge Base** — hybrid graph + vector retrieval over a SQLite-backed store, curated ingestion, citation-friendly retrieval.
 - **Experiment Ledger** — SQLite append-only + parquet sidecars; sufficient (with cache) to byte-identical reproduce any run.
 
 ## Reproducibility
@@ -133,8 +131,7 @@ Stance:
 - **Rust**: tool defaults. No `.rustfmt.toml` or `clippy.toml`. `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets -- -D warnings`.
 - **Python**: strict. Ruff with a wide rule set (`E,F,W,I,B,UP,SIM,RUF,S,N,PT,ANN,C4,ERA,PL`) plus `ruff format --check` plus `mypy --strict`. Mypy strict scope is `python/strategy_gpt/`; `kb/` and tests are excluded explicitly.
 - Tool versions are pinned in `.pre-commit-config.yaml`. Pre-commit hooks scope to staged files; `make lint` covers the whole tree.
-
-No CI yet (lands in `rewrite-architecture` task 13.3 and will call `make lint`).
+- CI (`.github/workflows/ci.yml`) runs `make lint` + `make test` plus a smoke-fixture byte-identity check.
 
 ## Environment
 
@@ -143,7 +140,6 @@ No CI yet (lands in `rewrite-architecture` task 13.3 and will call `make lint`).
 
 ## Working in this repo
 
-- Specs live under `openspec/changes/rewrite-architecture/specs/<capability>/spec.md`. Code must satisfy the named requirements; scenarios are testable.
+- Specs live under `openspec/specs/<capability>/spec.md`. Code must satisfy the named requirements; scenarios are testable.
 - Strategy code is the *only* place LLM output runs as native code. All other Rust is human-authored and trusted.
 - The `Strategy` trait is sealed. Strategies are generated by the build pipeline, not hand-written outside it.
-- Old `pre-rewrite` artifacts at the tag of the same name; do not import or revive them.

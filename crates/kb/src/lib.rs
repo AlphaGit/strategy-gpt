@@ -1,11 +1,11 @@
 //! Knowledge base: hybrid graph + vector retrieval over curated financial
 //! resources.
 //!
-//! The spec ([`knowledge-base`](../../../openspec/changes/rewrite-architecture/specs/knowledge-base/spec.md))
-//! names Kuzu and LanceDB as the underlying stores. v1 ships an embedded
-//! SQLite-backed implementation that preserves the same retrieval contract and
-//! schema; swapping the backing store to real Kuzu + LanceDB is a localized
-//! refactor against the [`graph::GraphStore`] / [`vector::VectorStore`] traits.
+//! The spec ([`knowledge-base`](../../../openspec/specs/knowledge-base/spec.md))
+//! defines the retrieval contract. The current implementation is an
+//! embedded SQLite-backed store; the [`graph::GraphStore`] /
+//! [`vector::VectorStore`] traits are the swap points if the storage
+//! choice changes.
 
 pub mod chunk;
 pub mod client;

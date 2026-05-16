@@ -1,4 +1,4 @@
-"""Smoke-run regression test (task 12.3 + 12.4).
+"""Smoke-run regression test.
 
 Asserts the end-to-end pipeline's recorded summary against the fixture in
 ``kb/fixtures/smoke_run.json``. Any change in the pipeline's emitted

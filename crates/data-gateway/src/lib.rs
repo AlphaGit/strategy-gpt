@@ -2,8 +2,8 @@
 //! and consolidation. See spec `data-gateway`.
 //!
 //! The yfinance provider is feature-gated (`yfinance`) so CSV-only builds
-//! avoid the HTTP/TLS dependency surface. Calendar alignment (5.6) and the
-//! parquet upgrade of cache blobs (5.4) remain follow-ups.
+//! avoid the HTTP/TLS dependency surface. Exchange-calendar alignment and a
+//! parquet upgrade for cache blobs are planned follow-ups.
 
 pub mod bar;
 pub mod cache;

@@ -1,10 +1,10 @@
 """Tests for the hypothesis-loop generate/critique/rank/select nodes and
 the inner ``generate → critique → rank`` iteration loop.
 
-Includes the golden-fixture test (task 9.12): a stubbed
-:class:`ReasoningClient` drives the full loop against a canned
-:class:`BacktestResult`, then asserts the final state's accepted /
-rejected / termination snapshot byte-for-byte.
+Includes the golden-fixture test: a stubbed :class:`ReasoningClient`
+drives the full loop against a canned :class:`BacktestResult`, then
+asserts the final state's accepted / rejected / termination snapshot
+byte-for-byte.
 """
 
 from __future__ import annotations
@@ -476,7 +476,7 @@ def test_run_inner_loop_requires_diagnosis() -> None:
 
 
 # ---------------------------------------------------------------------------
-# golden fixture (task 9.12)
+# golden fixture
 # ---------------------------------------------------------------------------
 
 

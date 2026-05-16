@@ -2,7 +2,7 @@
 
 The engine accepts a single input: a **`BatchSpec`**. One strategy, one dataset, N runs. Every CLI invocation of `strategy-gpt run --spec <file>` and every Python call into `Engine.submit_batch(...)` resolves to a `BatchSpec` matching the schema below.
 
-The canonical Rust source is [`crates/engine/src/spec.rs`](../crates/engine/src/spec.rs); the capability contract is [`backtest-engine/spec.md`](../openspec/changes/rewrite-architecture/specs/backtest-engine/spec.md). This document is the operator-facing description of the on-disk JSON shape.
+The canonical Rust source is [`crates/engine/src/spec.rs`](../crates/engine/src/spec.rs); the capability contract is [`backtest-engine/spec.md`](../openspec/specs/backtest-engine/spec.md). This document is the operator-facing description of the on-disk JSON shape.
 
 ---
 
@@ -38,7 +38,7 @@ Modes turn a single run into a family of runs the engine knows how to aggregate.
 - **`regime_filter`** — restrict execution to specific historical windows (e.g. only 2020 Q1 + 2022 Q4) to test regime fragility.
 - **`sensitivity`** — sweep a single parameter across values; produces a metric surface keyed by the swept dimension.
 
-Today only `plain` is wired in the executor; the other variants are reserved in the schema so optimizer/tester code can emit them ahead of executor support landing.
+Only `plain` is wired in the executor; the other variants are reserved in the schema so optimizer/tester code can emit them ahead of executor support landing.
 
 ### `EngineConfig` — how trades are simulated
 
@@ -110,7 +110,7 @@ A single backtest configuration: one parameter set, zero or more modes, one slic
 | Field    | Type           | Description |
 |----------|----------------|-------------|
 | `params` | object (free-shape JSON) | Strategy parameters. Opaque to the engine — passed through to the strategy's `on_init` via `state["__params__"]`. For the VXX reference strategy: `{"vol_lo": 0.01, "vol_hi": 0.04, "size": 100.0, "symbol": "VXX"}`. |
-| `modes`  | array of `Mode`| Execution modes. **Currently only `Plain` is implemented in the executor.** The other variants are reserved here so `RunSpec` is shape-stable and stress/sensitivity batches can be authored ahead of executor support. |
+| `modes`  | array of `Mode`| Execution modes. **Only `Plain` is implemented in the executor.** The other variants are reserved here so `RunSpec` is shape-stable and stress/sensitivity batches can be authored ahead of executor support. |
 | `seed`   | `u64`          | Deterministic seed. Same `(strategy artifact, dataset, params, modes, slice, seed, runner version)` produces a byte-identical `BacktestResult`. |
 | `slice`  | `TimeRange`    | Half-open `[start, end)` UTC window. Bars outside the slice are dropped before the strategy sees them. |
 
@@ -128,7 +128,7 @@ Serde tag: `kind` (snake_case).
 
 | `kind`            | Extra fields                                                       | Description |
 |-------------------|--------------------------------------------------------------------|-------------|
-| `plain`           | —                                                                  | Straight backtest over the slice. The only variant the executor currently runs. |
+| `plain`           | —                                                                  | Straight backtest over the slice. The only variant the executor runs. |
 | `monte_carlo`     | `n: u32`, `block_size: u32`                                        | Block-bootstrap resamples of the input bars. Aggregated metrics with confidence intervals land in `BacktestResult.stress`. |
 | `slippage`        | `bps_grid: number[]`                                               | Apply each slippage value (in bps) to every fill; one sub-result per grid point. |
 | `regime_filter`   | `ranges: TimeRange[]`                                              | Restrict execution to the listed historical ranges. |
@@ -257,7 +257,7 @@ strategy-gpt run \
 
 The strategy is compiled exactly once; 200 backtests run across up to 8 worker subprocesses.
 
-In practice you do not hand-author this — the **parameter optimizer** (`python/strategy_gpt/optimizer.py`) walks a search space (`grid` / `random` / `bayesian`) and emits the `BatchSpec` for you, applying the strategy's `objective.yaml` to score candidates over walk-forward folds. See [`param-optimizer/spec.md`](../openspec/changes/rewrite-architecture/specs/param-optimizer/spec.md).
+In practice you do not hand-author this — the **parameter optimizer** (`python/strategy_gpt/optimizer.py`) walks a search space (`grid` / `random` / `bayesian`) and emits the `BatchSpec` for you, applying the strategy's `objective.yaml` to score candidates over walk-forward folds. See [`param-optimizer/spec.md`](../openspec/specs/param-optimizer/spec.md).
 
 ---
 
@@ -288,4 +288,4 @@ Not part of the `BatchSpec`, but worth knowing what comes back. Each run produce
 - `meta` — artifact hash, dataset manifest hash, seed, runner version.
 - `stress` / `sensitivity` — present when the corresponding modes ran.
 
-Full schema and scenarios: [`backtest-engine/spec.md`](../openspec/changes/rewrite-architecture/specs/backtest-engine/spec.md).
+Full schema and scenarios: [`backtest-engine/spec.md`](../openspec/specs/backtest-engine/spec.md).

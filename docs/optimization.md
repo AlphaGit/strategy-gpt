@@ -111,12 +111,13 @@ optimize:
     popsize: auto                       # auto -> 4 + floor(3 * ln(D))
     sigma0: 0.3
     n_generations: 50
-    restart_strategy: null              # ipop / bipop land later
+    restart_strategy: null              # only `null` is supported
     bounds: clip                        # | reject
 ```
 
-Library: `cma`. Determinism: cma honors `seed=`; record in manifest.
-`restart_strategy: ipop|bipop` not yet wired — only `null` runs today.
+Library: `cma`. Determinism: cma honors `seed=`; recorded in the
+manifest. Only `restart_strategy: null` is wired; IPOP/BIPOP restarts
+are not supported.
 
 ### `differential_evolution`
 
@@ -148,10 +149,11 @@ first generation across replays.
 
 ### Other methods
 
-`recursive_grid` (default), `grid`, `random`, `bayesian` (TPE). See
-existing `optimize.<method>` knob blocks in
-[`docs/experiment-spec.md`](experiment-spec.md). All search methods documented above. Adding a method = a single new
-file under `python/strategy_gpt/search/` + a one-line registry entry.
+`recursive_grid` (default), `grid`, `random`, `bayesian` (TPE). See the
+`optimize.<method>` knob blocks in
+[`docs/experiment-spec.md`](experiment-spec.md). Adding a method = a
+single new file under `python/strategy_gpt/search/` + a one-line
+registry entry.
 
 ### Method/space advisories
 
@@ -172,7 +174,7 @@ recorded benchmark JSON carries them too.
 Every optimization run's manifest records:
 
 - `library_versions` — scipy, cma, numpy, pyarrow versions seen at run
-  time. A future replay can detect drift before re-running.
+  time, so a replay can detect drift before re-running.
 - `resolved_knobs` — concrete values for any `auto` knobs the method
   resolved at run time (e.g., CMA-ES `popsize = 4 + floor(3 * ln(D))`).
 
@@ -181,9 +183,9 @@ Every optimization run's manifest records:
 All direct dependencies pinned per the project's supply-chain freshness
 rule: every version installed MUST be ≥ 7 days old at install time. The
 manifest records the resolved version per method (e.g.,
-`scipy==1.17.1`); a future scipy / cma release that breaks determinism
-falls back to the previous compliant pin in the manifest, not the
-in-house module.
+`scipy==1.17.1`); a scipy / cma release that breaks determinism is
+pinned back to the previous compliant version in the manifest, not
+patched in the in-house module.
 
 
 

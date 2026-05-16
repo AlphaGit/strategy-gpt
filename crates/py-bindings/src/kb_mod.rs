@@ -1,10 +1,10 @@
 //! PyO3 bindings for the knowledge base.
 //!
-//! Surface (per task 8.7):
+//! Surface:
 //! - `KnowledgeBase(db_path, base_dir)` — opens / creates the SQLite-backed
-//!   store; uses the v1 [`HashEmbedder`](kb::HashEmbedder) + a permissive
-//!   keyword extractor by default (overrides land with the orchestrator's
-//!   ingestion adapter).
+//!   store; uses the bundled [`HashEmbedder`](kb::HashEmbedder) and a
+//!   permissive keyword extractor by default (overrides can come from the
+//!   orchestrator's ingestion adapter).
 //! - `retrieve(query, k) -> str` — JSON [`kb::RetrievalResult`].
 //! - `add_source(source_json) -> str` — JSON [`kb::IngestOutcome`].
 //! - `add_source_from_text(source_json, text) -> str` — JSON

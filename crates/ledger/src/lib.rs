@@ -8,9 +8,10 @@
 //! protected table so misbehaving clients see a structured `RAISE(ABORT, …)`
 //! at the SQL boundary.
 //!
-//! Bulk per-bar arrays (trades, signals, equity, exec_log) live in sidecar
-//! files referenced by run id from the `runs` table. Sidecars are JSON in
-//! v1; parquet upgrade is task 6.3 follow-up.
+//! Bulk per-bar arrays (trades, signals, equity, exec_log) live in JSON
+//! sidecar files referenced by run id from the `runs` table. A parquet
+//! upgrade is a planned follow-up; the `SidecarStore` API is shape-stable
+//! across the swap.
 
 pub mod error;
 pub mod ledger;

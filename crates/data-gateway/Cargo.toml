@@ -22,9 +22,9 @@ blake3.workspace = true
 # pulling rustls + ring. Enable with `--features yfinance`.
 ureq = { version = "=2.10.1", default-features = false, features = ["tls", "json", "gzip"], optional = true }
 
-# Bar blobs are JSON in v1 (same swap-stable approach as the ledger sidecars).
-# Parquet upgrade is task 5.4 follow-up; re-add polars with parquet feature
-# (default-features = false) when swapping.
+# Bar blobs are JSON (same swap-stable approach as the ledger sidecars). To
+# upgrade to parquet, re-add polars here with the `parquet` feature
+# (default-features = false).
 
 [features]
 default = []

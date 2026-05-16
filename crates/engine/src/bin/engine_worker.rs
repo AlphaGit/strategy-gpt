@@ -138,8 +138,8 @@ fn apply_resource_limits() {
 
 #[cfg(not(unix))]
 fn apply_resource_limits() {
-    // Non-Unix: setrlimit equivalents (Job Objects on Windows) are not wired
-    // in v1. The coordinator's time cap still applies; the mem cap is a no-op.
+    // Non-Unix: setrlimit equivalents (Job Objects on Windows) are not wired.
+    // The coordinator's time cap still applies; the mem cap is a no-op.
 }
 
 /// Test-only hooks driven by env vars. Coordinator integration tests use
@@ -164,7 +164,7 @@ fn apply_test_hooks() {
 /// Per-run test hooks. `STRATEGY_GPT_TEST_FAIL_SEEDS` is a comma-separated
 /// list of seeds; if the incoming run's seed appears, the worker exits
 /// non-zero so the coordinator records a structured failure. Lets a single
-/// integration test seed deterministic mid-batch failures (task 4.2).
+/// integration test seed deterministic mid-batch failures.
 fn apply_per_run_test_hooks(request: &WorkerRequest) {
     let Ok(seeds) = std::env::var("STRATEGY_GPT_TEST_FAIL_SEEDS") else {
         return;

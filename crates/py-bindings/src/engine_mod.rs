@@ -115,7 +115,7 @@ impl PyEngine {
     /// every worker subprocess so the Rust tracing layer stamps it onto
     /// each event. The orchestrator's structlog context binds the same
     /// id; both log streams join on `run_id` for cross-process
-    /// correlation (task 13.2).
+    /// correlation.
     #[pyo3(signature = (artifact_path, bars_json, spec_json, dataset_manifest, run_id=None))]
     fn submit_batch(
         &self,

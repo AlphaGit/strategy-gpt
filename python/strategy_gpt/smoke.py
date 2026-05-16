@@ -1,13 +1,13 @@
 """End-to-end smoke run: data → engine → ledger → KB-aware hypothesis loop
 → tester → engine → verdict.
 
-Spec coverage (task 12.3): one pass through every public surface, stubbed
-where running against the real LLM / native engine would slow down CI but
-real on the data shapes and module wiring. The recorded `SmokeReport`
-(task 12.4) is the regression fixture: subsequent commits must not
-silently change the shape or content of this report. The reference VXX
-strategy crate (`crates/vxx-strategy`) is the strategy under test; its
-objective spec lives at `crates/vxx-strategy/objective.yaml`.
+One pass through every public surface, stubbed where running against the
+real LLM / native engine would slow down CI but real on the data shapes
+and module wiring. The recorded :class:`SmokeReport` is the regression
+fixture: subsequent commits must not silently change the shape or content
+of this report. The reference VXX strategy crate (`crates/vxx-strategy`)
+is the strategy under test; its objective spec lives at
+`crates/vxx-strategy/objective.yaml`.
 
 The function is intentionally pure-Python and free of native-extension
 imports so it runs in any developer environment. Native-backed paths are
@@ -128,7 +128,7 @@ class _StubKbClient:
 
 class _StubReasoningClient:
     """Canned hypothesis generator + critic. Deterministic so the smoke
-    report is a byte-stable regression fixture (task 12.4)."""
+    report is a byte-stable regression fixture."""
 
     def generate(
         self,

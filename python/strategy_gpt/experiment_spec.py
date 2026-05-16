@@ -1,4 +1,4 @@
-"""Pydantic loader for the ``experiment-spec`` v1 schema.
+"""Pydantic loader for the ``experiment-spec`` schema.
 
 An experiment-spec is the single declarative file consumed by
 ``strategy-gpt run --spec <file>``. It fully determines a backtest
@@ -8,8 +8,8 @@ per-run resource caps.
 
 The loader produces an :class:`ExperimentSpec` plus a translation helper
 :meth:`ExperimentSpec.to_batch_spec` that emits the inner ``BatchSpec``
-dict the engine PyO3 binding still expects. The change is in how callers
-*compose* the BatchSpec; the engine's wire shape is unchanged.
+dict the engine PyO3 binding accepts. Callers compose at the spec level;
+the engine's wire shape is the ``BatchSpec``.
 
 Polymorphism of ``bars``: exactly one of ``dataset`` (cache-resident
 manifest hash) or ``request`` (a :class:`BarRequest` that the runner

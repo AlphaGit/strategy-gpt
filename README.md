@@ -65,7 +65,7 @@ End-to-end, one iteration of the research loop:
 2. engine            run baseline BatchSpec against the current strategy
 3. ledger            record run + BacktestResult (append-only)
 4. hypothesis-loop   diagnose → kb_query → generate → critique → rank → select
-                     ├─ KB hybrid retrieval (Kuzu graph + LanceDB vector)
+                     ├─ KB hybrid retrieval (graph + vector)
                      ├─ reasoning model (Anthropic / OpenAI)
                      └─ persist accepted/rejected decisions to the ledger
 5. tester            translate hypothesis → parameter diff OR new Rust source
@@ -76,21 +76,21 @@ End-to-end, one iteration of the research loop:
 7. (loop)            verdict feeds the next diagnose pass
 ```
 
-Reproducibility invariant: every run pins the strategy-artifact hash, dataset-manifest hash, parameters, modes, seed, and runner version. Identical inputs produce byte-identical `BacktestResult`s. The ledger plus the local cache are sufficient to byte-identically reproduce any historical run via `strategy-gpt replay --run-id <id>` (see [`experiment-ledger/spec.md`](./openspec/changes/rewrite-architecture/specs/experiment-ledger/spec.md)).
+Reproducibility invariant: every run pins the strategy-artifact hash, dataset-manifest hash, parameters, modes, seed, and runner version. Identical inputs produce byte-identical `BacktestResult`s. The ledger plus the local cache are sufficient to byte-identically reproduce any historical run via `strategy-gpt replay --run-id <id>` (see [`experiment-ledger/spec.md`](./openspec/specs/experiment-ledger/spec.md)).
 
 Detailed per-stage contracts:
 
 | Stage | Crate / module | Spec |
 |---|---|---|
-| Fetch, cache, consolidate | `crates/data-gateway` | [`data-gateway/spec.md`](./openspec/changes/rewrite-architecture/specs/data-gateway/spec.md) |
-| Backtest | `crates/engine` + `engine-rt` | [`backtest-engine/spec.md`](./openspec/changes/rewrite-architecture/specs/backtest-engine/spec.md) |
-| Ledger | `crates/ledger` | [`experiment-ledger/spec.md`](./openspec/changes/rewrite-architecture/specs/experiment-ledger/spec.md) |
-| Knowledge base | `crates/kb` (v1 SQLite stand-in; Kuzu + LanceDB swap-in is a localized refactor) | [`knowledge-base/spec.md`](./openspec/changes/rewrite-architecture/specs/knowledge-base/spec.md) |
-| Hypothesis loop | `python/strategy_gpt/hypothesis_loop.py`, `nodes.py`, `diagnose.py`, `kb_query.py` | [`hypothesis-loop/spec.md`](./openspec/changes/rewrite-architecture/specs/hypothesis-loop/spec.md) |
-| Tester | `python/strategy_gpt/tester.py` | [`tester/spec.md`](./openspec/changes/rewrite-architecture/specs/tester/spec.md) |
-| Optimizer | `python/strategy_gpt/optimizer.py` | [`param-optimizer/spec.md`](./openspec/changes/rewrite-architecture/specs/param-optimizer/spec.md) |
-| Objective specs | `crates/objectives` + per-strategy `objective.yaml` | [`objectives/spec.md`](./openspec/changes/rewrite-architecture/specs/objectives/spec.md) |
-| Build pipeline | `crates/build-pipeline` (incl. `whitelist.toml`) | [`strategy-runtime/spec.md`](./openspec/changes/rewrite-architecture/specs/strategy-runtime/spec.md) |
+| Fetch, cache, consolidate | `crates/data-gateway` | [`data-gateway/spec.md`](./openspec/specs/data-gateway/spec.md) |
+| Backtest | `crates/engine` + `engine-rt` | [`backtest-engine/spec.md`](./openspec/specs/backtest-engine/spec.md) |
+| Ledger | `crates/ledger` | [`experiment-ledger/spec.md`](./openspec/specs/experiment-ledger/spec.md) |
+| Knowledge base | `crates/kb` (hybrid graph + vector over SQLite) | [`knowledge-base/spec.md`](./openspec/specs/knowledge-base/spec.md) |
+| Hypothesis loop | `python/strategy_gpt/hypothesis_loop.py`, `nodes.py`, `diagnose.py`, `kb_query.py` | [`hypothesis-loop/spec.md`](./openspec/specs/hypothesis-loop/spec.md) |
+| Tester | `python/strategy_gpt/tester.py` | [`tester/spec.md`](./openspec/specs/tester/spec.md) |
+| Optimizer | `python/strategy_gpt/optimizer.py` | [`param-optimizer/spec.md`](./openspec/specs/param-optimizer/spec.md) |
+| Objective specs | `crates/objectives` + per-strategy `objective.yaml` | [`objectives/spec.md`](./openspec/specs/objectives/spec.md) |
+| Build pipeline | `crates/build-pipeline` (incl. `whitelist.toml`) | [`strategy-runtime/spec.md`](./openspec/specs/strategy-runtime/spec.md) |
 
 ---
 
@@ -105,7 +105,7 @@ Two reference strategies are checked in:
 
 ### The `Strategy` trait
 
-Every strategy implements five lifecycle methods (see [`strategy-runtime/spec.md`](./openspec/changes/rewrite-architecture/specs/strategy-runtime/spec.md)):
+Every strategy implements five lifecycle methods (see [`strategy-runtime/spec.md`](./openspec/specs/strategy-runtime/spec.md)):
 
 - `metadata()` — name, version, author, description.
 - `on_init(ctx)` — once before any bars; pull `__params__` out of state.
@@ -180,7 +180,7 @@ Smoke runs, replays, and the test suite work without any API keys.
 
 ### Per-strategy objective spec (`objective.yaml`)
 
-Every strategy declares its own `objective.yaml` next to its `Cargo.toml`. This single file drives **both** the evaluator and the parameter optimizer (see [`objectives/spec.md`](./openspec/changes/rewrite-architecture/specs/objectives/spec.md)). The VXX reference spec at `crates/vxx-strategy/objective.yaml` is a complete worked example:
+Every strategy declares its own `objective.yaml` next to its `Cargo.toml`. This single file drives **both** the evaluator and the parameter optimizer (see [`objectives/spec.md`](./openspec/specs/objectives/spec.md)). The VXX reference spec at `crates/vxx-strategy/objective.yaml` is a complete worked example:
 
 ```yaml
 primary:
@@ -237,8 +237,8 @@ strategy-gpt cache-stats        # blob count + total bytes in the cache
 strategy-gpt recent-decisions   # dump the ledger's recent-decisions view
 strategy-gpt replay             # reconstruct a recorded run from the ledger
 strategy-gpt run                # submit a BatchSpec to the engine
-strategy-gpt ingest             # KB ingestion (phase-8 subcommand)
-strategy-gpt hypothesize        # hypothesis-loop entry
+strategy-gpt ingest             # KB ingestion (CLI surface reserved; drive via Python)
+strategy-gpt hypothesize        # hypothesis-loop entry (CLI surface reserved; drive via Python)
 strategy-gpt optimize           # parameter optimizer entry
 ```
 
@@ -306,7 +306,7 @@ The optimizer reads the strategy's `objective.yaml` and sweeps parameters across
 strategy-gpt optimize    # (driver wiring lives in python/strategy_gpt/optimizer.py)
 ```
 
-Three search methods: `grid`, `random`, `bayesian` (TPE). All deterministic given the same seed. The output is the optimized parameter set, its walk-forward aggregated metrics, **and** a natural-language rationale that consults both the optimizer's observed surface and the KB (`python/strategy_gpt/rationale.py`).
+Search methods: `recursive_grid` (default), `grid`, `random`, `sobol`, `bayesian` (TPE), `lhs_polish`, `successive_halving`, `cma_es`, `differential_evolution`. All deterministic given the same seed. Every run goes through an overfitting-aware selection layer (PBO gate, Deflated Sharpe re-ranking, parameter-sensitivity / robust score) before `best.json` is published — see [`docs/optimization.md`](./docs/optimization.md). The output is the optimized parameter set, its walk-forward aggregated metrics, **and** a natural-language rationale that consults both the optimizer's observed surface and the KB (`python/strategy_gpt/rationale.py`).
 
 ### 2. Hypothesis loop (parameter or logic change)
 
@@ -361,7 +361,7 @@ crates/                 Rust workspace
   engine/               BatchSpec, coordinator, worker, modes (Plain / MonteCarlo / Slippage / RegimeFilter / Sensitivity)
   data-gateway/         providers, year-segmented content-addressed cache, normalizer, consolidator
   ledger/               SQLite append-only + parquet sidecars
-  kb/                   hybrid retrieval (Kuzu graph + LanceDB vector; v1 ships a SQLite stand-in matching the same contract)
+  kb/                   hybrid retrieval (graph + vector) over a SQLite-backed store
   build-pipeline/       lint, allowed-crate whitelist enforcement, cargo build with sccache + content-addressed artifact cache
   objectives/           objective-spec parsing + validation (per-strategy YAML)
   py-bindings/          PyO3 module exposing trusted crates as `strategy_gpt._native`
@@ -378,7 +378,8 @@ python/strategy_gpt/    Orchestrator
   nodes.py              diagnose / generate / critique / rank / select node implementations
   diagnose.py           Diagnosis logic + result projection
   tester.py             Hypothesis → artifact translation, lint + smoke + full-batch pipeline, verdict
-  optimizer.py          Grid / random / TPE search over walk-forward folds
+  optimizer.py          Per-fold search drivers (grid / random / sobol / bayesian / recursive_grid / lhs_polish / successive_halving / cma_es / differential_evolution) over walk-forward folds
+  search/               One file per search method, registered via __init__.py
   objectives.py         Pydantic mirror of the YAML objective spec
   rationale.py          LLM-grounded rationale generator (consults KB)
   reasoning.py          Reasoning-model client (Anthropic / OpenAI)
@@ -396,14 +397,16 @@ docs/                   Operator-facing reference docs (see below)
 
 ## Documentation
 
-Operator-facing reference docs live in [`docs/`](./docs/). Capability specs (the *normative* contracts every subsystem implements) live in [`openspec/changes/rewrite-architecture/specs/`](./openspec/changes/rewrite-architecture/specs/) and are linked inline throughout the sections above.
+Operator-facing reference docs live in [`docs/`](./docs/). Capability specs (the *normative* contracts every subsystem implements) live in [`openspec/specs/`](./openspec/specs/) and are linked inline throughout the sections above.
 
 | Doc | Topic |
 |---|---|
-| [CLI cookbook](./docs/cli-cookbook.md) | Recipe-style command lines for the workflows you'll run most often — downloading and referencing datasets, running strategies, driving the hypothesis loop. Quick-reference table at the end. |
-| [`BatchSpec` JSON reference](./docs/batch-spec.md) | Full JSON reference for the `BatchSpec` files consumed by `strategy-gpt run --spec ...` — top-level fields, `RunSpec`, `Mode` variants, `EngineConfig`, `SanityBounds`, worked examples (single run + parameter sweep), reproducibility invariants. |
+| [CLI cookbook](./docs/cli-cookbook.md) | Recipe-style command lines for the workflows you'll run most often — downloading and referencing datasets, running strategies, driving the hypothesis loop and optimizer. Quick-reference table at the end. |
+| [`experiment-spec` reference](./docs/experiment-spec.md) | Schema for the `experiment-spec` YAML/JSON consumed by `strategy-gpt run --spec ...` — top-level fields, `bars` polymorphism, folds, optimize block, `auto` semantics. |
+| [`BatchSpec` JSON reference](./docs/batch-spec.md) | Internal engine input shape (the loader translates `experiment-spec` into this). Top-level fields, `RunSpec`, `Mode` variants, `EngineConfig`, `SanityBounds`, worked examples, reproducibility invariants. |
+| [Parameter optimization](./docs/optimization.md) | Search methods, overfitting-aware selection layer (PBO / DSR / robust score), reselection workflow, decision logic. |
 
-Additional docs land here as new operator-facing surfaces ship. Capability changes still go through OpenSpec; `docs/` is for usage and shape references that complement the specs.
+Capability changes go through OpenSpec; `docs/` is for usage and shape references that complement the specs.
 
 ---
 

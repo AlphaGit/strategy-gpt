@@ -1,7 +1,7 @@
-//! Blob storage. v1 writes JSON bar arrays under `<root>/blobs/<hex>.json`.
+//! Blob storage. Writes JSON bar arrays under `<root>/blobs/<hex>.json`.
 //!
-//! Parquet upgrade is task 5.4 follow-up; [`BlobStore`]'s public API stays
-//! shape-stable across formats.
+//! [`BlobStore`]'s public API is shape-stable, so a parquet upgrade is an
+//! internal swap.
 
 use std::path::{Path, PathBuf};
 
@@ -15,8 +15,9 @@ pub enum CacheMode {
     /// Read from cache when available; fetch on miss. The default.
     #[default]
     PreferCache,
-    /// Reserved: refresh from provider periodically to compare against cache.
-    /// V1 treats `Validate` as `PreferCache`. (Task 5.5 follow-up.)
+    /// Reserved: refresh from provider periodically to compare against
+    /// cache. Currently aliased to `PreferCache`; the full refresh/diff
+    /// path is a planned follow-up.
     Validate,
     /// Bypass cache for this call.
     ForceRefresh,

@@ -1,9 +1,8 @@
 //! Entity / relation extractor abstraction.
 //!
-//! Production extractor calls a reasoning model with a structured-output
-//! prompt; v1 ships [`KeywordExtractor`], a deterministic rule-based stub that
-//! lets the rest of the ingestion pipeline + retrieval tests run without an
-//! API key. The orchestrator can swap implementations through the
+//! [`KeywordExtractor`] is the bundled deterministic rule-based extractor,
+//! which lets the ingestion pipeline + retrieval tests run without an API
+//! key. A model-backed extractor can be swapped in through the
 //! [`Extractor`] trait.
 
 use std::collections::HashMap;

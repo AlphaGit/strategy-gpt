@@ -90,7 +90,7 @@ class Engine:
         every worker subprocess so the Rust tracing layer stamps it onto
         each event. The orchestrator's structlog context binds the same
         id; both log streams join on ``run_id`` for cross-process
-        correlation (task 13.2).
+        correlation.
         """
         bars_json = _BARS_ADAPTER.dump_json(bars).decode()
         spec_json = json.dumps(spec)

@@ -135,9 +135,8 @@ Derivation rules (see `strategy_gpt.folds.derive_folds`):
 ### Optimize
 
 `optimize` declares a parameter search over the run template. When
-present, `folds` is mandatory. The runner (added by the
-`optimize-command` change) reads the block and dispatches one
-fold-aware batch per candidate.
+present, `folds` is mandatory. The runner reads the block and dispatches
+one fold-aware batch per candidate.
 
 ```yaml
 optimize:
@@ -185,10 +184,11 @@ string `auto` is never persisted.
 
 ---
 
-## Migration: `batch.json` → `experiment.yaml`
+## Migration reference: legacy `batch.json` shape
 
-The legacy `batch.json` shape is rejected with an explicit error. The
-field-by-field mapping is:
+The legacy `batch.json` shape is rejected by the loader with an explicit
+error. The field-by-field mapping below is kept as a reference for
+anyone porting an old spec file:
 
 | Legacy `batch.json` | New `experiment.yaml` |
 |---|---|
@@ -211,15 +211,13 @@ field-by-field mapping is:
 The runner refuses to silently coerce legacy files — fix the file
 shape, do not paper over it.
 
-### Release note — Rust-side schema unchanged
+### Why `engine.slippage_bps` is gone from the user-facing schema
 
 The Rust `engine::spec::EngineConfig` struct (`crates/engine/src/spec.rs`)
-**still carries `slippage_bps`** — the field is consumed by the
-`Slippage` stress mode (`crates/engine/src/modes.rs`) and applied per
-fill by the executor (`crates/engine/src/executor.rs`). The change in
-this proposal is purely on the user-facing surface: the experiment-spec
-loader does not accept `slippage_bps` under `engine`, and the
-translation to the internal `BatchSpec` injects `slippage_bps: 0.0` so
-the Rust schema continues to deserialize unchanged. Strategies that
-need slippage continue to declare it as a `Slippage { bps_grid }` mode
-on the run.
+still carries `slippage_bps` — the field is consumed by the `Slippage`
+stress mode (`crates/engine/src/modes.rs`) and applied per fill by the
+executor (`crates/engine/src/executor.rs`). The split is purely on the
+user-facing surface: the experiment-spec loader does not accept
+`slippage_bps` under `engine`, and the translation to the internal
+`BatchSpec` injects `slippage_bps: 0.0`. Strategies that need slippage
+declare it as a `Slippage { bps_grid }` mode on the run.

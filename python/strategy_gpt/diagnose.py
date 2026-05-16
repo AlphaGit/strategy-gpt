@@ -6,8 +6,8 @@ Pure-Python analyzer that turns a :class:`BacktestResult` into a structured
 node is deterministic — given the same ``BacktestResult`` it produces the
 same diagnosis — which keeps the loop replayable from the ledger.
 
-Scope (`hypothesis-loop::langgraph-workflow-with-explicit-nodes` and
-task 9.2): analyze trade clusters, regime performance, and signal misfires.
+Scope (`hypothesis-loop::langgraph-workflow-with-explicit-nodes`): analyze
+trade clusters, regime performance, and signal misfires.
 Trade-cluster summary is win/loss split, P&L extremes, and side split.
 Regime performance buckets trades by post-hoc :class:`RegimeTag` ranges and
 reports per-label P&L. Signal misfires count fired-but-unused versus

@@ -28,7 +28,7 @@ priority order:
 The default similarity function is a Jaccard-token overlap over
 ``name`` + canonical proposed-change JSON. It is intentionally simple
 and deterministic so loop replays from the ledger stay stable; KB-aware
-embedding similarity is a follow-up that lands with the KB phase.
+embedding similarity is a planned follow-up.
 """
 
 from __future__ import annotations

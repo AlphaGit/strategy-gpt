@@ -66,7 +66,7 @@ class HypothesisCandidate(BaseModel):
 
     ``falsification`` and ``proposed_change`` are free-form JSON values
     because their shape varies by hypothesis kind (parameter diff vs.
-    new strategy source). The Tester (phase 10) interprets them.
+    new strategy source). The Tester interprets them.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -137,8 +137,8 @@ class HypothesisLoopState(BaseModel):
     The graph mutates this object node-by-node:
 
     - ``diagnose`` populates the diagnostic summary that the prompt for
-      ``generate`` consumes (kept as an opaque payload in
-      ``diagnosis`` until phase 9.2 lands).
+      ``generate`` consumes (carried as an opaque payload in
+      ``diagnosis``).
     - ``kb_query`` extends ``kb_cites`` and rewrites ``open`` candidates
       with retrieved citations.
     - ``generate`` appends new candidates to ``open``.

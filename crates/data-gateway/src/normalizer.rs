@@ -1,6 +1,6 @@
 //! Bar normalization: UTC enforcement, range clipping, sort/dedup.
 //!
-//! Exchange-calendar alignment is task 5.6 follow-up.
+//! Exchange-calendar alignment is a planned follow-up.
 
 use chrono::{DateTime, Utc};
 use engine_rt::Bar;

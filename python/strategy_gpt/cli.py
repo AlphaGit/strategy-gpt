@@ -1,17 +1,17 @@
 """Top-level CLI. Subcommands surface the trusted Rust crates and the
-in-house orchestrator. Commands whose underlying capability has not landed
-yet are registered with explicit ``not implemented`` exits so the surface
-remains discoverable as phases complete.
+in-house orchestrator. Commands whose driver isn't wired yet are
+registered with explicit ``not implemented`` exits so the surface is
+discoverable.
 
-Surface (rewrite-architecture task 13.1):
+Surface:
 - ``version`` — print the installed package version.
 - ``fetch`` — pull a dataset through the data gateway.
 - ``cache-stats`` — summarize the on-disk blob store.
 - ``recent-decisions`` — dump the ledger's recent-decision view.
 - ``replay`` — reconstruct a recorded run's BatchSpec + dataset.
 - ``run`` — submit an experiment-spec to the engine (requires engine-worker binary).
-- ``ingest`` — KB ingestion (phase 8).
-- ``hypothesize`` — hypothesis-loop entry (phase 9).
+- ``ingest`` — KB ingestion (stub; drive via Python).
+- ``hypothesize`` — hypothesis-loop entry (stub; drive via Python).
 - ``optimize`` — parameter optimizer (per-fold search + cross-fold OOS validation).
 """
 
@@ -223,11 +223,11 @@ def _resolve_bars(
 def _load_cached_bars(gateway_root: Path, manifest_hash: str) -> list[Bar]:
     """Load bars for an already-cached dataset by manifest hash.
 
-    The current cache stores per-year parquet blobs; materializing them
-    back into a Bar list requires the gateway's normalizer. Pending a
-    direct ``Gateway.load_by_manifest(...)`` surface, the v1 loader
-    requires the caller to have materialized the bars previously and
-    raises a structured error otherwise.
+    The cache stores per-year parquet blobs; materializing them back into
+    a Bar list requires the gateway's normalizer. Pending a direct
+    ``Gateway.load_by_manifest(...)`` surface, this loader requires the
+    caller to have materialized the bars previously and raises a
+    structured error otherwise.
     """
     materialized = gateway_root / "materialized" / f"{manifest_hash}.json"
     if not materialized.exists():
@@ -243,18 +243,14 @@ def _load_cached_bars(gateway_root: Path, manifest_hash: str) -> list[Bar]:
 
 @app.command()
 def ingest() -> None:
-    """KB ingestion (phase 8 — not implemented yet)."""
-    raise typer.Exit(
-        code=_unimplemented("ingest", phase="8 (knowledge-base ingestion)"),
-    )
+    """KB ingestion — CLI driver not implemented yet (drive via Python)."""
+    raise typer.Exit(code=_unimplemented("ingest"))
 
 
 @app.command()
 def hypothesize() -> None:
-    """Run the hypothesis loop (phase 9 — not implemented yet)."""
-    raise typer.Exit(
-        code=_unimplemented("hypothesize", phase="9 (hypothesis-loop)"),
-    )
+    """Hypothesis loop — CLI driver not implemented yet (drive via Python)."""
+    raise typer.Exit(code=_unimplemented("hypothesize"))
 
 
 optimize_app = typer.Typer(
@@ -701,9 +697,9 @@ def _format_result(result: Any, ledger_root: Path, opt_id: str, *, as_json: bool
     return "\n".join(lines)
 
 
-def _unimplemented(name: str, *, phase: str) -> int:
+def _unimplemented(name: str) -> int:
     typer.echo(
-        f"`{name}` is not implemented yet; lands with phase {phase}.",
+        f"`{name}` is not implemented yet (drive the underlying surface via Python).",
         err=True,
     )
     return 2
