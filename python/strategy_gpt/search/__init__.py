@@ -19,6 +19,7 @@ from .bayesian import BayesianSearch
 from .cma_es import CmaEsSearch
 from .differential_evolution import DifferentialEvolutionSearch
 from .grid import GridSearch
+from .lhs_polish import LhsPolishSearch
 from .random_search import RandomSearch
 from .recursive_grid import RecursiveGridSearch
 from .sobol import SobolSearch
@@ -33,6 +34,7 @@ _METHODS: tuple[SearchMethod | GlobalSearchMethod, ...] = (
     DifferentialEvolutionSearch(),
     CmaEsSearch(),
     SuccessiveHalvingSearch(),
+    LhsPolishSearch(),
 )
 
 REGISTRY: dict[str, SearchMethod | GlobalSearchMethod] = {m.name: m for m in _METHODS}

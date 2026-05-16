@@ -358,6 +358,57 @@ def cma_dedup_rate(params_list: Sequence[Mapping[str, Any]]) -> float:
     return 1.0 - unique / len(fingerprints)
 
 
+# ---------------------------------------------------------------------------
+# Latin Hypercube + Hooke-Jeeves polish helpers
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LhsSearcher:
+    """Latin Hypercube sampler over ``space``.
+
+    Wraps :class:`scipy.stats.qmc.LatinHypercube` and projects unit-cube
+    samples through the same :func:`_project_unit` map :class:`SobolSearcher`
+    uses, so int / choice / log-continuous dims are honored identically.
+    Deterministic given ``seed``.
+    """
+
+    space: Mapping[str, RandomParam]
+    n_points: int
+    seed: int = 0
+
+    def candidates(self) -> Iterator[ParamSet]:
+        from scipy.stats import qmc  # noqa: PLC0415 — optional dep.
+
+        keys = list(self.space.keys())
+        if not keys:
+            return
+        d = len(keys)
+        engine = qmc.LatinHypercube(d=d, seed=self.seed)
+        unit = engine.random(n=self.n_points)
+        for row in unit:
+            yield {k: _project_unit(float(row[i]), self.space[k]) for i, k in enumerate(keys)}
+
+
+def hooke_jeeves_propose(base_unit: Sequence[float], step: Sequence[float]) -> list[list[float]]:
+    """Propose ``2D`` axis-aligned probes ``base ± step`` per dimension.
+
+    Returns the probe list in fixed order so the orchestrator's packed
+    batch is deterministic. Probes are returned in unit-cube space; the
+    caller clamps to [0, 1] and projects to the named param space.
+    """
+    d = len(base_unit)
+    probes: list[list[float]] = []
+    for i in range(d):
+        plus = list(base_unit)
+        minus = list(base_unit)
+        plus[i] = min(1.0, plus[i] + step[i])
+        minus[i] = max(0.0, minus[i] - step[i])
+        probes.append(plus)
+        probes.append(minus)
+    return probes
+
+
 def de_sobol_init(
     space: Mapping[str, RandomParam],
     keys: Sequence[str],
@@ -1068,6 +1119,7 @@ __all__ = [
     "EvaluateFn",
     "GridSearcher",
     "IntParam",
+    "LhsSearcher",
     "OptimizerResult",
     "ParamSet",
     "RandomParam",
@@ -1086,5 +1138,6 @@ __all__ = [
     "de_project_individual",
     "de_resolve_popsize",
     "de_sobol_init",
+    "hooke_jeeves_propose",
     "optimize",
 ]

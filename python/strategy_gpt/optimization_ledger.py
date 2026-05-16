@@ -180,6 +180,8 @@ class OptimizationLedger:
             "experiment_spec": _experiment_json(experiment),
             "objective": dict(objective),
             "selection_methodology": dict(SELECTION_METHODOLOGY),
+            "library_versions": _library_versions(),
+            "resolved_knobs": _resolved_knobs(experiment),
         }
         self.manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
         _ensure_index(self._sqlite_path)
@@ -317,6 +319,57 @@ def _default(obj: Any) -> Any:  # noqa: ANN401 — heterogeneous JSON serializer
 def _experiment_json(experiment: Any) -> dict[str, Any]:  # noqa: ANN401
     payload: dict[str, Any] = json.loads(experiment.model_dump_json())
     return payload
+
+
+def _library_versions() -> dict[str, str]:
+    """Snapshot library versions that affect candidate sequences across replays.
+
+    The optimizer's determinism contract pins method-relevant libraries
+    here so :func:`replay` can detect a downstream version drift before
+    re-running. Missing libraries record ``"absent"`` rather than
+    erroring — the manifest is metadata, not a gate.
+    """
+    from importlib.metadata import PackageNotFoundError, version  # noqa: PLC0415 — lazy import.
+
+    out: dict[str, str] = {}
+    for name in ("scipy", "cma", "numpy", "pyarrow"):
+        try:
+            out[name] = version(name)
+        except PackageNotFoundError:
+            out[name] = "absent"
+    return out
+
+
+def _resolved_knobs(experiment: Any) -> dict[str, Any]:  # noqa: ANN401
+    """Resolve ``auto`` knobs that depend on the search-space shape.
+
+    Records the concrete int value alongside the user-facing string so
+    a future replay knows what the optimizer actually picked even if
+    the algorithm defaults change later.
+    """
+    if experiment.optimize is None:
+        return {}
+    optim = experiment.optimize
+    method = optim.method
+    n_dims = len(optim.space)
+    out: dict[str, Any] = {"method": method, "n_dims": n_dims}
+    if method == "differential_evolution" and optim.differential_evolution is not None:
+        from .optimizer import de_resolve_popsize  # noqa: PLC0415 — lazy.
+
+        knobs = optim.differential_evolution
+        out["popsize"] = de_resolve_popsize(knobs.popsize, n_dims)
+        out["n_generations"] = knobs.n_generations
+    elif method == "cma_es" and optim.cma_es is not None:
+        from .optimizer import cma_resolve_popsize  # noqa: PLC0415 — lazy.
+
+        knobs_cma = optim.cma_es
+        out["popsize"] = cma_resolve_popsize(knobs_cma.popsize, n_dims)
+        out["n_generations"] = knobs_cma.n_generations
+    elif method == "sobol" and optim.sobol is not None:
+        from .optimizer import _next_power_of_two  # noqa: PLC0415 — lazy.
+
+        out["n_points"] = _next_power_of_two(optim.sobol.n_points)
+    return out
 
 
 def _best_payload(result: OptimizationResult) -> dict[str, Any]:

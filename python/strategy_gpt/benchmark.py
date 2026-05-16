@@ -65,6 +65,7 @@ class BenchmarkReport:
     predicted_wall_secs_low: float
     predicted_wall_secs_high: float
     predicted_ledger_bytes: int
+    advisories: list[str]
 
 
 def _sample_random_candidates(optim: OptimizeBlock, n: int) -> list[dict[str, Any]]:
@@ -93,6 +94,39 @@ def planned_run_count(optim: OptimizeBlock, folds_count: int) -> int:
     is a ``strategy_gpt/search/<name>.py`` change, not a change here.
     """
     return get_search_method(optim.method).planned_run_count(optim, folds_count)
+
+
+_SOBOL_COVERAGE_HEADROOM = 8
+
+
+def _method_advisories(optim: OptimizeBlock) -> list[str]:
+    """Render the one-line method/space mismatch notes for the report.
+
+    Heuristics live here (not in the search-method registry) because
+    they're cross-method — they recommend an alternative method given
+    the current method + space shape.
+    """
+    out: list[str] = []
+    n_float = sum(1 for p in optim.space.values() if isinstance(p, SpecFloatParam))
+    n_int = sum(1 for p in optim.space.values() if isinstance(p, SpecIntParam))
+    n_choice = sum(1 for p in optim.space.values() if isinstance(p, SpecChoiceParam))
+    if optim.method == "cma_es" and n_int > n_float:
+        out.append(
+            "advisory: search space has more integer than float dims; "
+            "differential_evolution typically handles mixed-integer better than cma_es"
+        )
+    if optim.method == "sobol":
+        from .experiment_spec import SobolKnobs  # noqa: PLC0415 — local import to avoid cycle.
+
+        knobs = optim.sobol if optim.sobol is not None else SobolKnobs()
+        n_dims = n_float + n_int + n_choice
+        threshold = 1 << (n_dims + _SOBOL_COVERAGE_HEADROOM)
+        if knobs.n_points < threshold:
+            out.append(
+                f"advisory: sobol n_points={knobs.n_points} < 2^(D+8)={threshold} "
+                f"for D={n_dims}; coverage may be too sparse"
+            )
+    return out
 
 
 def run_benchmark(  # noqa: PLR0913
@@ -161,13 +195,14 @@ def run_benchmark(  # noqa: PLR0913
         predicted_wall_secs_low=low,
         predicted_wall_secs_high=high,
         predicted_ledger_bytes=total * _LEDGER_BYTES_PER_ROW,
+        advisories=_method_advisories(experiment.optimize),
     )
 
 
 def format_report(report: BenchmarkReport) -> str:
     """Plain-text rendering for stdout."""
     bytes_mb = report.predicted_ledger_bytes / (1024 * 1024)
-    return (
+    out = (
         f"benchmark sample: {report.sample_size}\n"
         f"  per-run median:    {report.median_per_run_secs:.3f}s\n"
         f"  per-run stdev:     {report.stdev_per_run_secs:.3f}s\n"
@@ -179,6 +214,9 @@ def format_report(report: BenchmarkReport) -> str:
         f"-{report.predicted_wall_secs_high:.1f}s (±{int(_BANDWIDTH * 100)}%)\n"
         f"predicted ledger:    {bytes_mb:.1f} MiB\n"
     )
+    for a in report.advisories:
+        out += f"  {a}\n"
+    return out
 
 
 def report_json(report: BenchmarkReport) -> str:

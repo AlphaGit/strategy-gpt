@@ -197,6 +197,32 @@ class RecursiveGridKnobs(BaseModel):
     plateau_epsilon: float = Field(default=1e-4, gt=0)
 
 
+class LhsPolishKnobs(BaseModel):
+    """Knobs for ``method: lhs_polish`` (Latin Hypercube + local polish).
+
+    Defensible small-budget baseline: a Latin Hypercube seed gives
+    global coverage, then Hooke-Jeeves polishes from the top-K LHS
+    points (parallelized at the engine-batch level — each polish
+    step's ``2D`` axis-probes pack as one sub-batch across all
+    trajectories).
+
+    Nelder-Mead polish is gated behind an experimental flag; it is
+    fragile on noisy objectives so the default is the more robust
+    axis-aligned pattern search.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    lhs_n: int = Field(default=128, ge=2)
+    top_k_polish: int = Field(default=4, ge=1)
+    polish: Literal["hooke_jeeves", "nelder_mead"] = "hooke_jeeves"
+    initial_step: float = Field(default=0.1, gt=0.0, le=1.0)
+    """Fraction of each dim's range to use as Hooke-Jeeves's initial step."""
+    step_min: float = Field(default=0.001, gt=0.0, le=1.0)
+    """Stop when every dim's step falls below this fraction of the range."""
+    max_polish_iters: int = Field(default=50, ge=1)
+    lhs_seed: int = 0
+
+
 class SuccessiveHalvingKnobs(BaseModel):
     """Knobs for ``method: successive_halving`` (Jamieson & Talwalkar 2016).
 
@@ -216,7 +242,7 @@ class SuccessiveHalvingKnobs(BaseModel):
     initial_candidates: int = Field(default=64, ge=2)
     eta: int = Field(default=3, ge=2)
     initial_folds: int = Field(default=2, ge=1)
-    init_method: Literal["sobol", "random"] = "sobol"
+    init_method: Literal["sobol", "lhs", "random"] = "sobol"
     init_seed: int = 0
 
 
@@ -315,6 +341,7 @@ class OptimizeBlock(BaseModel):
         "differential_evolution",
         "cma_es",
         "successive_halving",
+        "lhs_polish",
     ]
     seed: int = 0
     aggregator: Literal["mean"] = "mean"
@@ -327,6 +354,7 @@ class OptimizeBlock(BaseModel):
     differential_evolution: DEKnobs | None = None
     cma_es: CmaEsKnobs | None = None
     successive_halving: SuccessiveHalvingKnobs | None = None
+    lhs_polish: LhsPolishKnobs | None = None
     persist: PersistBlock
     selection: SelectionKnobs = SelectionKnobs()
     robust_objective: bool = False
@@ -529,6 +557,7 @@ __all__ = [
     "FoldsBlock",
     "GridKnobs",
     "IntParam",
+    "LhsPolishKnobs",
     "OptimizeBlock",
     "ParamSpace",
     "PboKnobs",

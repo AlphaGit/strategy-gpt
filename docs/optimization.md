@@ -28,6 +28,38 @@ optimize:
 Library: `scipy.stats.qmc.Sobol`. Determinism: fully seedable when
 scrambled; deterministic by construction otherwise.
 
+### `lhs_polish`
+
+Defensible small-budget baseline. Latin Hypercube (McKay et al. 1979)
+gives global coverage of the search space; Hooke-Jeeves (axis-aligned
+pattern search) polishes from the top-K LHS points. Each polish step's
+``2 * D`` axis probes pack as one engine batch across all `top_k_polish`
+trajectories, so per-iteration cost is `top_k_polish * 2 * D` runs.
+Trajectories deactivate when every dim's step falls below `step_min`
+(fraction of the dim range); polish-round count in the trial log
+reveals exactly when each trajectory gave up.
+
+Nelder-Mead polish is gated behind a feature flag — it is fragile on
+noisy objectives, so the default is the more robust axis-aligned
+pattern search.
+
+```yaml
+optimize:
+  method: lhs_polish
+  lhs_polish:
+    lhs_n: 128
+    top_k_polish: 4
+    polish: hooke_jeeves
+    initial_step: 0.1         # fraction of each dim's range
+    step_min: 0.001
+    max_polish_iters: 50
+    lhs_seed: 42
+```
+
+Library: `scipy.stats.qmc.LatinHypercube` (LHS); in-house Hooke-Jeeves
+(~80 lines). Determinism: LHS seeded; Hooke-Jeeves deterministic by
+construction.
+
 ### `successive_halving`
 
 Multi-fidelity over the fold-count axis (Jamieson & Talwalkar 2016).
@@ -118,7 +150,31 @@ first generation across replays.
 
 `recursive_grid` (default), `grid`, `random`, `bayesian` (TPE). See
 existing `optimize.<method>` knob blocks in
-[`docs/experiment-spec.md`](experiment-spec.md). `lhs_polish` lands in the next chunk.
+[`docs/experiment-spec.md`](experiment-spec.md). All search methods documented above. Adding a method = a single new
+file under `python/strategy_gpt/search/` + a one-line registry entry.
+
+### Method/space advisories
+
+The benchmark report's predictor surfaces one-line advisories when the
+configured method is a poor fit for the declared search space:
+
+- `cma_es` over a space with more integer than float dims → suggest
+  `differential_evolution` (it handles mixed-integer better via scipy's
+  `integrality` constraint).
+- `sobol` with `n_points < 2^(D + 8)` → coverage too sparse for a
+  D-dim space; increase `n_points` or pick a different method.
+
+Advisories are also persisted in `BenchmarkReport.advisories` so a
+recorded benchmark JSON carries them too.
+
+### Determinism manifest
+
+Every optimization run's manifest records:
+
+- `library_versions` — scipy, cma, numpy, pyarrow versions seen at run
+  time. A future replay can detect drift before re-running.
+- `resolved_knobs` — concrete values for any `auto` knobs the method
+  resolved at run time (e.g., CMA-ES `popsize = 4 + floor(3 * ln(D))`).
 
 ## Supply-chain rule
 

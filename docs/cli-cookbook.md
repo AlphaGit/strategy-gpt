@@ -315,7 +315,7 @@ strategy-gpt optimize inspect <opt_id> --trial 4271     # one trial row
 strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
 ```
 
-`--method recursive_grid|grid|random|sobol|differential_evolution|cma_es|successive_halving` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
+`--method recursive_grid|grid|random|sobol|differential_evolution|cma_es|successive_halving|lhs_polish` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
 
 ### Sobol quasi-random (drop-in replacement for `random`)
 
@@ -335,6 +335,26 @@ optimize:
     scramble: true
     owen_seed: 42
   persist: { root: ./ledger, name: vxx-sobol }
+```
+
+### LHS + Hooke-Jeeves polish (small-budget baseline)
+
+Latin Hypercube seeds the space, Hooke-Jeeves polishes from the top-K
+LHS points. Per-iteration cost is `top_k * 2 * D` runs.
+
+```bash
+strategy-gpt optimize --spec experiment.yaml --method lhs_polish
+
+# Or declare in the spec
+optimize:
+  method: lhs_polish
+  lhs_polish:
+    lhs_n: 128
+    top_k_polish: 4
+    polish: hooke_jeeves
+    initial_step: 0.1
+    step_min: 0.001
+  persist: { root: ./ledger, name: vxx-lhs }
 ```
 
 ### Successive Halving (multi-fidelity)

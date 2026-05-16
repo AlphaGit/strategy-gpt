@@ -29,7 +29,7 @@ from ..experiment_spec import (
     OptimizeBlock,
     SuccessiveHalvingKnobs,
 )
-from ..optimizer import RandomParam, RandomSearcher, SobolSearcher
+from ..optimizer import LhsSearcher, RandomParam, RandomSearcher, SobolSearcher
 from .base import GlobalSearchContext
 
 if TYPE_CHECKING:
@@ -43,8 +43,11 @@ def _initial_candidates(
     n = knobs.initial_candidates
     seed = knobs.init_seed
     if knobs.init_method == "sobol":
-        searcher = SobolSearcher(space=space, n_points=n, scramble=True, owen_seed=seed)
-        return list(searcher.candidates())[:n]
+        return list(
+            SobolSearcher(space=space, n_points=n, scramble=True, owen_seed=seed).candidates()
+        )[:n]
+    if knobs.init_method == "lhs":
+        return list(LhsSearcher(space=space, n_points=n, seed=seed).candidates())
     return list(RandomSearcher(space=space, n_iter=n, seed=seed).candidates())
 
 
