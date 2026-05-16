@@ -1,6 +1,4 @@
-# VXX volatility-range parameter search example.
-# Demonstrates the optional `optimize` + `folds` blocks. See
-# docs/experiment-spec.md.
+# Bigger VXX optimize demo: res=10, depth=4, 4 folds, wider vol range.
 
 artifact: ../../crates/target/debug/libvxx_strategy.dylib
 strategy_label: vxx-local
@@ -25,32 +23,32 @@ runs:
     seed: 42
     slice:
       start: 2018-01-01T00:00:00Z
-      end:   2026-12-31T00:00:00Z
+      end:   2024-12-31T00:00:00Z
 
 folds:
   count: 4
   scheme: rolling
-  gap: 0
 
 optimize:
-  method: grid
+  method: recursive_grid
   seed: 42
   aggregator: mean
   space:
     vol_lo:
       type: float
-      low: 0.20
-      high: 0.50
-      step: 0.05
+      low: 0.10
+      high: 0.80
     vol_hi:
       type: float
-      low: 0.60
-      high: 1.00
-      step: 0.10
-  grid:
-    resolution: 5
+      low: 0.50
+      high: 2.00
+  recursive_grid:
+    resolution: 10
+    top_k: 2
+    depth: 4
+    plateau_epsilon: 0.0001
   persist:
-    root: ./optimize-runs
-    name: vxx-grid-baseline
+    root: ./ledger
+    name: vxx-demo-big
 
 parallelism: auto

@@ -19,8 +19,6 @@ fetches through the gateway before submitting).
 from __future__ import annotations
 
 import json
-import os
-import sys
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -33,6 +31,7 @@ from pydantic import (
     model_validator,
 )
 
+from .parallelism import resolve_parallelism
 from .types import (
     BarRequest,
     FillModel,
@@ -134,6 +133,8 @@ class FloatParam(BaseModel):
     low: float
     high: float
     step: float | None = Field(default=None, gt=0)
+    resolution: int | None = Field(default=None, ge=2)
+    """Per-dim resolution override for `recursive_grid`. Ignored by other methods."""
 
     @model_validator(mode="after")
     def _check_range(self) -> FloatParam:
@@ -149,6 +150,8 @@ class IntParam(BaseModel):
     low: int
     high: int
     step: int | None = Field(default=None, gt=0)
+    resolution: int | None = Field(default=None, ge=2)
+    """Per-dim resolution override for `recursive_grid`. Ignored by other methods."""
 
     @model_validator(mode="after")
     def _check_range(self) -> IntParam:
@@ -185,9 +188,10 @@ class BayesianKnobs(BaseModel):
 
 class RecursiveGridKnobs(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    levels: int = Field(default=2, ge=1)
-    shrink: float = Field(default=0.5, gt=0)
-    resolution: int = Field(default=3, ge=2)
+    resolution: int = Field(default=10, ge=2)
+    top_k: int = Field(default=1, ge=1)
+    depth: int = Field(default=5, ge=1)
+    plateau_epsilon: float = Field(default=1e-4, gt=0)
 
 
 class PersistBlock(BaseModel):
@@ -307,9 +311,7 @@ class ExperimentSpec(BaseModel):
 
     def resolved_parallelism(self) -> int:
         """Resolve ``parallelism: auto`` against the current host."""
-        if isinstance(self.parallelism, int):
-            return self.parallelism
-        return _resolve_auto_parallelism()
+        return resolve_parallelism(self.parallelism)
 
     def to_batch_spec(self, dataset_label: str) -> dict[str, Any]:
         """Translate to the inner ``BatchSpec`` dict the engine accepts.
@@ -332,15 +334,6 @@ class ExperimentSpec(BaseModel):
             "engine": json.loads(engine_cfg.model_dump_json()),
             "parallelism": self.resolved_parallelism(),
         }
-
-
-def _resolve_auto_parallelism() -> int:
-    """``max(1, usable_cpu_count - 1)`` honoring OS-level affinity."""
-    if sys.platform.startswith("linux") and hasattr(os, "sched_getaffinity"):
-        usable = len(os.sched_getaffinity(0))
-    else:
-        usable = os.cpu_count() or 1
-    return max(1, usable - 1)
 
 
 def validate_search_space(

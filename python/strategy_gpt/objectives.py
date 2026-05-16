@@ -27,10 +27,19 @@ def validate_spec(spec: dict[str, Any]) -> ValidationReport:
 
 
 def evaluate_spec(spec: dict[str, Any], metrics: dict[str, Any]) -> EvaluationOutcome:
-    """Score `metrics` against `spec`; returns an `EvaluationOutcome`."""
+    """Score `metrics` against `spec`; returns an `EvaluationOutcome`.
+
+    The Rust evaluator emits ``score: null`` when a hard constraint is
+    violated (no primary score is computable). Coerce to ``-inf`` so the
+    Python side can rank trials uniformly without special-casing
+    rejection at every call site.
+    """
     native = require_native()
     raw: str = native.objectives.evaluate_spec(json.dumps(spec), json.dumps(metrics))
-    return EvaluationOutcome.model_validate_json(raw)
+    payload: dict[str, Any] = json.loads(raw)
+    if payload.get("score") is None:
+        payload["score"] = float("-inf")
+    return EvaluationOutcome.model_validate(payload)
 
 
 def engine_metrics() -> list[str]:

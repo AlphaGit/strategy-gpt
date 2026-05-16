@@ -34,10 +34,13 @@ pub fn compute_metrics(
                     (w, l + p.abs())
                 }
             });
+    // `f64::INFINITY` serializes as `null` under serde_json, which downstream
+    // typed consumers (the objective evaluator's `BacktestMetrics` deserializer)
+    // reject. Use a finite sentinel so the JSON wire stays valid.
     let profit_factor = if gross_loss > 0.0 {
         gross_win / gross_loss
     } else if gross_win > 0.0 {
-        f64::INFINITY
+        f64::MAX
     } else {
         0.0
     };
@@ -62,14 +65,31 @@ pub fn compute_metrics(
     };
 
     BacktestMetrics {
-        sharpe,
-        sortino,
-        profit_factor,
-        win_ratio,
-        max_drawdown,
-        annualized_return,
+        sharpe: finite_or_zero(sharpe),
+        sortino: finite_or_zero(sortino),
+        profit_factor: finite_or_zero(profit_factor),
+        win_ratio: finite_or_zero(win_ratio),
+        max_drawdown: finite_or_zero(max_drawdown),
+        annualized_return: finite_or_zero(annualized_return),
         n_trades,
-        avg_trade_length_bars,
+        avg_trade_length_bars: finite_or_zero(avg_trade_length_bars),
+    }
+}
+
+/// Map any non-finite (`NaN` / `±inf`) value to `0.0`. serde_json serializes
+/// non-finite f64 as JSON `null`, which downstream typed deserializers reject
+/// with a wire-protocol error. Funnel every metric through this guard so the
+/// wire stays valid even when degenerate inputs (zero trades, zero variance,
+/// single-bar equity) hit an unguarded computation path.
+fn finite_or_zero(v: f64) -> f64 {
+    if v.is_finite() {
+        v
+    } else if v == f64::INFINITY {
+        f64::MAX
+    } else if v == f64::NEG_INFINITY {
+        f64::MIN
+    } else {
+        0.0
     }
 }
 

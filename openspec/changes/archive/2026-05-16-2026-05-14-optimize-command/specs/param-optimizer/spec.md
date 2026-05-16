@@ -2,25 +2,6 @@
 
 ## MODIFIED Requirements
 
-### Requirement: Per-fold optimization with rolling folds
-
-The Parameter Optimizer SHALL run a search per fold of the experiment's fold scheme. For each fold, the optimizer MUST execute the configured search method against the fold's *train* slice and select a fold winner by the objective score on that train slice. After all folds have produced winners, the optimizer MUST cross-validate every fold winner across every fold's *OOS* slice and select a single final parameter set by best OOS-aggregate score (`aggregator: mean` for v1; constraints and soft-secondaries from the objective spec apply unchanged to the aggregated metrics).
-
-#### Scenario: Per-fold train search
-
-- **WHEN** the optimizer runs on an experiment with `folds: {count: 8, scheme: rolling}` and a search space
-- **THEN** the engine receives eight packed batches (one per fold) each containing the round's candidate set evaluated against that fold's train slice
-
-#### Scenario: Cross-fold OOS validation
-
-- **WHEN** eight fold winners have been selected
-- **THEN** the optimizer evaluates all eight winners across all eight OOS slices in one additional packed batch and selects the candidate whose mean OOS score is highest
-
-#### Scenario: Tie-break by stability
-
-- **WHEN** two fold winners tie on OOS-aggregate score within `1e-6`
-- **THEN** the optimizer selects the candidate with the lower variance of per-fold OOS scores
-
 ### Requirement: Search method selection
 
 The optimizer SHALL support `recursive_grid` (default), `grid`, `random`, and `bayesian` (TPE) search methods, selectable per optimization run via `experiment.optimize.method`. Each method MUST honor its own method-specific knob sub-block; unsupported knob keys MUST be rejected at spec validation time.
@@ -39,25 +20,6 @@ The optimizer SHALL support `recursive_grid` (default), `grid`, `random`, and `b
 
 - **WHEN** the optimizer is invoked with `method=bayesian, budget=N evaluations`
 - **THEN** the optimizer runs at most N evaluations using TPE-driven proposals
-
-### Requirement: Recursive grid with plateau stop
-
-`recursive_grid` SHALL iterate as: at each round, evaluate a uniform grid of `resolution^D` points within the current box (where D is the search-space dimensionality); select the top `top_k` cells by candidate score; shrink the box to the union of selected cells; continue until either `depth` rounds have elapsed *or* every dimension's current box width is below `plateau_epsilon × original_dimension_range`. Stop only when *all* dimensions have converged (per-dim AND, not OR).
-
-#### Scenario: All-dim convergence stops early
-
-- **WHEN** at the end of round 3, every dimension's current box is narrower than `plateau_epsilon` times the original range
-- **THEN** the optimizer terminates after round 3 even though `depth: 5` was configured
-
-#### Scenario: Partial convergence does not stop
-
-- **WHEN** at the end of round 3, only the first dimension has converged
-- **THEN** the optimizer continues to round 4
-
-#### Scenario: Integer dimension freezes on collapse
-
-- **WHEN** during recursion an integer dimension's current cell collapses to a single integer value
-- **THEN** the optimizer freezes that dimension and continues refining the others
 
 ### Requirement: Multi-metric objective consumption
 
@@ -83,6 +45,44 @@ Optimizer runs SHALL be deterministic given the same seed, search method, parame
 - **THEN** the per-fold winner sequence and the final selection are identical
 
 ## ADDED Requirements
+
+### Requirement: Per-fold optimization with rolling folds
+
+The Parameter Optimizer SHALL run a search per fold of the experiment's fold scheme. For each fold, the optimizer MUST execute the configured search method against the fold's *train* slice and select a fold winner by the objective score on that train slice. After all folds have produced winners, the optimizer MUST cross-validate every fold winner across every fold's *OOS* slice and select a single final parameter set by best OOS-aggregate score (`aggregator: mean` for v1; constraints and soft-secondaries from the objective spec apply unchanged to the aggregated metrics).
+
+#### Scenario: Per-fold train search
+
+- **WHEN** the optimizer runs on an experiment with `folds: {count: 8, scheme: rolling}` and a search space
+- **THEN** the engine receives eight packed batches (one per fold) each containing the round's candidate set evaluated against that fold's train slice
+
+#### Scenario: Cross-fold OOS validation
+
+- **WHEN** eight fold winners have been selected
+- **THEN** the optimizer evaluates all eight winners across all eight OOS slices in one additional packed batch and selects the candidate whose mean OOS score is highest
+
+#### Scenario: Tie-break by stability
+
+- **WHEN** two fold winners tie on OOS-aggregate score within `1e-6`
+- **THEN** the optimizer selects the candidate with the lower variance of per-fold OOS scores
+
+### Requirement: Recursive grid with plateau stop
+
+`recursive_grid` SHALL iterate as: at each round, evaluate a uniform grid of `resolution^D` points within the current box (where D is the search-space dimensionality); select the top `top_k` cells by candidate score; shrink the box to the union of selected cells; continue until either `depth` rounds have elapsed *or* every dimension's current box width is below `plateau_epsilon × original_dimension_range`. Stop only when *all* dimensions have converged (per-dim AND, not OR).
+
+#### Scenario: All-dim convergence stops early
+
+- **WHEN** at the end of round 3, every dimension's current box is narrower than `plateau_epsilon` times the original range
+- **THEN** the optimizer terminates after round 3 even though `depth: 5` was configured
+
+#### Scenario: Partial convergence does not stop
+
+- **WHEN** at the end of round 3, only the first dimension has converged
+- **THEN** the optimizer continues to round 4
+
+#### Scenario: Integer dimension freezes on collapse
+
+- **WHEN** during recursion an integer dimension's current cell collapses to a single integer value
+- **THEN** the optimizer freezes that dimension and continues refining the others
 
 ### Requirement: Benchmark mode
 
@@ -117,6 +117,12 @@ For every optimization run, the optimizer SHALL create a per-run directory under
 - **THEN** `trials.parquet` is on the order of hundreds of megabytes and contains no full `BacktestResult` payloads
 
 ## REMOVED Requirements
+
+### Requirement: In-house optimizer over walk-forward folds
+
+**Reason**: Replaced by the new ADDED requirement *Per-fold optimization with rolling folds*. The walk-forward-folds wording is dropped per the unified fold scheme in the `experiment-spec` (see `2026-05-15-optimization-spec`); behaviour is now per-fold train search + cross-fold OOS validation, not OOS-aggregate-only evaluation.
+
+**Migration**: Callers that already used `folds: {count, scheme: rolling|anchored}` in the experiment-spec continue to work unchanged. Callers that relied on legacy `walk_forward` objective-spec wording must rename to `folds` (covered by the `2026-05-15-optimization-spec` change).
 
 ### Requirement: Optimized output and rationale
 

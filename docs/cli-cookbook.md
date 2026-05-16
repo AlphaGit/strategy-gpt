@@ -272,7 +272,50 @@ Steps 4-5 collapse into `strategy-gpt hypothesize` once the CLI driver lands.
 
 ## Parameter optimization
 
-> **TBD.** `strategy-gpt optimize` is currently stubbed and the driver wiring is unfinished. An experimental script-level runner lives at [`examples/vxx/optimize.py`](../examples/vxx/optimize.py); a final CLI command and its documented options will land here once the optimizer driver is wired into the CLI.
+`strategy-gpt optimize` drives a per-fold search: for each fold of the experiment's `folds` block the configured method (`recursive_grid` by default, also `grid` / `random`) is run against the fold's *train* slice; every fold winner is then cross-validated across every fold's *OOS* slice and the candidate with the highest OOS-aggregate score wins. Trial rows, the run manifest, and a `best.json` land under `ledger/optimizations/<opt_id>/`; a SQLite index at `ledger/optimizations.sqlite` lists every run.
+
+The experiment-spec carries the search definition. A minimal example lives at `examples/vxx/experiment.yaml`:
+
+```yaml
+optimize:
+  method: recursive_grid
+  seed: 42
+  aggregator: mean
+  space:
+    vol_lo: { type: float, low: 0.20, high: 0.50 }
+    vol_hi: { type: float, low: 0.70, high: 1.30 }
+  recursive_grid:
+    resolution: 10
+    top_k: 1
+    depth: 5
+    plateau_epsilon: 0.0001
+  persist:
+    root: ./ledger
+    name: vxx-recursive-grid
+
+folds:
+  count: 4
+  scheme: rolling
+```
+
+The objective spec (primary / secondary / tradeoff) lives next to the experiment-spec as `objective.yaml`; pass `--objective <path>` to override.
+
+```bash
+# Drive the full optimization
+strategy-gpt optimize --spec examples/vxx/experiment.yaml
+
+# Predict cost and ledger footprint before launching
+strategy-gpt optimize --spec examples/vxx/experiment.yaml --benchmark --sample 3 --yes
+
+# Inspect a finished run
+strategy-gpt optimize inspect <opt_id>
+strategy-gpt optimize inspect <opt_id> --trial 4271     # one trial row
+
+# Replay a single trial (byte-identical BacktestResult)
+strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
+```
+
+`--method recursive_grid|grid|random` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
 
 ---
 
@@ -289,4 +332,7 @@ Steps 4-5 collapse into `strategy-gpt hypothesize` once the CLI driver lands.
 | Submit batch (async) | same, drop `--wait` (returns handle) |
 | KB ingest | *(stub — phase 8)* |
 | Hypothesis loop | *(stub — drive via Python; see above)* |
-| Optimize | *(stub — TBD)* |
+| Optimize | `strategy-gpt optimize --spec <experiment.yaml>` |
+| Benchmark before optimizing | `strategy-gpt optimize --spec <experiment.yaml> --benchmark --yes` |
+| Inspect an optimization | `strategy-gpt optimize inspect <opt_id>` |
+| Replay a recorded trial | `strategy-gpt optimize replay <opt_id> --trial <trial_id>` |

@@ -22,6 +22,12 @@ Bayesian search via Tree-structured Parzen Estimator
   *observe* trial outcomes to inform later proposals, so it exposes a
   :meth:`TPESearcher.search` method that owns the evaluate / score / observe
   loop instead of plugging into the stateless :func:`optimize` driver.
+- :class:`RecursiveGridSearcher` — round-wise uniform grid that shrinks
+  the search box to the union of the top-`k` cells each round, stopping
+  on `depth` or a per-dimension plateau. Like TPE it owns its own
+  :meth:`RecursiveGridSearcher.search` loop; round-wise candidate sets
+  are dispatched to a caller-supplied ``evaluate_batch`` so the
+  orchestrator can pack each round as a single engine batch.
 
 Reference for the algorithm: Bergstra et al. (2011), "Algorithms for
 Hyper-Parameter Optimization"; Optuna's
@@ -498,9 +504,335 @@ def _bandwidth(obs: Sequence[float], low: float, high: float) -> float:
     return float(max(h, _EPS))
 
 
+# ---------------------------------------------------------------------------
+# Recursive grid
+# ---------------------------------------------------------------------------
+
+
+EvaluateBatchFn = Callable[[Sequence[ParamSet]], Sequence[MetricsDict]]
+"""Caller-supplied: evaluate a whole round's candidates in one shot and
+return a parallel list of metrics dicts. Recursive grid hands the
+orchestrator a round-shaped batch so the engine can dispatch it as a
+single packed :class:`BatchSpec` with ``failure_mode: continue``."""
+
+
+@dataclass(frozen=True)
+class RecursiveGridSearcher:
+    """Round-wise grid that shrinks toward the best-scoring cells.
+
+    Algorithm (see ``design.md §2`` of the ``optimize-command`` change):
+
+    1. Evaluate a uniform ``resolution^D`` grid within the current
+       per-dimension box.
+    2. Pick the top ``top_k`` candidates by score.
+    3. Shrink each numeric dim's box to the bounding hull of the top
+       points (plus a half-step margin), clipped to the current box.
+    4. Stop when ``depth`` rounds have elapsed OR every numeric
+       dimension's current width is below ``plateau_epsilon x
+       original_range`` (AND over dims; choice dims and frozen integer
+       dims are ignored in the convergence check).
+
+    Per-dim resolution overrides are passed as
+    :attr:`per_dim_resolution` so the caller can wire them from the
+    experiment-spec's ``space.<param>.resolution``.
+
+    Integer dims sample integer points only and freeze when the current
+    cell collapses to a single integer (width < 1). Choice dims
+    enumerate the full choice list at every round and never narrow.
+    """
+
+    space: Mapping[str, RandomParam]
+    resolution: int = 10
+    top_k: int = 1
+    depth: int = 5
+    plateau_epsilon: float = 1e-4
+    seed: int = 0
+    per_dim_resolution: Mapping[str, int] = field(default_factory=dict)
+
+    def search(
+        self,
+        evaluate_batch: EvaluateBatchFn,
+        score: ScoreFn,
+        *,
+        oos_min_score: float | None = None,
+    ) -> OptimizerResult:
+        """Run the recursive-grid loop and return all trials + the best."""
+        self._validate()
+        rng = random.Random(self.seed)  # noqa: S311 — non-cryptographic by design.
+        box = _initial_box(self.space)
+        original_widths = _original_widths(self.space)
+        trials: list[Trial] = []
+        rejected = 0
+
+        for _round in range(self.depth):
+            cells = list(self._round_candidates(box))
+            metrics_list = list(evaluate_batch(cells))
+            if len(metrics_list) != len(cells):
+                msg = (
+                    f"recursive_grid: evaluate_batch returned {len(metrics_list)} metrics "
+                    f"for {len(cells)} candidates."
+                )
+                raise ValueError(msg)
+            round_trials: list[Trial] = []
+            for params, metrics in zip(cells, metrics_list, strict=True):
+                outcome = score(metrics)
+                gate_pass = oos_min_score is None or outcome.score >= oos_min_score
+                accepted = outcome.accepted and gate_pass
+                if not accepted:
+                    rejected += 1
+                trial = Trial(
+                    params=params,
+                    metrics=metrics,
+                    outcome=outcome,
+                    accepted=accepted,
+                )
+                round_trials.append(trial)
+                trials.append(trial)
+            top = self._select_top(round_trials, rng)
+            new_box = _shrink_box(
+                top_params=[t.params for t in top],
+                current_box=box,
+                space=self.space,
+                resolution=self.resolution,
+                per_dim_resolution=self.per_dim_resolution,
+            )
+            if _all_converged(new_box, original_widths, self.plateau_epsilon, self.space):
+                break
+            box = new_box
+
+        best = max(
+            (t for t in trials if t.accepted),
+            key=lambda t: t.outcome.score,
+            default=None,
+        )
+        return OptimizerResult(trials=trials, best=best, rejected_count=rejected)
+
+    def _validate(self) -> None:
+        if self.resolution < 2:  # noqa: PLR2004 — schema enforces >= 2.
+            msg = f"recursive_grid: resolution must be >= 2, got {self.resolution}."
+            raise ValueError(msg)
+        if self.top_k < 1:
+            msg = f"recursive_grid: top_k must be >= 1, got {self.top_k}."
+            raise ValueError(msg)
+        if self.depth < 1:
+            msg = f"recursive_grid: depth must be >= 1, got {self.depth}."
+            raise ValueError(msg)
+        if self.plateau_epsilon <= 0:
+            msg = f"recursive_grid: plateau_epsilon must be > 0, got {self.plateau_epsilon}."
+            raise ValueError(msg)
+        for name, override in self.per_dim_resolution.items():
+            if name not in self.space:
+                msg = (
+                    f"recursive_grid: per_dim_resolution references unknown param "
+                    f"{name!r}; space keys are {sorted(self.space)}."
+                )
+                raise ValueError(msg)
+            if override < 2:  # noqa: PLR2004 — schema enforces >= 2.
+                msg = f"recursive_grid: per_dim_resolution[{name!r}] must be >= 2, got {override}."
+                raise ValueError(msg)
+
+    def _round_candidates(self, box: Mapping[str, Any]) -> Iterator[ParamSet]:
+        keys = list(self.space.keys())
+        per_dim_points = [
+            _dim_grid_points(
+                self.space[name],
+                box[name],
+                self._resolution_for(name),
+            )
+            for name in keys
+        ]
+        for combo in itertools.product(*per_dim_points):
+            yield dict(zip(keys, combo, strict=True))
+
+    def _resolution_for(self, name: str) -> int:
+        return int(self.per_dim_resolution.get(name, self.resolution))
+
+    def _select_top(self, round_trials: Sequence[Trial], rng: random.Random) -> list[Trial]:
+        # Deterministic tie-break: shuffle by a seeded RNG before sorting so
+        # the sort order is fixed but ties don't bias the lowest-index
+        # candidate, matching the determinism scenario in the spec.
+        order = list(range(len(round_trials)))
+        rng.shuffle(order)
+        indexed = [round_trials[i] for i in order]
+        indexed.sort(key=lambda t: t.outcome.score, reverse=True)
+        return indexed[: self.top_k]
+
+
+# Internal helpers shared with the recursive-grid algorithm.
+
+
+def _initial_box(space: Mapping[str, RandomParam]) -> dict[str, Any]:
+    box: dict[str, Any] = {}
+    for name, param in space.items():
+        if isinstance(param, ChoiceParam):
+            box[name] = tuple(param.choices)
+        elif isinstance(param, IntParam):
+            box[name] = (float(param.low), float(param.high))
+        else:  # ContinuousParam
+            box[name] = (float(param.low), float(param.high))
+    return box
+
+
+def _original_widths(space: Mapping[str, RandomParam]) -> dict[str, float]:
+    widths: dict[str, float] = {}
+    for name, param in space.items():
+        if isinstance(param, ChoiceParam):
+            continue
+        if isinstance(param, IntParam):
+            widths[name] = float(param.high - param.low)
+        else:
+            widths[name] = float(param.high - param.low)
+    return widths
+
+
+def _dim_grid_points(
+    param: RandomParam,
+    current: Any,  # noqa: ANN401 — tuple for numeric, sequence for choice.
+    resolution: int,
+) -> list[Any]:
+    if isinstance(param, ChoiceParam):
+        return list(current)
+    low, high = current
+    if isinstance(param, IntParam):
+        # Cell collapsed to a single int -> frozen dim.
+        if high - low < 1.0:
+            return [round((low + high) / 2.0)]
+        pts = [round(low + (high - low) * i / (resolution - 1)) for i in range(resolution)]
+        # Dedup while preserving order.
+        seen: set[int] = set()
+        unique: list[int] = []
+        for p in pts:
+            if p not in seen:
+                seen.add(p)
+                unique.append(p)
+        return unique
+    if high - low <= 0:
+        return [float(low)]
+    return [low + (high - low) * i / (resolution - 1) for i in range(resolution)]
+
+
+def _shrink_box(
+    *,
+    top_params: Sequence[ParamSet],
+    current_box: Mapping[str, Any],
+    space: Mapping[str, RandomParam],
+    resolution: int,
+    per_dim_resolution: Mapping[str, int],
+) -> dict[str, Any]:
+    new_box: dict[str, Any] = {}
+    for name, param in space.items():
+        if isinstance(param, ChoiceParam):
+            new_box[name] = current_box[name]  # never narrows
+            continue
+        low_c, high_c = current_box[name]
+        res = int(per_dim_resolution.get(name, resolution))
+        centres = [t[name] for t in top_params]
+        if not centres:
+            new_box[name] = (low_c, high_c)
+            continue
+        half_step = (high_c - low_c) / (res - 1) / 2.0 if res > 1 else 0.0
+        lo = max(low_c, min(centres) - half_step)
+        hi = min(high_c, max(centres) + half_step)
+        if isinstance(param, IntParam) and hi - lo < 1.0:
+            # Freeze: collapse to a single integer cell.
+            centre = round((lo + hi) / 2.0)
+            lo = float(centre)
+            hi = float(centre)
+        new_box[name] = (lo, hi)
+    return new_box
+
+
+class RecursiveGridDriver:
+    """Stateful per-round driver for :class:`RecursiveGridSearcher`.
+
+    Lets a caller (the optimization runner) own dispatch of each round's
+    candidates as a packed engine batch. Usage::
+
+        driver = RecursiveGridDriver(searcher)
+        while not driver.done:
+            cands = driver.candidates()
+            outcomes = batch_evaluate(cands)
+            trials = [Trial(p, m, score(m), True) for p, m in zip(cands, outcomes, strict=True)]
+            driver.observe(trials)
+    """
+
+    def __init__(self, searcher: RecursiveGridSearcher, *, salt: int = 0) -> None:
+        searcher._validate()
+        self._s = searcher
+        self.box: dict[str, Any] = _initial_box(searcher.space)
+        self._original_widths = _original_widths(searcher.space)
+        self._rng = random.Random(searcher.seed + salt)  # noqa: S311 — non-crypto.
+        self.round_index: int = 0
+        self.done: bool = False
+
+    def candidates(self) -> list[ParamSet]:
+        if self.done:
+            return []
+        keys = list(self._s.space.keys())
+        per_dim = [
+            _dim_grid_points(
+                self._s.space[name],
+                self.box[name],
+                int(self._s.per_dim_resolution.get(name, self._s.resolution)),
+            )
+            for name in keys
+        ]
+        return [dict(zip(keys, combo, strict=True)) for combo in itertools.product(*per_dim)]
+
+    def observe(self, trials: Sequence[Trial]) -> None:
+        if self.done:
+            return
+        if not trials:
+            self.done = True
+            return
+        order = list(range(len(trials)))
+        self._rng.shuffle(order)
+        ranked = sorted(
+            [trials[i] for i in order],
+            key=lambda t: t.outcome.score,
+            reverse=True,
+        )
+        top = ranked[: self._s.top_k]
+        new_box = _shrink_box(
+            top_params=[t.params for t in top],
+            current_box=self.box,
+            space=self._s.space,
+            resolution=self._s.resolution,
+            per_dim_resolution=self._s.per_dim_resolution,
+        )
+        self.round_index += 1
+        if self.round_index >= self._s.depth or _all_converged(
+            new_box, self._original_widths, self._s.plateau_epsilon, self._s.space
+        ):
+            self.done = True
+        self.box = new_box
+
+
+def _all_converged(
+    box: Mapping[str, Any],
+    original_widths: Mapping[str, float],
+    epsilon: float,
+    space: Mapping[str, RandomParam],
+) -> bool:
+    for name, param in space.items():
+        if isinstance(param, ChoiceParam):
+            continue  # choice dims never narrow; ignored.
+        low, high = box[name]
+        width = high - low
+        if isinstance(param, IntParam) and width < 1.0:
+            continue  # frozen — counts as converged.
+        orig = original_widths.get(name, 0.0)
+        if orig <= 0:
+            continue
+        if width / orig >= epsilon:
+            return False
+    return True
+
+
 __all__ = [
     "ChoiceParam",
     "ContinuousParam",
+    "EvaluateBatchFn",
     "EvaluateFn",
     "GridSearcher",
     "IntParam",
@@ -508,6 +840,8 @@ __all__ = [
     "ParamSet",
     "RandomParam",
     "RandomSearcher",
+    "RecursiveGridDriver",
+    "RecursiveGridSearcher",
     "ScoreFn",
     "Searcher",
     "TPESearcher",

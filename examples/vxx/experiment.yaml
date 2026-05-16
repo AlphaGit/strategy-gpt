@@ -17,8 +17,6 @@ engine:
 
 runs:
   - params:
-      vol_lo: 0.35
-      vol_hi: 0.80
       size: 100.0
       symbol: VXX
     modes:
@@ -28,4 +26,30 @@ runs:
       start: 2018-01-01T00:00:00Z
       end:   2026-12-31T00:00:00Z
 
-parallelism: 1
+folds:
+  count: 4
+  scheme: rolling
+
+optimize:
+  method: recursive_grid
+  seed: 42
+  aggregator: mean
+  space:
+    vol_lo:
+      type: float
+      low: 0.20
+      high: 0.50
+    vol_hi:
+      type: float
+      low: 0.70
+      high: 1.30
+  recursive_grid:
+    resolution: 10
+    top_k: 1
+    depth: 5
+    plateau_epsilon: 0.0001
+  persist:
+    root: ./ledger
+    name: vxx-recursive-grid
+
+parallelism: auto

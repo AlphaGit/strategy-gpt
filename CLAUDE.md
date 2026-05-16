@@ -76,6 +76,10 @@ openspec/               Change proposals and capability specs
 - **BatchSpec / RunSpec** — *internal* engine input across the PyO3 boundary. One strategy artifact, one dataset, many runs (parameters × modes × slices × seeds). Composed by the experiment-spec loader; not authored directly.
 - **Modes** — `Plain`, `MonteCarlo { n, block_size }`, `Slippage { bps_grid }`, `RegimeFilter { ranges }`, `Sensitivity`.
 - **Decision log** — ledger record of accepted/rejected hypotheses with rationale; reloaded as context on subsequent loop runs.
+- **opt_id** — content-addressed identifier (blake2b of the canonical experiment-spec JSON) for a single optimization run. Names the persistence directory `ledger/optimizations/<opt_id>/`.
+- **Trial** — one backtest the optimizer commissioned: a row in `trials.parquet` carrying `(trial_id, round, phase, fold_index, params, seed, metrics, score, accepted, reject_reason, wall_secs)`.
+- **Fold winner** — the best-scoring accepted candidate for one fold's *train* search. Each fold yields exactly one winner.
+- **OOS aggregate** — mean of a fold winner's per-fold OOS metrics across all folds (only `aggregator: mean` in v1). The final candidate is the fold winner with the best OOS-aggregate score, ties broken by lower per-fold OOS-score variance.
 
 ## Module roles (durable contract)
 

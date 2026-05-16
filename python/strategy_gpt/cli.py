@@ -12,25 +12,38 @@ Surface (rewrite-architecture task 13.1):
 - ``run`` — submit an experiment-spec to the engine (requires engine-worker binary).
 - ``ingest`` — KB ingestion (phase 8).
 - ``hypothesize`` — hypothesis-loop entry (phase 9).
-- ``optimize`` — parameter optimizer entry (phase 10/11 wiring).
+- ``optimize`` — parameter optimizer (per-fold search + cross-fold OOS validation).
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
+import yaml  # type: ignore[import-untyped]
 from pydantic import TypeAdapter
 
 from . import __version__
 from . import experiment_spec as espec
+from .benchmark import format_report, report_json, run_benchmark
 from .engine import Engine
 from .gateway import Gateway
 from .ledger import Ledger
+from .optimization_ledger import (
+    OptimizationLedger,
+    build_replay_batch,
+    find_trial,
+    opt_dir_for,
+    read_best,
+    read_manifest,
+    read_trials,
+)
+from .optimization_runner import run_optimization
 from .types import AdjustmentPolicy, Bar, BarRequest, CacheMode, Resolution
 
 app = typer.Typer(help="Strategy-GPT research loop CLI.")
@@ -243,15 +256,343 @@ def hypothesize() -> None:
     )
 
 
-@app.command()
-def optimize() -> None:
-    """Run the parameter optimizer (phase 10/11 wiring — not implemented yet)."""
-    raise typer.Exit(
-        code=_unimplemented(
-            "optimize",
-            phase="10/11 (tester wiring + optimizer driver)",
-        ),
+optimize_app = typer.Typer(
+    help="Parameter optimization — per-fold search, recursive grid, benchmark.",
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
+app.add_typer(optimize_app, name="optimize")
+
+
+@optimize_app.callback(invoke_without_command=True)
+def optimize_root(  # noqa: PLR0913 — CLI options + composition.
+    ctx: typer.Context,
+    spec: Annotated[
+        Path | None,
+        typer.Option(help="Path to an experiment-spec YAML/JSON. Required for a run."),
+    ] = None,
+    objective: Annotated[
+        Path | None,
+        typer.Option(help="Objective spec YAML/JSON. Defaults to objective.yaml next to --spec."),
+    ] = None,
+    worker: Annotated[
+        Path,
+        typer.Option(help="Path to the engine-worker binary."),
+    ] = Path("crates/target/debug/engine-worker"),
+    gateway_root: Annotated[
+        Path,
+        typer.Option(help="Gateway cache root used for bars resolution."),
+    ] = Path("cache"),
+    ledger_root: Annotated[
+        Path,
+        typer.Option(help="Optimization ledger root."),
+    ] = Path("ledger"),
+    method: Annotated[
+        str | None,
+        typer.Option(help="Override experiment.optimize.method."),
+    ] = None,
+    benchmark: Annotated[
+        bool,
+        typer.Option("--benchmark", help="Run benchmark + cost prediction before launching."),
+    ] = False,
+    sample: Annotated[
+        int,
+        typer.Option(help="Benchmark sample size."),
+    ] = 3,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Skip post-benchmark confirmation prompt."),
+    ] = False,
+    json_out: Annotated[
+        bool,
+        typer.Option("--json", help="Emit machine-readable JSON instead of plain text."),
+    ] = False,
+) -> None:
+    """Run a per-fold optimization or invoke an ``optimize`` subcommand."""
+    if ctx.invoked_subcommand is not None:
+        return
+    if spec is None:
+        typer.echo(
+            "`strategy-gpt optimize` requires --spec, or a subcommand (`inspect`, `replay`).",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    experiment = espec.load(spec)
+    if method is not None:
+        if experiment.optimize is None:
+            typer.echo("--method requires an `optimize` block in the spec.", err=True)
+            raise typer.Exit(code=2)
+        experiment = experiment.model_copy(
+            update={"optimize": experiment.optimize.model_copy(update={"method": method})}
+        )
+    if experiment.optimize is None or experiment.folds is None:
+        typer.echo(
+            "experiment-spec is missing `optimize` and/or `folds` blocks.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    bars_list, dataset_manifest = _resolve_bars(experiment, gateway_root)
+    obj_path = objective if objective is not None else spec.parent / "objective.yaml"
+    obj = _load_objective(obj_path)
+
+    eng = Engine(
+        worker,
+        time_cap_secs=experiment.caps.time_cap_secs,
+        mem_cap_bytes=experiment.caps.mem_cap_bytes,
     )
+
+    opt_id = _opt_id(experiment)
+
+    benchmark_report = None
+    if benchmark:
+        benchmark_report = run_benchmark(
+            experiment=experiment,
+            engine=eng,
+            artifact_path=experiment.artifact,
+            bars=bars_list,
+            dataset_manifest=dataset_manifest,
+            sample_size=sample,
+        )
+        typer.echo(report_json(benchmark_report) if json_out else format_report(benchmark_report))
+        if not yes and not typer.confirm("Proceed with the full optimization?", default=True):
+            raise typer.Exit(code=0)
+
+    writer = OptimizationLedger(ledger_root)
+    if benchmark_report is not None:
+        # write_benchmark requires start() to have set opt_dir; do that lazily.
+        pass
+    result = run_optimization(
+        experiment=experiment,
+        objective=obj,
+        engine=eng,
+        artifact_path=experiment.artifact,
+        bars=bars_list,
+        dataset_manifest=dataset_manifest,
+        opt_id=opt_id,
+        persist_writer=writer,
+    )
+    if benchmark_report is not None:
+        writer.write_benchmark(benchmark_report)
+    typer.echo(_format_result(result, ledger_root, opt_id, as_json=json_out))
+
+
+@optimize_app.command("inspect")
+def optimize_inspect(
+    opt_id: Annotated[str, typer.Argument(help="Optimization id to inspect.")],
+    trial: Annotated[
+        int | None,
+        typer.Option(help="If set, dump a single trial row instead of the summary."),
+    ] = None,
+    ledger_root: Annotated[
+        Path,
+        typer.Option(help="Optimization ledger root."),
+    ] = Path("ledger"),
+    json_out: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON."),
+    ] = False,
+) -> None:
+    """Show an optimization run's manifest, best, or a specific trial."""
+    opt_dir = opt_dir_for(ledger_root, opt_id)
+    if not opt_dir.exists():
+        typer.echo(f"no optimization at {opt_dir}", err=True)
+        raise typer.Exit(code=1)
+    if trial is not None:
+        record = find_trial(opt_dir, trial)
+        if record is None:
+            typer.echo(f"trial {trial} not found in {opt_dir}", err=True)
+            raise typer.Exit(code=1)
+        payload = {
+            "trial_id": record.trial_id,
+            "round": record.round,
+            "phase": record.phase,
+            "fold_index": record.fold_index,
+            "params": record.params,
+            "seed": record.seed,
+            "metrics": record.metrics,
+            "score": record.score,
+            "accepted": record.accepted,
+            "reject_reason": record.reject_reason,
+            "wall_secs": record.wall_secs,
+        }
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    manifest = read_manifest(opt_dir)
+    best = read_best(opt_dir)
+    if json_out:
+        typer.echo(
+            json.dumps(
+                {"manifest": manifest, "best": best, "trial_count": len(read_trials(opt_dir))},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(f"opt_id: {opt_id}")
+    typer.echo(f"status: {manifest.get('status')}")
+    typer.echo(f"method: {manifest.get('method')}")
+    typer.echo(f"folds: {len(manifest.get('folds', []))}")
+    typer.echo(f"parallelism: {manifest.get('resolved_parallelism')}")
+    typer.echo(f"trial_count: {manifest.get('trial_count')}")
+    if best is not None and best.get("final") is not None:
+        final = best["final"]
+        typer.echo(f"best score: {final['aggregate_score']:.6f}")
+        typer.echo(f"best params: {json.dumps(final['params'], sort_keys=True)}")
+    else:
+        typer.echo("best: (no candidate passed the objective constraints)")
+
+
+@optimize_app.command("replay")
+def optimize_replay(  # noqa: PLR0913 — CLI options surface is wide.
+    opt_id: Annotated[str, typer.Argument(help="Optimization id.")],
+    trial: Annotated[int, typer.Option(help="Trial id to replay.")],
+    worker: Annotated[
+        Path,
+        typer.Option(help="Path to the engine-worker binary."),
+    ] = Path("crates/target/debug/engine-worker"),
+    gateway_root: Annotated[
+        Path,
+        typer.Option(help="Gateway cache root."),
+    ] = Path("cache"),
+    ledger_root: Annotated[
+        Path,
+        typer.Option(help="Optimization ledger root."),
+    ] = Path("ledger"),
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the BacktestResult JSON to this path."),
+    ] = None,
+) -> None:
+    """Replay a single recorded trial; reconstructs the BatchSpec from manifest + parquet."""
+    opt_dir = opt_dir_for(ledger_root, opt_id)
+    if not opt_dir.exists():
+        typer.echo(f"no optimization at {opt_dir}", err=True)
+        raise typer.Exit(code=1)
+    record = find_trial(opt_dir, trial)
+    if record is None:
+        typer.echo(f"trial {trial} not found in {opt_dir}", err=True)
+        raise typer.Exit(code=1)
+    manifest = read_manifest(opt_dir)
+    batch_spec = build_replay_batch(manifest, record)
+    es = manifest["experiment_spec"]
+    bars_block = es.get("bars", {})
+    if "dataset" in bars_block:
+        bars_list = _load_cached_bars(gateway_root, bars_block["dataset"])
+    else:
+        request = BarRequest.model_validate(bars_block["request"])
+        gw = Gateway(gateway_root)
+        if request.provider == "yfinance":
+            gw.register_yfinance_provider(request.provider)
+        response = gw.fetch(request, "prefer_cache")
+        bars_list = list(response.bars)
+    eng = Engine(worker)
+    handle = eng.submit_batch(
+        Path(es["artifact"]),
+        bars_list,
+        batch_spec,
+        manifest["dataset_manifest"],
+    )
+    while True:
+        status = eng.poll(handle)
+        if status.status in ("completed", "failed", "cancelled"):
+            break
+        time.sleep(0.05)
+    if status.status != "completed":
+        typer.echo(
+            f"replay failed: status={status.status} error={status.error}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    results = status.results or []
+    if not results:
+        typer.echo("replay produced no result entries.", err=True)
+        raise typer.Exit(code=1)
+    payload = json.dumps(results[0], indent=2, sort_keys=True)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(payload)
+        typer.echo(str(out))
+    else:
+        typer.echo(payload)
+
+
+def _load_objective(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        msg = (
+            f"objective spec not found at {path}; pass --objective explicitly "
+            "or place an `objective.yaml` next to the experiment-spec."
+        )
+        raise typer.BadParameter(msg)
+    raw = path.read_text()
+    payload = yaml.safe_load(raw) if path.suffix.lower() in (".yaml", ".yml") else json.loads(raw)
+    if not isinstance(payload, dict):
+        msg = f"objective spec at {path} must be a mapping."
+        raise typer.BadParameter(msg)
+    return payload
+
+
+def _opt_id(experiment: espec.ExperimentSpec) -> str:
+    canonical = json.dumps(
+        json.loads(experiment.model_dump_json()),
+        sort_keys=True,
+        default=str,
+    ).encode()
+    return hashlib.blake2b(canonical, digest_size=8).hexdigest()
+
+
+def _format_result(result: Any, ledger_root: Path, opt_id: str, *, as_json: bool) -> str:  # noqa: ANN401
+    if as_json:
+        return json.dumps(
+            {
+                "opt_id": result.opt_id,
+                "trial_count": len(result.trial_rows),
+                "rejected_count": sum(1 for r in result.trial_rows if not r.accepted),
+                "fold_winners": [
+                    {
+                        "fold_index": fw.fold_index,
+                        "params": fw.params,
+                        "train_score": fw.train_score,
+                    }
+                    for fw in result.fold_winners
+                ],
+                "final": (
+                    {
+                        "params": result.final.params,
+                        "score": result.final.aggregate_score,
+                        "aggregate_metrics": result.final.aggregate_metrics,
+                    }
+                    if result.final is not None
+                    else None
+                ),
+                "ledger": str(opt_dir_for(ledger_root, opt_id)),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    rejected = sum(1 for r in result.trial_rows if not r.accepted)
+    lines = [
+        f"opt_id: {result.opt_id}",
+        f"folds: {len(result.folds)}",
+        f"parallelism: {result.resolved_parallelism}",
+        f"trials: {len(result.trial_rows)} (rejected {rejected})",
+    ]
+    if result.final is not None:
+        lines.append("best:")
+        lines.append(f"  params: {json.dumps(result.final.params, sort_keys=True)}")
+        agg = json.dumps(result.final.aggregate_metrics, sort_keys=True)
+        lines.append(f"  aggregate_metrics: {agg}")
+        lines.append(f"  score: {result.final.aggregate_score:.6f}")
+        lines.append(
+            "  fold winners: ["
+            + ", ".join(json.dumps(fw.params, sort_keys=True) for fw in result.fold_winners)
+            + "]"
+        )
+    else:
+        lines.append("best: (no candidate passed the objective constraints)")
+    lines.append(f"ledger: {opt_dir_for(ledger_root, opt_id)}")
+    return "\n".join(lines)
 
 
 def _unimplemented(name: str, *, phase: str) -> int:
