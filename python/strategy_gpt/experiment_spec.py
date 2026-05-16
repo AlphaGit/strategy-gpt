@@ -197,6 +197,27 @@ class RecursiveGridKnobs(BaseModel):
     plateau_epsilon: float = Field(default=1e-4, gt=0)
 
 
+class CmaEsKnobs(BaseModel):
+    """Knobs for ``method: cma_es`` (Hansen 2016).
+
+    The optimizer rescales the search space to the unit cube before
+    calling :class:`cma.CMAEvolutionStrategy`, so ``sigma0`` is a
+    fraction of the per-dim parameter range. Integer dims are rounded
+    and de-duplicated per generation; persistent high duplicate rates
+    (>30 percent) emit a warning and inflate ``sigma0`` for that fold.
+    Categorical (``choice``) params are not supported by CMA-ES;
+    declare them as integers with a numeric encoding instead.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    popsize: int | Literal["auto"] = "auto"
+    """``auto`` resolves to ``4 + floor(3 * ln(D))`` per Hansen 2016."""
+    sigma0: float = Field(default=0.3, gt=0.0, le=1.0)
+    n_generations: int = Field(default=50, ge=1)
+    restart_strategy: Literal["null", "ipop", "bipop"] = "null"
+    bounds: Literal["clip", "reject"] = "clip"
+
+
 class DEKnobs(BaseModel):
     """Knobs for ``method: differential_evolution`` (Storn & Price 1997).
 
@@ -269,6 +290,7 @@ class OptimizeBlock(BaseModel):
         "bayesian",
         "sobol",
         "differential_evolution",
+        "cma_es",
     ]
     seed: int = 0
     aggregator: Literal["mean"] = "mean"
@@ -279,6 +301,7 @@ class OptimizeBlock(BaseModel):
     recursive_grid: RecursiveGridKnobs | None = None
     sobol: SobolKnobs | None = None
     differential_evolution: DEKnobs | None = None
+    cma_es: CmaEsKnobs | None = None
     persist: PersistBlock
     selection: SelectionKnobs = SelectionKnobs()
     robust_objective: bool = False
@@ -471,6 +494,7 @@ __all__ = [
     "BayesianKnobs",
     "Caps",
     "ChoiceParam",
+    "CmaEsKnobs",
     "DEKnobs",
     "DatasetRef",
     "DsrKnobs",

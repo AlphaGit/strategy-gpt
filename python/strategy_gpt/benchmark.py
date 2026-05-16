@@ -30,6 +30,7 @@ from .experiment_spec import (
     ChoiceParam as SpecChoiceParam,
 )
 from .experiment_spec import (
+    CmaEsKnobs,
     DEKnobs,
     ExperimentSpec,
     OptimizeBlock,
@@ -49,7 +50,7 @@ from .optimization_runner import (
     _submit_and_collect,
     per_dim_resolutions,
 )
-from .optimizer import _next_power_of_two, de_resolve_popsize
+from .optimizer import _next_power_of_two, cma_resolve_popsize, de_resolve_popsize
 from .types import Bar
 
 _LEDGER_BYTES_PER_ROW = 200
@@ -94,7 +95,7 @@ def _sample_random_candidates(optim: OptimizeBlock, n: int) -> list[dict[str, An
     return out
 
 
-def planned_run_count(optim: OptimizeBlock, folds_count: int) -> int:  # noqa: PLR0912 — one branch per method+param kind.
+def planned_run_count(optim: OptimizeBlock, folds_count: int) -> int:  # noqa: PLR0911, PLR0912 — one branch per method+param kind.
     """Total backtest runs the configured method will commission."""
     method = optim.method
     if method == "recursive_grid":
@@ -146,6 +147,11 @@ def planned_run_count(optim: OptimizeBlock, folds_count: int) -> int:  # noqa: P
         n_dims = sum(1 for p in optim.space.values() if not isinstance(p, SpecChoiceParam))
         pop = de_resolve_popsize(de_knobs.popsize, n_dims)
         return pop * de_knobs.n_generations * folds_count + folds_count * folds_count
+    if method == "cma_es":
+        cma_knobs = optim.cma_es if optim.cma_es is not None else CmaEsKnobs()
+        n_dims = sum(1 for p in optim.space.values() if not isinstance(p, SpecChoiceParam))
+        pop = cma_resolve_popsize(cma_knobs.popsize, n_dims)
+        return pop * cma_knobs.n_generations * folds_count + folds_count * folds_count
     msg = f"planned_run_count: unsupported method {method!r}."
     raise ValueError(msg)
 

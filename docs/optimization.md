@@ -28,6 +28,32 @@ optimize:
 Library: `scipy.stats.qmc.Sobol`. Determinism: fully seedable when
 scrambled; deterministic by construction otherwise.
 
+### `cma_es`
+
+Covariance Matrix Adaptation Evolution Strategy (Hansen 2016). Adapts
+to elongated ridges in the parameter surface (think `stop_loss x
+lookback` interactions). Population-based, parallelizes per generation.
+The optimizer rescales the space to the unit cube before driving
+`cma.CMAEvolutionStrategy`, so `sigma0` is a fraction of the per-dim
+range. Integer params are rounded + de-duplicated per generation;
+sustained > 30% duplicate rates emit a warning and inflate sigma for
+that fold. Categorical params are not supported (use ints with a
+numeric encoding).
+
+```yaml
+optimize:
+  method: cma_es
+  cma_es:
+    popsize: auto                       # auto -> 4 + floor(3 * ln(D))
+    sigma0: 0.3
+    n_generations: 50
+    restart_strategy: null              # ipop / bipop land later
+    bounds: clip                        # | reject
+```
+
+Library: `cma`. Determinism: cma honors `seed=`; record in manifest.
+`restart_strategy: ipop|bipop` not yet wired — only `null` runs today.
+
 ### `differential_evolution`
 
 Storn & Price (1997) differential evolution via
@@ -60,9 +86,8 @@ first generation across replays.
 
 `recursive_grid` (default), `grid`, `random`, `bayesian` (TPE). See
 existing `optimize.<method>` knob blocks in
-[`docs/experiment-spec.md`](experiment-spec.md). Additional methods
-(`cma_es`, `successive_halving`, `lhs_polish`) land in upcoming chunks
-of this change.
+[`docs/experiment-spec.md`](experiment-spec.md). Additional methods (`successive_halving`, `lhs_polish`) land in
+upcoming chunks of this change.
 
 ## Supply-chain rule
 

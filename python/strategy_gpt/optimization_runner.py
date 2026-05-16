@@ -37,6 +37,7 @@ from .experiment_spec import (
     ChoiceParam as SpecChoiceParam,
 )
 from .experiment_spec import (
+    CmaEsKnobs,
     DEKnobs,
     ExperimentSpec,
     OptimizeBlock,
@@ -64,6 +65,9 @@ from .optimizer import (
     RecursiveGridSearcher,
     SobolSearcher,
     Trial,
+    cma_dedup_rate,
+    cma_resolve_popsize,
+    cma_unit_to_params,
     de_bounds_and_integrality,
     de_project_individual,
     de_resolve_popsize,
@@ -662,6 +666,25 @@ def _search_fold(  # noqa: PLR0913 — full IO surface.
             poll_interval_secs=poll_interval_secs,
             persist_writer=persist_writer,
         )
+    if optim.method == "cma_es":
+        return _search_fold_cma_es(
+            experiment=experiment,
+            objective=objective,
+            engine=engine,
+            artifact_path=artifact_path,
+            bars=bars,
+            dataset_manifest=dataset_manifest,
+            template=template,
+            optim=optim,
+            space=space,
+            fold_index=fold_index,
+            fold=fold,
+            parallelism=parallelism,
+            trial_counter=trial_counter,
+            trial_rows=trial_rows,
+            poll_interval_secs=poll_interval_secs,
+            persist_writer=persist_writer,
+        )
     if optim.method == "differential_evolution":
         return _search_fold_differential_evolution(
             experiment=experiment,
@@ -785,6 +808,148 @@ def _search_fold_recursive_grid(  # noqa: PLR0913
         train_metrics=best_metrics,
         train_score=best.outcome.score,
     )
+
+
+_CMA_DEDUP_WARN_THRESHOLD = 0.30
+
+
+def _search_fold_cma_es(  # noqa: PLR0913 — CMA-ES owns its own search loop.
+    *,
+    experiment: ExperimentSpec,
+    objective: Mapping[str, Any],
+    engine: Engine,
+    artifact_path: Path,
+    bars: list[Bar],
+    dataset_manifest: str,
+    template: RunConfig,
+    optim: OptimizeBlock,
+    space: dict[str, RandomParam],
+    fold_index: int,
+    fold: FoldRange,
+    parallelism: int,
+    trial_counter: Iterator[int],
+    trial_rows: list[TrialRow],
+    poll_interval_secs: float,
+    persist_writer: _PersistWriter | None,
+) -> FoldWinner:
+    """CMA-ES per-fold search.
+
+    Rescales the space to the unit cube before driving ``cma`` so
+    ``sigma0`` is a fraction of the per-dim parameter range. Each
+    generation's ``ask()`` candidates are projected back to the named
+    param space and packed as one engine batch.
+    """
+    import warnings as _warnings  # noqa: PLC0415 — used only on the warn path.
+
+    import cma  # noqa: PLC0415 — optional dep, deferred import.
+
+    knobs = optim.cma_es if optim.cma_es is not None else CmaEsKnobs()
+    if knobs.restart_strategy != "null":
+        msg = (
+            f"cma_es: restart_strategy={knobs.restart_strategy!r} is not yet "
+            "implemented; only 'null' is supported. File an issue if you need "
+            "IPOP/BIPOP restarts."
+        )
+        raise NotImplementedError(msg)
+
+    keys, bounds_pairs, integrality = de_bounds_and_integrality(space)
+    if not keys:
+        return _fallback_winner(trial_rows, fold_index)
+    n_dims = len(keys)
+    popsize = cma_resolve_popsize(knobs.popsize, n_dims)
+
+    x0 = [0.5] * n_dims
+    options: dict[str, Any] = {
+        "popsize": popsize,
+        "seed": optim.seed + fold_index * 7919 + 1,
+        "bounds": [[0.0] * n_dims, [1.0] * n_dims],
+        "verbose": -9,
+        "maxiter": knobs.n_generations,
+    }
+    es = cma.CMAEvolutionStrategy(x0, knobs.sigma0, options)
+
+    best_params: ParamSet | None = None
+    best_metrics: MetricsDict | None = None
+    best_score = float("-inf")
+    gen = 0
+    while not es.stop() and gen < knobs.n_generations:
+        raw_units = es.ask()
+        if knobs.bounds == "reject":
+            for i in range(len(raw_units)):
+                attempt = 0
+                while (
+                    _unit_out_of_bounds_local(raw_units[i]) and attempt < 16  # noqa: PLR2004
+                ):
+                    raw_units[i] = es.ask(1)[0]
+                    attempt += 1
+        candidates = [
+            cma_unit_to_params(u, keys, bounds_pairs, integrality, knobs.bounds) for u in raw_units
+        ]
+        dup_rate = cma_dedup_rate(candidates)
+        if any(integrality) and dup_rate > _CMA_DEDUP_WARN_THRESHOLD:
+            _warnings.warn(
+                f"cma_es fold {fold_index} gen {gen}: integer dedup rate "
+                f"{dup_rate:.2%} exceeds 30%; inflating sigma0 for this fold by 1.5x.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            es.sigma = es.sigma * 1.5
+        spec = _pack_batch(
+            experiment=experiment,
+            dataset_manifest=dataset_manifest,
+            runs=[_build_run(template, c, fold.train) for c in candidates],
+            parallelism=parallelism,
+        )
+        entries = _submit_and_collect(
+            engine,
+            artifact_path=artifact_path,
+            bars=bars,
+            spec=spec,
+            dataset_manifest=dataset_manifest,
+            poll_interval_secs=poll_interval_secs,
+        )
+        neg_scores: list[float] = []
+        for params, entry in zip(candidates, entries, strict=True):
+            outcome = _score(objective, entry.metrics) if entry.ok else _failed_outcome(entry.error)
+            accepted = outcome.accepted
+            row = TrialRow(
+                trial_id=next(trial_counter),
+                round=gen,
+                phase=f"train_fold_{fold_index}",
+                fold_index=fold_index,
+                params=params,
+                seed=template.seed,
+                metrics=entry.metrics,
+                score=outcome.score,
+                accepted=accepted,
+                reject_reason="" if accepted else _reject_reason(entry, outcome),
+                wall_secs=entry.wall_secs,
+            )
+            trial_rows.append(row)
+            if persist_writer is not None:
+                persist_writer.emit_row(row)
+            if accepted and outcome.score > best_score:
+                best_score = outcome.score
+                best_params = params
+                best_metrics = entry.metrics
+            neg_scores.append(-outcome.score if math.isfinite(outcome.score) else 1e18)
+        es.tell(raw_units, neg_scores)
+        if persist_writer is not None:
+            persist_writer.flush()
+        gen += 1
+
+    if best_params is None or best_metrics is None:
+        return _fallback_winner(trial_rows, fold_index)
+    return FoldWinner(
+        fold_index=fold_index,
+        params=best_params,
+        train_metrics=best_metrics,
+        train_score=best_score,
+    )
+
+
+def _unit_out_of_bounds_local(unit: Sequence[float]) -> bool:
+    return any(u < 0.0 or u > 1.0 for u in unit)
 
 
 def _search_fold_differential_evolution(  # noqa: PLR0913 — DE owns its own search loop.

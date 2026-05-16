@@ -315,7 +315,7 @@ strategy-gpt optimize inspect <opt_id> --trial 4271     # one trial row
 strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
 ```
 
-`--method recursive_grid|grid|random|sobol|differential_evolution` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
+`--method recursive_grid|grid|random|sobol|differential_evolution|cma_es` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
 
 ### Sobol quasi-random (drop-in replacement for `random`)
 
@@ -335,6 +335,25 @@ optimize:
     scramble: true
     owen_seed: 42
   persist: { root: ./ledger, name: vxx-sobol }
+```
+
+### CMA-ES (Hansen)
+
+Covariance Matrix Adaptation Evolution Strategy — strong on
+smooth-but-noisy continuous surfaces, especially when parameters
+interact. Each generation packs as one engine batch.
+
+```bash
+strategy-gpt optimize --spec experiment.yaml --method cma_es
+
+# Or declare in the spec
+optimize:
+  method: cma_es
+  cma_es:
+    popsize: auto       # 4 + floor(3 * ln(D))
+    sigma0: 0.3
+    n_generations: 50
+  persist: { root: ./ledger, name: vxx-cma }
 ```
 
 ### Differential evolution (Storn & Price)

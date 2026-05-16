@@ -6,13 +6,13 @@
 
 ## 2. CMA-ES searcher
 
-- [ ] 2.1 Add `CmaEsSearcher` to `python/strategy_gpt/optimizer.py` wrapping `cma.CMAEvolutionStrategy`.
-- [ ] 2.2 Implement `popsize: auto` → `4 + floor(3 * ln(D))`.
-- [ ] 2.3 Implement bounds modes `clip` (default) and `reject` (redraw).
-- [ ] 2.4 Mixed-integer handling: round + de-duplicate per generation; warn + inflate sigma on > 30% duplicate rate.
-- [ ] 2.5 Restart strategies: `null`, `ipop`, `bipop` (delegate to `cma`).
-- [ ] 2.6 Pydantic model `CmaEsKnobs` in `experiment_spec.py`.
-- [ ] 2.7 Per-generation packed batch dispatch through the per-fold orchestrator.
+- [x] 2.1 Add `CmaEsSearcher` to `python/strategy_gpt/optimizer.py` wrapping `cma.CMAEvolutionStrategy`.
+- [x] 2.2 Implement `popsize: auto` → `4 + floor(3 * ln(D))`.
+- [x] 2.3 Implement bounds modes `clip` (default) and `reject` (redraw).
+- [x] 2.4 Mixed-integer handling: round + de-duplicate per generation; warn + inflate sigma on > 30% duplicate rate.
+- [/] 2.5 Restart strategies: `null`, `ipop`, `bipop` (delegate to `cma`).
+- [x] 2.6 Pydantic model `CmaEsKnobs` in `experiment_spec.py`.
+- [x] 2.7 Per-generation packed batch dispatch through the per-fold orchestrator.
 
 ## 3. Differential Evolution searcher
 
@@ -66,7 +66,7 @@
 ## 10. Tests
 
 - [ ] 10.1 Each method on a 2-D synthetic objective with a known global optimum: assert convergence within tolerance, assert seed-determinism, assert `trials.parquet` row count matches the predictor formula.
-- [ ] 10.2 CMA-ES on a 4-D mixed (2 float, 2 int) space: assert int params are integer in every recorded trial.
+- [x] 10.2 CMA-ES on a 4-D mixed (2 float, 2 int) space: assert int params are integer in every recorded trial.
 - [x] 10.3 Sobol with `n_points=128, scramble=true, owen_seed=42`: assert byte-identical sequence across two runs.
 - [x] 10.4 DE with `init=sobol`: assert the first-generation candidates match a standalone Sobol run with the same seed and `n=popsize`.
 - [ ] 10.5 Successive Halving end-to-end: assert killed candidates do not appear in later-rung trials; assert the final-rung survivors are the cross-OOS evaluated candidates.

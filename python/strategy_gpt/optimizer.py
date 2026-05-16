@@ -301,6 +301,63 @@ def de_resolve_popsize(popsize: int | str, n_dims: int) -> int:
     raise ValueError(msg)
 
 
+# ---------------------------------------------------------------------------
+# CMA-ES helpers
+# ---------------------------------------------------------------------------
+
+
+def cma_resolve_popsize(popsize: int | str, n_dims: int) -> int:
+    """Resolve ``popsize: auto`` -> ``4 + floor(3 * ln(D))`` per Hansen 2016."""
+    if isinstance(popsize, int):
+        return max(popsize, 4)
+    if popsize == "auto":
+        return 4 + int(3 * math.log(max(n_dims, 1)))
+    msg = f"cma_resolve_popsize: unexpected popsize={popsize!r}"
+    raise ValueError(msg)
+
+
+def cma_unit_to_params(
+    unit: Sequence[float],
+    keys: Sequence[str],
+    bounds: Sequence[tuple[float, float]],
+    integrality: Sequence[bool],
+    bounds_mode: str,
+) -> ParamSet:
+    """Project a unit-cube vector to a named param set.
+
+    Under ``bounds: clip`` the value is clamped to ``[low, high]``; the
+    caller is responsible for the redraw policy under ``bounds: reject``.
+    """
+    out: ParamSet = {}
+    for i, k in enumerate(keys):
+        u = float(unit[i])
+        if bounds_mode == "clip":
+            u = min(1.0, max(0.0, u))
+        lo, hi = bounds[i]
+        raw = lo + u * (hi - lo)
+        out[k] = round(raw) if integrality[i] else raw
+    return out
+
+
+def _unit_out_of_bounds(unit: Sequence[float]) -> bool:
+    return any(u < 0.0 or u > 1.0 for u in unit)
+
+
+def cma_dedup_rate(params_list: Sequence[Mapping[str, Any]]) -> float:
+    """Fraction of duplicates within a generation.
+
+    Used to detect integer-collapse pathologies — when too many
+    candidates round to the same point, CMA-ES is stuck and the
+    orchestrator should warn / inflate sigma.
+    """
+    if not params_list:
+        return 0.0
+    keys = sorted(params_list[0].keys())
+    fingerprints = [tuple(p[k] for k in keys) for p in params_list]
+    unique = len(set(fingerprints))
+    return 1.0 - unique / len(fingerprints)
+
+
 def de_sobol_init(
     space: Mapping[str, RandomParam],
     keys: Sequence[str],
@@ -1022,6 +1079,9 @@ __all__ = [
     "SobolSearcher",
     "TPESearcher",
     "Trial",
+    "cma_dedup_rate",
+    "cma_resolve_popsize",
+    "cma_unit_to_params",
     "de_bounds_and_integrality",
     "de_project_individual",
     "de_resolve_popsize",
