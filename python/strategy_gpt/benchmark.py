@@ -30,12 +30,8 @@ from .experiment_spec import (
     ChoiceParam as SpecChoiceParam,
 )
 from .experiment_spec import (
-    CmaEsKnobs,
-    DEKnobs,
     ExperimentSpec,
     OptimizeBlock,
-    RecursiveGridKnobs,
-    SobolKnobs,
 )
 from .experiment_spec import (
     FloatParam as SpecFloatParam,
@@ -44,13 +40,8 @@ from .experiment_spec import (
     IntParam as SpecIntParam,
 )
 from .folds import derive_folds
-from .optimization_runner import (
-    _build_run,
-    _pack_batch,
-    _submit_and_collect,
-    per_dim_resolutions,
-)
-from .optimizer import _next_power_of_two, cma_resolve_popsize, de_resolve_popsize
+from .optimization_runner import _build_run, _pack_batch, _submit_and_collect
+from .search import get as get_search_method
 from .types import Bar
 
 _LEDGER_BYTES_PER_ROW = 200
@@ -95,65 +86,13 @@ def _sample_random_candidates(optim: OptimizeBlock, n: int) -> list[dict[str, An
     return out
 
 
-def planned_run_count(optim: OptimizeBlock, folds_count: int) -> int:  # noqa: PLR0911, PLR0912 — one branch per method+param kind.
-    """Total backtest runs the configured method will commission."""
-    method = optim.method
-    if method == "recursive_grid":
-        rg_knobs = optim.recursive_grid or RecursiveGridKnobs()
-        dims = len(optim.space)
-        per_dim_res = per_dim_resolutions(optim.space)
-        runs_per_round = 1
-        for name in optim.space:
-            runs_per_round *= int(per_dim_res.get(name, rg_knobs.resolution))
-        if dims == 0:
-            runs_per_round = 0
-        total_train = runs_per_round * rg_knobs.depth * folds_count
-        return total_train + folds_count * folds_count
-    if method == "grid":
-        grid_knobs = optim.grid
-        default_res = grid_knobs.resolution if grid_knobs and grid_knobs.resolution else 10
-        size = 1
-        for _name, param in optim.space.items():
-            if isinstance(param, SpecChoiceParam):
-                size *= len(param.choices)
-            elif isinstance(param, SpecIntParam):
-                if param.step is not None:
-                    points = ((param.high - param.low) // param.step) + 1
-                    size *= int(points)
-                else:
-                    size *= default_res
-            elif isinstance(param, SpecFloatParam):
-                if param.step is not None:
-                    points = int((param.high - param.low) / param.step) + 1
-                    size *= max(points, 1)
-                else:
-                    size *= default_res
-        return size * folds_count + folds_count * folds_count
-    if method == "random":
-        n = optim.random.n_samples if optim.random is not None else 0
-        return n * folds_count + folds_count * folds_count
-    if method == "bayesian":
-        n = optim.bayesian.n_iter if optim.bayesian is not None else 0
-        return n * folds_count + folds_count * folds_count
-    if method == "sobol":
-        sobol_knobs = optim.sobol if optim.sobol is not None else SobolKnobs()
-        n = _next_power_of_two(sobol_knobs.n_points)
-        return n * folds_count + folds_count * folds_count
-    if method == "differential_evolution":
-        de_knobs = (
-            optim.differential_evolution if optim.differential_evolution is not None else DEKnobs()
-        )
-        # Strip categoricals out of the dim count — DE rejects them at fold time.
-        n_dims = sum(1 for p in optim.space.values() if not isinstance(p, SpecChoiceParam))
-        pop = de_resolve_popsize(de_knobs.popsize, n_dims)
-        return pop * de_knobs.n_generations * folds_count + folds_count * folds_count
-    if method == "cma_es":
-        cma_knobs = optim.cma_es if optim.cma_es is not None else CmaEsKnobs()
-        n_dims = sum(1 for p in optim.space.values() if not isinstance(p, SpecChoiceParam))
-        pop = cma_resolve_popsize(cma_knobs.popsize, n_dims)
-        return pop * cma_knobs.n_generations * folds_count + folds_count * folds_count
-    msg = f"planned_run_count: unsupported method {method!r}."
-    raise ValueError(msg)
+def planned_run_count(optim: OptimizeBlock, folds_count: int) -> int:
+    """Total backtest runs the configured method will commission.
+
+    Pure dispatch through the search-method registry — adding a method
+    is a ``strategy_gpt/search/<name>.py`` change, not a change here.
+    """
+    return get_search_method(optim.method).planned_run_count(optim, folds_count)
 
 
 def run_benchmark(  # noqa: PLR0913
