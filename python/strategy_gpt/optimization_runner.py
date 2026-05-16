@@ -40,6 +40,7 @@ from .experiment_spec import (
     OptimizeBlock,
     RecursiveGridKnobs,
     RunConfig,
+    SobolKnobs,
 )
 from .experiment_spec import (
     FloatParam as SpecFloatParam,
@@ -59,6 +60,7 @@ from .optimizer import (
     RandomSearcher,
     RecursiveGridDriver,
     RecursiveGridSearcher,
+    SobolSearcher,
     Trial,
 )
 from .optimizer import (
@@ -848,6 +850,14 @@ def _candidates_for_one_shot(
         assert random_knobs is not None  # noqa: S101 — pydantic-enforced.
         return RandomSearcher(
             space=space, n_iter=random_knobs.n_samples, seed=optim.seed
+        ).candidates()
+    if optim.method == "sobol":
+        sobol_knobs = optim.sobol if optim.sobol is not None else SobolKnobs()
+        return SobolSearcher(
+            space=space,
+            n_points=sobol_knobs.n_points,
+            scramble=sobol_knobs.scramble,
+            owen_seed=sobol_knobs.owen_seed if sobol_knobs.scramble else optim.seed,
         ).candidates()
     if optim.method == "bayesian":
         # TPE needs sequential feedback; one-shot path is not appropriate.

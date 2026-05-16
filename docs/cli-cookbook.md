@@ -315,7 +315,27 @@ strategy-gpt optimize inspect <opt_id> --trial 4271     # one trial row
 strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
 ```
 
-`--method recursive_grid|grid|random` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
+`--method recursive_grid|grid|random|sobol` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
+
+### Sobol quasi-random (drop-in replacement for `random`)
+
+Owen-scrambled Sobol covers the parameter space more uniformly than
+random sampling at the same budget. Use as a stronger baseline or as
+the seed for evolutionary methods.
+
+```bash
+# Inline override of method + Sobol budget
+strategy-gpt optimize --spec experiment.yaml --method sobol
+
+# Or declare in the spec
+optimize:
+  method: sobol
+  sobol:
+    n_points: 256       # power of two
+    scramble: true
+    owen_seed: 42
+  persist: { root: ./ledger, name: vxx-sobol }
+```
 
 ### Overfitting-aware selection
 

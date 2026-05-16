@@ -1,5 +1,52 @@
 # Parameter optimization
 
+## Search methods
+
+The optimizer ships several search methods, selectable per run via
+`optimize.method`. Each owns a sibling `optimize.<method>` knob block;
+unknown keys are rejected at spec-validation time. The optimization
+manifest always records the resolved knob values plus the library name +
+version used so a run can be replayed bit-for-bit later.
+
+### `sobol`
+
+Owen-scrambled quasi-random sequence (Owen 1995; Sobol 1967). Better
+space-fill than `random` at the same budget — a near drop-in replacement
+that meaningfully improves coverage in 2-8 dimensions. Typical use:
+strong random baseline, or as the seed phase for evolutionary methods
+(see `differential_evolution.init: sobol`).
+
+```yaml
+optimize:
+  method: sobol
+  sobol:
+    n_points: 256       # power-of-two; non-powers are rounded up + warned
+    scramble: true
+    owen_seed: 42
+```
+
+Library: `scipy.stats.qmc.Sobol`. Determinism: fully seedable when
+scrambled; deterministic by construction otherwise.
+
+### Other methods
+
+`recursive_grid` (default), `grid`, `random`, `bayesian` (TPE). See
+existing `optimize.<method>` knob blocks in
+[`docs/experiment-spec.md`](experiment-spec.md). Additional methods
+(`cma_es`, `differential_evolution`, `successive_halving`, `lhs_polish`)
+land in upcoming chunks of this change.
+
+## Supply-chain rule
+
+All direct dependencies pinned per the project's supply-chain freshness
+rule: every version installed MUST be ≥ 7 days old at install time. The
+manifest records the resolved version per method (e.g.,
+`scipy==1.17.1`); a future scipy / cma release that breaks determinism
+falls back to the previous compliant pin in the manifest, not the
+in-house module.
+
+
+
 Strategy-GPT's optimizer drives the engine through a declarative
 experiment-spec: a per-fold search over the strategy's parameter space,
 followed by cross-fold OOS validation, followed by an

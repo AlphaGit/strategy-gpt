@@ -197,6 +197,20 @@ class RecursiveGridKnobs(BaseModel):
     plateau_epsilon: float = Field(default=1e-4, gt=0)
 
 
+class SobolKnobs(BaseModel):
+    """Knobs for ``method: sobol`` (Owen-scrambled quasi-random).
+
+    ``n_points`` is rounded up to the next power of two at runtime with a
+    warning when not already a power of two; record the resolved value in
+    the optimization manifest for replay.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    n_points: int = Field(default=256, ge=2)
+    scramble: bool = True
+    owen_seed: int = 0
+
+
 class PersistBlock(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     root: str
@@ -213,7 +227,13 @@ class OptimizeBlock(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    method: Literal["recursive_grid", "grid", "random", "bayesian"]
+    method: Literal[
+        "recursive_grid",
+        "grid",
+        "random",
+        "bayesian",
+        "sobol",
+    ]
     seed: int = 0
     aggregator: Literal["mean"] = "mean"
     space: dict[str, ParamSpace] = Field(..., min_length=1)
@@ -221,6 +241,7 @@ class OptimizeBlock(BaseModel):
     random: RandomKnobs | None = None
     bayesian: BayesianKnobs | None = None
     recursive_grid: RecursiveGridKnobs | None = None
+    sobol: SobolKnobs | None = None
     persist: PersistBlock
     selection: SelectionKnobs = SelectionKnobs()
     robust_objective: bool = False
@@ -431,6 +452,7 @@ __all__ = [
     "RunConfig",
     "SelectionKnobs",
     "SensitivityKnobs",
+    "SobolKnobs",
     "load",
     "validate_search_space",
 ]

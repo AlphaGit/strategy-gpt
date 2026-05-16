@@ -22,6 +22,8 @@ dependencies = [
     "structlog>=24.4",
     "typer>=0.12",
     "rich>=13.9",
+    "scipy>=1.17",
+    "cma>=4.4",
 ]
 
 [project.optional-dependencies]
@@ -101,5 +103,9 @@ module = [
     "langchain_core.*",
     "pyarrow",
     "pyarrow.*",
+    "scipy",
+    "scipy.*",
+    "cma",
+    "cma.*",
 ]
 ignore_missing_imports = true

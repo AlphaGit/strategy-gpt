@@ -161,6 +161,85 @@ def _sample(rng: random.Random, param: RandomParam) -> Any:  # noqa: ANN401 — 
 
 
 # ---------------------------------------------------------------------------
+# Sobol quasi-random search
+# ---------------------------------------------------------------------------
+
+
+def _next_power_of_two(n: int) -> int:
+    if n < 1:
+        return 1
+    return 1 << (n - 1).bit_length()
+
+
+def _project_unit(u: float, param: RandomParam) -> Any:  # noqa: ANN401
+    """Map a unit-interval value to a parameter sample."""
+    if isinstance(param, ContinuousParam):
+        if param.log:
+            lo, hi = math.log(param.low), math.log(param.high)
+            return math.exp(lo + u * (hi - lo))
+        return param.low + u * (param.high - param.low)
+    if isinstance(param, IntParam):
+        # Inclusive [low, high]: uniformly bucket the unit interval into
+        # (high - low + 1) bins.
+        span = param.high - param.low + 1
+        idx = min(int(u * span), span - 1)
+        return param.low + idx
+    choices = list(param.choices)
+    idx = min(int(u * len(choices)), len(choices) - 1)
+    return choices[idx]
+
+
+@dataclass(frozen=True)
+class SobolSearcher:
+    """Owen-scrambled Sobol quasi-random sequence over ``space``.
+
+    Yields exactly ``n_points`` candidates (rounded up to the next power
+    of two with a warning when callers request a non-power-of-2). The
+    sequence is deterministic given ``owen_seed`` when ``scramble=True``
+    and deterministic by construction when ``scramble=False``.
+
+    Reference: Owen 1995, Owen-scrambling of Sobol sequences;
+    `scipy.stats.qmc.Sobol`.
+    """
+
+    space: Mapping[str, RandomParam]
+    n_points: int
+    scramble: bool = True
+    owen_seed: int = 0
+
+    def candidates(self) -> Iterator[ParamSet]:
+        # Imported lazily so a stripped-down env without scipy can still
+        # load this module — only callers requesting Sobol pay the import.
+        from scipy.stats import qmc  # noqa: PLC0415 — optional dep, deferred import.
+
+        keys = list(self.space.keys())
+        if not keys:
+            return
+        d = len(keys)
+        target = _next_power_of_two(self.n_points)
+        if target != self.n_points:
+            import warnings as _w  # noqa: PLC0415 — lazy import; warn only on the slow path.
+
+            _w.warn(
+                f"SobolSearcher: n_points={self.n_points} rounded up to {target} "
+                "(power of two required for balanced Sobol sequences).",
+                UserWarning,
+                stacklevel=2,
+            )
+        engine = qmc.Sobol(
+            d=d,
+            scramble=self.scramble,
+            seed=self.owen_seed if self.scramble else None,
+        )
+        unit = engine.random(n=target)
+        for row in unit:
+            yield {k: _project_unit(float(row[i]), self.space[k]) for i, k in enumerate(keys)}
+
+    def count(self) -> int:
+        return _next_power_of_two(self.n_points)
+
+
+# ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
 
@@ -844,6 +923,7 @@ __all__ = [
     "RecursiveGridSearcher",
     "ScoreFn",
     "Searcher",
+    "SobolSearcher",
     "TPESearcher",
     "Trial",
     "optimize",

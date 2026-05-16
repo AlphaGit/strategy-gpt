@@ -33,6 +33,7 @@ from .experiment_spec import (
     ExperimentSpec,
     OptimizeBlock,
     RecursiveGridKnobs,
+    SobolKnobs,
 )
 from .experiment_spec import (
     FloatParam as SpecFloatParam,
@@ -47,6 +48,7 @@ from .optimization_runner import (
     _submit_and_collect,
     per_dim_resolutions,
 )
+from .optimizer import _next_power_of_two
 from .types import Bar
 
 _LEDGER_BYTES_PER_ROW = 200
@@ -130,6 +132,10 @@ def planned_run_count(optim: OptimizeBlock, folds_count: int) -> int:  # noqa: P
         return n * folds_count + folds_count * folds_count
     if method == "bayesian":
         n = optim.bayesian.n_iter if optim.bayesian is not None else 0
+        return n * folds_count + folds_count * folds_count
+    if method == "sobol":
+        sobol_knobs = optim.sobol if optim.sobol is not None else SobolKnobs()
+        n = _next_power_of_two(sobol_knobs.n_points)
         return n * folds_count + folds_count * folds_count
     msg = f"planned_run_count: unsupported method {method!r}."
     raise ValueError(msg)

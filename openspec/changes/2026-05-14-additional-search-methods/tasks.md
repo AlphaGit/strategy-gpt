@@ -1,8 +1,8 @@
 ## 1. Dependencies
 
-- [ ] 1.1 Add `cma` to Python dependencies, pinned (target `cma==3.3.0` or latest stable ≥ 7 days old per supply-chain rule).
-- [ ] 1.2 Confirm `scipy >= 1.11` is in dependency floor; bump if needed (verify pinned version ≥ 7 days old).
-- [ ] 1.3 Document the version pin policy and the supply-chain rule reference in `docs/optimization.md`.
+- [x] 1.1 Add `cma` to Python dependencies, pinned (target `cma==3.3.0` or latest stable ≥ 7 days old per supply-chain rule).
+- [x] 1.2 Confirm `scipy >= 1.11` is in dependency floor; bump if needed (verify pinned version ≥ 7 days old).
+- [x] 1.3 Document the version pin policy and the supply-chain rule reference in `docs/optimization.md`.
 
 ## 2. CMA-ES searcher
 
@@ -25,10 +25,10 @@
 
 ## 4. Sobol searcher
 
-- [ ] 4.1 Add `SobolSearcher` wrapping `scipy.stats.qmc.Sobol` with Owen scrambling.
-- [ ] 4.2 Enforce `n_points` is a power of 2; round up with a warning if not.
-- [ ] 4.3 Pydantic model `SobolKnobs`.
-- [ ] 4.4 Single packed batch per fold.
+- [x] 4.1 Add `SobolSearcher` wrapping `scipy.stats.qmc.Sobol` with Owen scrambling.
+- [x] 4.2 Enforce `n_points` is a power of 2; round up with a warning if not.
+- [x] 4.3 Pydantic model `SobolKnobs`.
+- [x] 4.4 Single packed batch per fold.
 
 ## 5. Successive Halving searcher
 
@@ -49,7 +49,7 @@
 
 ## 7. Benchmark predictor extensions
 
-- [ ] 7.1 Add per-method plan-run-count formulas in `python/strategy_gpt/benchmark.py`.
+- [x] 7.1 Add per-method plan-run-count formulas in `python/strategy_gpt/benchmark.py`.
 - [ ] 7.2 Successive Halving requires summing per-rung costs; predictor MUST account for the surviving-candidate cascade.
 - [ ] 7.3 Update the `--benchmark` printed report to display the method-specific breakdown (e.g., "rung 0: 64 cands × 2 folds = 128 runs").
 
@@ -67,7 +67,7 @@
 
 - [ ] 10.1 Each method on a 2-D synthetic objective with a known global optimum: assert convergence within tolerance, assert seed-determinism, assert `trials.parquet` row count matches the predictor formula.
 - [ ] 10.2 CMA-ES on a 4-D mixed (2 float, 2 int) space: assert int params are integer in every recorded trial.
-- [ ] 10.3 Sobol with `n_points=128, scramble=true, owen_seed=42`: assert byte-identical sequence across two runs.
+- [x] 10.3 Sobol with `n_points=128, scramble=true, owen_seed=42`: assert byte-identical sequence across two runs.
 - [ ] 10.4 DE with `init=sobol`: assert the first-generation candidates match a standalone Sobol run with the same seed and `n=popsize`.
 - [ ] 10.5 Successive Halving end-to-end: assert killed candidates do not appear in later-rung trials; assert the final-rung survivors are the cross-OOS evaluated candidates.
 - [ ] 10.6 LHS + Hooke-Jeeves: assert Hooke-Jeeves halves step_size when no improvement found in a sweep; assert convergence on a paraboloid.
