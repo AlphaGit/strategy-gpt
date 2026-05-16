@@ -162,7 +162,7 @@ def _sample(rng: random.Random, param: RandomParam) -> Any:  # noqa: ANN401 — 
 EvaluateFn = Callable[[ParamSet], MetricsDict]
 """Caller-supplied: run the candidate (e.g. submit to engine, aggregate folds)
 and return its metrics dict. The optimizer treats this as a black box; in
-production it dispatches a walk-forward `BatchSpec` to the engine."""
+production it dispatches a fold-based `BatchSpec` to the engine."""
 
 ScoreFn = Callable[[MetricsDict], EvaluationOutcome]
 """Caller-supplied: produce an `EvaluationOutcome` from metrics. In

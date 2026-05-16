@@ -302,7 +302,7 @@ def _score_fn(metrics: dict[str, float]) -> EvaluationOutcome:
 
 
 def _evaluate_fn(params: dict[str, Any]) -> dict[str, float]:
-    """Deterministic surrogate for a walk-forward batch.
+    """Deterministic surrogate for a fold-based batch.
 
     Score peaks at vol_lo=0.008, vol_hi=0.05; falls off with distance. The
     optimizer should pick the centre of the grid given a wide enough net.

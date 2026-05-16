@@ -54,6 +54,14 @@
       "minItems": 1,
       "items": { "$ref": "#/$defs/RunConfig" }
     },
+    "optimize": {
+      "$ref": "#/$defs/OptimizeBlock",
+      "description": "Optional declarative parameter search over the run template. Requires `folds`."
+    },
+    "folds": {
+      "$ref": "#/$defs/FoldsBlock",
+      "description": "Optional fold scheme that splits the experiment's slice into train/OOS pairs."
+    },
     "parallelism": {
       "oneOf": [
         { "type": "integer", "minimum": 1 },
@@ -123,6 +131,114 @@
       "required": ["kind"],
       "properties": {
         "kind": { "enum": ["plain", "monte_carlo", "slippage", "regime_filter", "sensitivity"] }
+      }
+    },
+    "FoldsBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "scheme"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 2 },
+        "scheme": { "enum": ["rolling", "anchored"] },
+        "gap": { "type": "integer", "minimum": 0, "default": 0 },
+        "warmup_bars": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "OptimizeBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "space", "persist"],
+      "properties": {
+        "method": { "enum": ["recursive_grid", "grid", "random", "bayesian"] },
+        "seed": { "type": "integer", "default": 0 },
+        "aggregator": { "enum": ["mean"], "default": "mean" },
+        "space": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/ParamSpace" }
+        },
+        "grid": { "$ref": "#/$defs/GridKnobs" },
+        "random": { "$ref": "#/$defs/RandomKnobs" },
+        "bayesian": { "$ref": "#/$defs/BayesianKnobs" },
+        "recursive_grid": { "$ref": "#/$defs/RecursiveGridKnobs" },
+        "persist": { "$ref": "#/$defs/PersistBlock" }
+      }
+    },
+    "ParamSpace": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "low", "high"],
+          "properties": {
+            "type": { "const": "float" },
+            "low": { "type": "number" },
+            "high": { "type": "number" },
+            "step": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "low", "high"],
+          "properties": {
+            "type": { "const": "int" },
+            "low": { "type": "integer" },
+            "high": { "type": "integer" },
+            "step": { "type": "integer", "exclusiveMinimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "choices"],
+          "properties": {
+            "type": { "const": "choice" },
+            "choices": { "type": "array", "minItems": 1 }
+          }
+        }
+      ]
+    },
+    "GridKnobs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resolution": { "type": "integer", "minimum": 2 }
+      }
+    },
+    "RandomKnobs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_samples"],
+      "properties": {
+        "n_samples": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "BayesianKnobs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_iter"],
+      "properties": {
+        "n_init": { "type": "integer", "minimum": 1, "default": 8 },
+        "n_iter": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "RecursiveGridKnobs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "levels": { "type": "integer", "minimum": 1, "default": 2 },
+        "shrink": { "type": "number", "exclusiveMinimum": 0, "default": 0.5 },
+        "resolution": { "type": "integer", "minimum": 2, "default": 3 }
+      }
+    },
+    "PersistBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "name"],
+      "properties": {
+        "root": { "type": "string" },
+        "name": { "type": "string" }
       }
     }
   }

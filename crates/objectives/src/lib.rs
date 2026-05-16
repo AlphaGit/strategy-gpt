@@ -12,7 +12,7 @@ pub mod validation;
 pub use evaluator::{evaluate, EvaluationOutcome};
 pub use metric_name::{is_valid_metric, metric_value, ENGINE_METRICS};
 pub use spec::{
-    Comparison, ComparisonOp, ObjectiveSpec, PrimaryMetric, SecondaryMetric, SecondaryMode,
-    Tradeoff, WalkForward,
+    Comparison, ComparisonOp, FoldScheme, Folds, ObjectiveSpec, PrimaryMetric, SecondaryMetric,
+    SecondaryMode, Tradeoff,
 };
 pub use validation::{validate, ValidationError};

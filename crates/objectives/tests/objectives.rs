@@ -2,8 +2,8 @@
 
 use engine::BacktestMetrics;
 use objectives::{
-    evaluate, validate, Comparison, ComparisonOp, EvaluationOutcome, ObjectiveSpec, PrimaryMetric,
-    SecondaryMetric, SecondaryMode, Tradeoff, WalkForward,
+    evaluate, validate, Comparison, ComparisonOp, EvaluationOutcome, FoldScheme, Folds,
+    ObjectiveSpec, PrimaryMetric, SecondaryMetric, SecondaryMode, Tradeoff,
 };
 
 fn metrics(sharpe: f64, max_dd: f64, pf: f64, win: f64) -> BacktestMetrics {
@@ -50,9 +50,11 @@ fn baseline_spec() -> ObjectiveSpec {
             },
         ],
         tradeoff: Tradeoff::Lexicographic,
-        walk_forward: WalkForward {
-            folds: 5,
+        folds: Folds {
+            count: 5,
+            scheme: FoldScheme::Rolling,
             gap: Some(1),
+            warmup_bars: None,
             oos_min_score: Some(0.5),
         },
     }
@@ -75,8 +77,9 @@ secondary:
     weight: 0.3
     mode: soft
 tradeoff: lexicographic
-walk_forward:
-  folds: 5
+folds:
+  count: 5
+  scheme: rolling
   gap: 1
   oos_min_score: 0.5
 "#;
@@ -85,7 +88,26 @@ walk_forward:
     assert_eq!(spec.primary.target.unwrap().op, ComparisonOp::Ge);
     assert_eq!(spec.secondary.len(), 2);
     assert!(matches!(spec.tradeoff, Tradeoff::Lexicographic));
-    assert_eq!(spec.walk_forward.folds, 5);
+    assert_eq!(spec.folds.count, 5);
+    assert!(matches!(spec.folds.scheme, FoldScheme::Rolling));
+}
+
+#[test]
+fn rejects_legacy_walk_forward_key_with_migration_error() {
+    let yaml = r#"
+primary:
+  metric: sharpe
+  target: ">= 1.0"
+tradeoff: lexicographic
+walk_forward:
+  folds: 5
+"#;
+    let err = ObjectiveSpec::from_yaml(yaml).unwrap_err();
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("walk_forward") && msg.contains("folds"),
+        "migration error must name old + new keys; got: {msg}"
+    );
 }
 
 #[test]
@@ -122,9 +144,11 @@ fn pareto_requires_two_or_more_metrics() {
         },
         secondary: vec![],
         tradeoff: Tradeoff::Pareto,
-        walk_forward: WalkForward {
-            folds: 1,
+        folds: Folds {
+            count: 1,
+            scheme: FoldScheme::Rolling,
             gap: None,
+            warmup_bars: None,
             oos_min_score: None,
         },
     };
@@ -147,7 +171,7 @@ fn pareto_requires_two_or_more_metrics() {
 #[test]
 fn rejects_zero_folds() {
     let mut spec = baseline_spec();
-    spec.walk_forward.folds = 0;
+    spec.folds.count = 0;
     let err = validate(&spec).unwrap_err();
     assert!(format!("{err}").contains("folds"));
 }
@@ -221,9 +245,11 @@ fn weighted_sum_negates_lower_is_better_targets() {
             mode: SecondaryMode::Soft,
         }],
         tradeoff: Tradeoff::WeightedSum,
-        walk_forward: WalkForward {
-            folds: 1,
+        folds: Folds {
+            count: 1,
+            scheme: FoldScheme::Rolling,
             gap: None,
+            warmup_bars: None,
             oos_min_score: None,
         },
     };

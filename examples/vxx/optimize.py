@@ -3,7 +3,7 @@
 What this does
 --------------
 - Loads `crates/vxx-strategy/objective.yaml` (primary/secondary metrics,
-  tradeoff mode, walk-forward config) and validates it through the Rust
+  tradeoff mode, fold config) and validates it through the Rust
   `objectives::validate_spec` binding.
 - Enumerates a grid of `(vol_lo, vol_hi)` candidates over the
   realized-vol scale observed in the engine indicator.

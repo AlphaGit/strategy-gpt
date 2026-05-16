@@ -113,6 +113,125 @@ class Caps(BaseModel):
     mem_cap_bytes: int | None = None
 
 
+class FoldsBlock(BaseModel):
+    """Declarative fold scheme over an experiment slice.
+
+    Validated structurally; the runtime translation to concrete (train, OOS)
+    ranges lives in :func:`strategy_gpt.folds.derive_folds`.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    count: int = Field(..., ge=2)
+    scheme: Literal["rolling", "anchored"]
+    gap: int = Field(default=0, ge=0)
+    warmup_bars: int | None = Field(default=None, ge=0)
+
+
+class FloatParam(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    type: Literal["float"]
+    low: float
+    high: float
+    step: float | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _check_range(self) -> FloatParam:
+        if self.high <= self.low:
+            msg = f"FloatParam: high ({self.high}) must exceed low ({self.low})."
+            raise ValueError(msg)
+        return self
+
+
+class IntParam(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    type: Literal["int"]
+    low: int
+    high: int
+    step: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _check_range(self) -> IntParam:
+        if self.high <= self.low:
+            msg = f"IntParam: high ({self.high}) must exceed low ({self.low})."
+            raise ValueError(msg)
+        return self
+
+
+class ChoiceParam(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    type: Literal["choice"]
+    choices: list[Any] = Field(..., min_length=1)
+
+
+ParamSpace = Annotated[FloatParam | IntParam | ChoiceParam, Field(discriminator="type")]
+
+
+class GridKnobs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    resolution: int | None = Field(default=None, ge=2)
+
+
+class RandomKnobs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    n_samples: int = Field(..., ge=1)
+
+
+class BayesianKnobs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    n_init: int = Field(default=8, ge=1)
+    n_iter: int = Field(..., ge=1)
+
+
+class RecursiveGridKnobs(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    levels: int = Field(default=2, ge=1)
+    shrink: float = Field(default=0.5, gt=0)
+    resolution: int = Field(default=3, ge=2)
+
+
+class PersistBlock(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    root: str
+    name: str
+
+
+class OptimizeBlock(BaseModel):
+    """Declarative parameter search over an experiment's run template.
+
+    The runner (added by the ``optimize-command`` change) consumes this
+    plus the experiment's ``folds`` block to emit per-fold, per-candidate
+    runs. This spec change adds the schema; it does not run a search.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    method: Literal["recursive_grid", "grid", "random", "bayesian"]
+    seed: int = 0
+    aggregator: Literal["mean"] = "mean"
+    space: dict[str, ParamSpace] = Field(..., min_length=1)
+    grid: GridKnobs | None = None
+    random: RandomKnobs | None = None
+    bayesian: BayesianKnobs | None = None
+    recursive_grid: RecursiveGridKnobs | None = None
+    persist: PersistBlock
+
+    @model_validator(mode="after")
+    def _check_method_knobs(self) -> OptimizeBlock:
+        required: dict[str, object] = {
+            "random": self.random,
+            "bayesian": self.bayesian,
+        }
+        needed = required.get(self.method)
+        if self.method in {"random", "bayesian"} and needed is None:
+            msg = (
+                f"optimize.method={self.method!r} requires a `{self.method}` "
+                "sub-block with its tuning knobs."
+            )
+            raise ValueError(msg)
+        return self
+
+
 _LEGACY_SENTINELS: frozenset[str] = frozenset(("strategy", "dataset"))
 
 
@@ -125,9 +244,40 @@ class ExperimentSpec(BaseModel):
     bars: BarsRef
     engine: EngineConfig = EngineConfig()
     runs: list[RunConfig] = Field(..., min_length=1)
+    optimize: OptimizeBlock | None = None
+    folds: FoldsBlock | None = None
     parallelism: int | Literal["auto"] = 1
     caps: Caps = Caps()
     strategy_label: str | None = None
+
+    @model_validator(mode="after")
+    def _check_optimize_requires_folds(self) -> ExperimentSpec:
+        if self.optimize is not None and self.folds is None:
+            msg = (
+                "experiment-spec: `optimize` block requires a sibling `folds` "
+                "block declaring the fold scheme."
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _check_space_disjoint_from_fixed_params(self) -> ExperimentSpec:
+        if self.optimize is None:
+            return self
+        space_keys = set(self.optimize.space.keys())
+        conflicts: list[str] = []
+        for idx, run in enumerate(self.runs):
+            fixed = space_keys & set(run.params.keys())
+            if fixed:
+                conflicts.extend(f"runs[{idx}].params.{k}" for k in sorted(fixed))
+        if conflicts:
+            msg = (
+                "experiment-spec: optimize.space keys conflict with fixed "
+                f"run params: {', '.join(conflicts)}. A parameter is either "
+                "fixed or searched, not both."
+            )
+            raise ValueError(msg)
+        return self
 
     @field_validator("bars", mode="before")
     @classmethod
@@ -193,6 +343,34 @@ def _resolve_auto_parallelism() -> int:
     return max(1, usable - 1)
 
 
+def validate_search_space(
+    spec: ExperimentSpec, declared_params: list[str] | set[str] | frozenset[str]
+) -> None:
+    """Cross-check ``optimize.space`` keys against a strategy's declared params.
+
+    The strategy's metadata is the source of truth for what parameters the
+    artifact accepts. This helper is called by the CLI once the artifact is
+    loaded and its declared-param list is known; it raises
+    :class:`ValueError` if the search-space references a key the strategy
+    does not declare.
+
+    Pure-Python so it can be unit-tested without loading a real artifact;
+    the strategy-meta surface that supplies ``declared_params`` lands with
+    the optimize-command change.
+    """
+    if spec.optimize is None:
+        return
+    declared = set(declared_params)
+    unknown = sorted(set(spec.optimize.space.keys()) - declared)
+    if unknown:
+        msg = (
+            "experiment-spec: optimize.space references parameters not declared "
+            f"by the strategy: {', '.join(unknown)}. Declared params: "
+            f"{', '.join(sorted(declared)) or '(none)'}."
+        )
+        raise ValueError(msg)
+
+
 def load(path: Path | str) -> ExperimentSpec:
     """Parse an experiment-spec from ``.yaml`` / ``.yml`` / ``.json``.
 
@@ -234,11 +412,23 @@ def _reject_legacy(payload: dict[str, Any]) -> None:
 
 __all__ = [
     "BarsRef",
+    "BayesianKnobs",
     "Caps",
+    "ChoiceParam",
     "DatasetRef",
     "EngineConfig",
     "ExperimentSpec",
+    "FloatParam",
+    "FoldsBlock",
+    "GridKnobs",
+    "IntParam",
+    "OptimizeBlock",
+    "ParamSpace",
+    "PersistBlock",
+    "RandomKnobs",
+    "RecursiveGridKnobs",
     "RequestRef",
     "RunConfig",
     "load",
+    "validate_search_space",
 ]

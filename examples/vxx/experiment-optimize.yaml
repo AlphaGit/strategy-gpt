@@ -1,0 +1,56 @@
+# VXX volatility-range parameter search example.
+# Demonstrates the optional `optimize` + `folds` blocks. See
+# docs/experiment-spec.md.
+
+artifact: ../../crates/target/debug/libvxx_strategy.dylib
+strategy_label: vxx-local
+
+bars:
+  dataset: 29bdecf5fe758d38d524025321aacfb2825daf2fbcce4a3c2c04377bf635b97b
+
+engine:
+  fill_model: NextBarOpen
+  initial_capital: 100000.0
+  commission_per_fill: 0.0
+  sanity:
+    max_intent_size: 1.0e9
+    max_position_size: 1.0e9
+
+runs:
+  - params:
+      size: 100.0
+      symbol: VXX
+    modes:
+      - { kind: plain }
+    seed: 42
+    slice:
+      start: 2018-01-01T00:00:00Z
+      end:   2026-12-31T00:00:00Z
+
+folds:
+  count: 4
+  scheme: rolling
+  gap: 0
+
+optimize:
+  method: grid
+  seed: 42
+  aggregator: mean
+  space:
+    vol_lo:
+      type: float
+      low: 0.20
+      high: 0.50
+      step: 0.05
+    vol_hi:
+      type: float
+      low: 0.60
+      high: 1.00
+      step: 0.10
+  grid:
+    resolution: 5
+  persist:
+    root: ./optimize-runs
+    name: vxx-grid-baseline
+
+parallelism: auto

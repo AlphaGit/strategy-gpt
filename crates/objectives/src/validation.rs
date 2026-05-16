@@ -21,10 +21,10 @@ pub enum ValidationError {
     #[error("pareto tradeoff requires at least two contributing metrics; got {0}")]
     ParetoNeedsTwoMetrics(usize),
 
-    #[error("walk_forward.folds must be >= 1; got {0}")]
+    #[error("folds.count must be >= 1; got {0}")]
     InvalidFolds(u32),
 
-    #[error("walk_forward.gap ({gap}) is larger than folds ({folds})")]
+    #[error("folds.gap ({gap}) is larger than folds.count ({folds})")]
     GapLargerThanFolds { gap: u32, folds: u32 },
 }
 
@@ -79,15 +79,15 @@ pub fn validate(spec: &ObjectiveSpec) -> Result<(), ValidationError> {
         }
     }
 
-    // Walk-forward sanity.
-    if spec.walk_forward.folds == 0 {
-        return Err(ValidationError::InvalidFolds(spec.walk_forward.folds));
+    // Fold-config sanity.
+    if spec.folds.count == 0 {
+        return Err(ValidationError::InvalidFolds(spec.folds.count));
     }
-    if let Some(gap) = spec.walk_forward.gap {
-        if gap >= spec.walk_forward.folds {
+    if let Some(gap) = spec.folds.gap {
+        if gap >= spec.folds.count {
             return Err(ValidationError::GapLargerThanFolds {
                 gap,
-                folds: spec.walk_forward.folds,
+                folds: spec.folds.count,
             });
         }
     }

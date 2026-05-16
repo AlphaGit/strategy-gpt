@@ -1,5 +1,6 @@
 //! Objective spec types. Parsed from YAML or JSON via serde.
 
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -101,22 +102,76 @@ pub struct SecondaryMetric {
     pub mode: SecondaryMode,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FoldScheme {
+    #[default]
+    Rolling,
+    Anchored,
+}
+
+/// Fold configuration shared by the objective evaluator and the optimizer.
+///
+/// Structural fields (`count`, `scheme`, `gap`, `warmup_bars`) match the
+/// experiment-spec `folds` block; `oos_min_score` is objective-specific.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct WalkForward {
-    pub folds: u32,
+pub struct Folds {
+    pub count: u32,
+    #[serde(default)]
+    pub scheme: FoldScheme,
     #[serde(default)]
     pub gap: Option<u32>,
+    #[serde(default)]
+    pub warmup_bars: Option<u32>,
     #[serde(default)]
     pub oos_min_score: Option<f64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ObjectiveSpec {
     pub primary: PrimaryMetric,
     #[serde(default)]
     pub secondary: Vec<SecondaryMetric>,
     pub tradeoff: Tradeoff,
-    pub walk_forward: WalkForward,
+    pub folds: Folds,
+}
+
+// Custom Deserialize so we can reject the legacy `walk_forward` key with a
+// structured migration error instead of a generic missing-field error.
+impl<'de> Deserialize<'de> for ObjectiveSpec {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw {
+            primary: PrimaryMetric,
+            #[serde(default)]
+            secondary: Vec<SecondaryMetric>,
+            tradeoff: Tradeoff,
+            #[serde(default)]
+            folds: Option<Folds>,
+            #[serde(default)]
+            walk_forward: Option<serde_yaml::Value>,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        if raw.walk_forward.is_some() {
+            return Err(D::Error::custom(
+                "objective spec: legacy `walk_forward` key is no longer accepted; \
+                 rename the top-level `walk_forward:` block to `folds:` (fields \
+                 `count`, `scheme`, `gap`, `warmup_bars`, `oos_min_score` carry \
+                 over unchanged; `count` replaces the prior `folds:` numeric field)",
+            ));
+        }
+        let folds = raw.folds.ok_or_else(|| D::Error::missing_field("folds"))?;
+        Ok(ObjectiveSpec {
+            primary: raw.primary,
+            secondary: raw.secondary,
+            tradeoff: raw.tradeoff,
+            folds,
+        })
+    }
 }
 
 impl ObjectiveSpec {

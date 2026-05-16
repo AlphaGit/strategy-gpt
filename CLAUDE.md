@@ -67,7 +67,9 @@ openspec/               Change proposals and capability specs
 - **Strategy** — Rust crate implementing the sealed `engine_rt::Strategy` trait. Authored by the LLM through the build pipeline.
 - **Parameters** — typed knobs the strategy exposes; mutable without recompilation.
 - **Metrics** — Sharpe, Sortino, Profit Factor, Win Ratio, Max Drawdown, Annualized Return, trade-length stats.
-- **Objective spec** — declarative, per-strategy: primary metric, secondary metrics with weights or hard constraints, tradeoff mode (`lexicographic`, `weighted_sum`, `pareto`), walk-forward configuration. Consumed by Evaluator and Optimizer uniformly.
+- **Objective spec** — declarative, per-strategy: primary metric, secondary metrics with weights or hard constraints, tradeoff mode (`lexicographic`, `weighted_sum`, `pareto`), fold configuration. Consumed by Evaluator and Optimizer uniformly.
+- **Fold scheme** — declarative split of an experiment slice into `count` (train, OOS) pairs. `rolling` slides equal-width windows; `anchored` pins train start to the slice start and lets train grow. Shared by `experiment-spec.folds` and `objectives.folds`.
+- **OOS aggregate** — score aggregator (currently `mean`) applied across folds' out-of-sample segments. The objective's `oos_min_score` is the OOS-gate threshold a candidate must clear.
 - **Hypothesis** — named, human-readable claim that a specific change will move a target metric, with a falsification criterion.
 - **Bar** — OHLCV bar with UTC timestamp; atomic input to strategies.
 - **ExperimentSpec** — *user-facing* experiment envelope (`experiment-spec.yaml` / `.json`) consumed by `strategy-gpt run --spec`. Carries `artifact`, polymorphic `bars` (cache-resident `dataset` or auto-fetched `request`), `engine`, `runs`, `parallelism`, `caps`. See `docs/experiment-spec.md`. Translates internally to a `BatchSpec` before submit.
@@ -83,7 +85,7 @@ openspec/               Change proposals and capability specs
 - **Build Pipeline** — lint, allowed-crate whitelist (no version pinning), `cargo build` with sccache, content-addressed artifact cache.
 - **Hypothesis Loop** — LangGraph workflow (`diagnose`, `kb_query`, `generate`, `critique`, `rank`, `select`) with internal iteration and persisted decision log.
 - **Tester** — translate hypothesis to artifact, run lint + smoke + full batch, report verdict against falsification criterion.
-- **Parameter Optimizer** — in-house grid/random/Bayesian over walk-forward folds, multi-metric objectives, LLM-generated rationale.
+- **Parameter Optimizer** — in-house grid/random/Bayesian over the experiment-spec fold scheme, multi-metric objectives, LLM-generated rationale.
 - **Knowledge Base** — Kuzu + LanceDB hybrid, curated ingestion, citation-friendly retrieval.
 - **Experiment Ledger** — SQLite append-only + parquet sidecars; sufficient (with cache) to byte-identical reproduce any run.
 

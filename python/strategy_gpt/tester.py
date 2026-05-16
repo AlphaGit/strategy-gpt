@@ -651,7 +651,7 @@ def build_full_batch_spec(  # noqa: PLR0913 — all kwargs are part of the Batch
 ) -> dict[str, Any]:
     """Construct a `BatchSpec` JSON dict for the full test run.
 
-    Mirrors `tester::batch-delegation-to-the-engine`: walk-forward slices
+    Mirrors `tester::batch-delegation-to-the-engine`: fold slices
     plus the configured stress and sensitivity modes. ``stress_modes`` is
     a list of raw mode dicts (``{"kind": "monte_carlo", "n": 200,
     "block_size": 5}`` / ``{"kind": "slippage", "bps_grid": [...]}`` /

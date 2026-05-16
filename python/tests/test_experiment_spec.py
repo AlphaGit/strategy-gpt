@@ -238,3 +238,78 @@ def test_to_batch_spec_injects_slippage_zero(tmp_path: Path) -> None:
     assert batch["engine"]["fill_model"] == "NextBarOpen"
     assert batch["parallelism"] == 2
     assert batch["runs"][0]["seed"] == 7
+
+
+def _spec_with_optimize(tmp_path: Path, **overrides: Any) -> Path:
+    spec = {
+        "artifact": "./libfoo.dylib",
+        "bars": {"dataset": "deadbeef"},
+        "runs": [
+            {
+                "params": {"size": 100.0},
+                "modes": [{"kind": "plain"}],
+                "seed": 1,
+                "slice": {
+                    "start": "2018-01-01T00:00:00Z",
+                    "end": "2026-01-01T00:00:00Z",
+                },
+            }
+        ],
+        "folds": {"count": 4, "scheme": "rolling", "gap": 0},
+        "optimize": {
+            "method": "grid",
+            "seed": 42,
+            "space": {
+                "vol_lo": {"type": "float", "low": 0.2, "high": 0.5, "step": 0.05},
+                "vol_hi": {"type": "float", "low": 0.6, "high": 1.0, "step": 0.1},
+            },
+            "grid": {"resolution": 5},
+            "persist": {"root": "./out", "name": "run1"},
+        },
+    }
+    spec.update(overrides)
+    path = tmp_path / "experiment.yaml"
+    path.write_text(yaml.safe_dump(spec))
+    (tmp_path / "libfoo.dylib").write_bytes(b"")
+    return path
+
+
+def test_optimize_requires_folds(tmp_path: Path) -> None:
+    path = _spec_with_optimize(tmp_path, folds=None)
+    # Strip folds entirely by reloading and rewriting.
+    raw = yaml.safe_load(path.read_text())
+    del raw["folds"]
+    path.write_text(yaml.safe_dump(raw))
+    with pytest.raises(Exception, match="folds"):
+        espec.load(path)
+
+
+def test_search_space_disjoint_from_fixed_params(tmp_path: Path) -> None:
+    path = _spec_with_optimize(tmp_path)
+    raw = yaml.safe_load(path.read_text())
+    raw["runs"][0]["params"]["vol_lo"] = 0.3  # collides with optimize.space
+    path.write_text(yaml.safe_dump(raw))
+    with pytest.raises(Exception, match=r"vol_lo"):
+        espec.load(path)
+
+
+def test_validate_search_space_rejects_unknown_keys(tmp_path: Path) -> None:
+    path = _spec_with_optimize(tmp_path)
+    spec = espec.load(path)
+    with pytest.raises(ValueError, match="vol_hi"):
+        espec.validate_search_space(spec, declared_params={"vol_lo", "size"})
+
+
+def test_validate_search_space_accepts_when_all_declared(tmp_path: Path) -> None:
+    path = _spec_with_optimize(tmp_path)
+    spec = espec.load(path)
+    espec.validate_search_space(spec, declared_params={"vol_lo", "vol_hi", "size"})
+
+
+def test_folds_count_floor(tmp_path: Path) -> None:
+    path = _spec_with_optimize(tmp_path)
+    raw = yaml.safe_load(path.read_text())
+    raw["folds"]["count"] = 1
+    path.write_text(yaml.safe_dump(raw))
+    with pytest.raises(Exception, match="count"):
+        espec.load(path)

@@ -1,15 +1,15 @@
 # Objective spec for the VXX volatility-range reference strategy.
 #
 # Spec `objectives::spec`: primary metric, optional secondaries with mode
-# (constraint or soft), tradeoff mode, walk-forward configuration.
+# (constraint or soft), tradeoff mode, fold configuration.
 #
-# Rationale for choices (per `kb/starter/vol_regimes.md` + walk_forward.md):
+# Rationale for choices (per `kb/starter/vol_regimes.md` + folds.md):
 # - VXX-shorting strategies live or die by tail risk; we hard-cap drawdown
 #   so a backwardation flip cannot mask itself behind contango bleed.
 # - profit_factor is the soft secondary because high Sharpe alone can hide
 #   a few large losers that profit factor would surface.
-# - Walk-forward at 8 folds matches the starter-corpus recommendation for
-#   volatility strategies (regime variance favours more folds).
+# - 8 folds matches the starter-corpus recommendation for volatility
+#   strategies (regime variance favours more folds).
 
 primary:
   metric: sharpe
@@ -28,7 +28,8 @@ secondary:
 
 tradeoff: lexicographic
 
-walk_forward:
-  folds: 8
+folds:
+  count: 8
+  scheme: rolling
   gap: 1
   oos_min_score: 0.5
