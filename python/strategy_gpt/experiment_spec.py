@@ -32,6 +32,9 @@ from pydantic import (
 )
 
 from .parallelism import resolve_parallelism
+from .selection import PboKnobs, SelectionKnobs
+from .selection.dsr import DsrKnobs
+from .selection.sensitivity import SensitivityKnobs
 from .types import (
     BarRequest,
     FillModel,
@@ -219,6 +222,8 @@ class OptimizeBlock(BaseModel):
     bayesian: BayesianKnobs | None = None
     recursive_grid: RecursiveGridKnobs | None = None
     persist: PersistBlock
+    selection: SelectionKnobs = SelectionKnobs()
+    robust_objective: bool = False
 
     @model_validator(mode="after")
     def _check_method_knobs(self) -> OptimizeBlock:
@@ -409,6 +414,7 @@ __all__ = [
     "Caps",
     "ChoiceParam",
     "DatasetRef",
+    "DsrKnobs",
     "EngineConfig",
     "ExperimentSpec",
     "FloatParam",
@@ -417,11 +423,14 @@ __all__ = [
     "IntParam",
     "OptimizeBlock",
     "ParamSpace",
+    "PboKnobs",
     "PersistBlock",
     "RandomKnobs",
     "RecursiveGridKnobs",
     "RequestRef",
     "RunConfig",
+    "SelectionKnobs",
+    "SensitivityKnobs",
     "load",
     "validate_search_space",
 ]

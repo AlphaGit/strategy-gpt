@@ -64,6 +64,13 @@ from .optimizer import (
 from .optimizer import (
     IntParam as OptIntParam,
 )
+from .selection import (
+    SelectionCandidate,
+    SelectionDecision,
+    SelectionStatus,
+    TrialPoint,
+    run_selection,
+)
 from .types import Bar, EvaluationOutcome, TimeRange
 from .types import EngineConfig as LedgerEngineConfig
 
@@ -118,6 +125,17 @@ class CrossValidationOutcome:
 
 
 @dataclass(frozen=True)
+class SelectionOverrides:
+    """CLI-level overrides for the selection layer."""
+
+    force: bool = False
+    pbo_threshold: float | None = None
+    robust_objective: bool | None = None
+    """Override ``optimize.robust_objective`` when set."""
+    pbo_seed: int = 0
+
+
+@dataclass(frozen=True)
 class OptimizationResult:
     """In-memory summary of a full optimization run."""
 
@@ -131,6 +149,7 @@ class OptimizationResult:
     trial_rows: list[TrialRow]
     resolved_parallelism: int
     seed: int
+    selection: SelectionDecision | None = None
 
 
 @dataclass
@@ -406,6 +425,7 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
     opt_id: str,
     poll_interval_secs: float = 0.05,
     persist_writer: _PersistWriter | None = None,
+    selection_overrides: SelectionOverrides | None = None,
 ) -> OptimizationResult:
     """Run a full optimization (per-fold train search + cross-fold OOS validation)."""
     if experiment.optimize is None or experiment.folds is None:
@@ -479,6 +499,14 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
     )
 
     final = _select_final(cross)
+    selection = _run_selection_layer(
+        experiment=experiment,
+        objective=objective,
+        cross=cross,
+        trial_rows=trial_rows,
+        overrides=selection_overrides,
+    )
+    final = _reconcile_final_with_selection(final, cross, selection)
     finished_at = datetime.now(UTC)
     result = OptimizationResult(
         opt_id=opt_id,
@@ -491,10 +519,101 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
         trial_rows=trial_rows,
         resolved_parallelism=parallelism,
         seed=experiment.optimize.seed,
+        selection=selection,
     )
     if persist_writer is not None:
         persist_writer.finish(result)
     return result
+
+
+def _primary_metric_name(objective: Mapping[str, Any]) -> str:
+    primary = objective.get("primary")
+    if isinstance(primary, Mapping):
+        name = primary.get("metric")
+        if isinstance(name, str):
+            return name
+    return "sharpe"
+
+
+def _run_selection_layer(
+    *,
+    experiment: ExperimentSpec,
+    objective: Mapping[str, Any],
+    cross: Sequence[CrossValidationOutcome],
+    trial_rows: Sequence[TrialRow],
+    overrides: SelectionOverrides | None,
+) -> SelectionDecision:
+    assert experiment.optimize is not None  # noqa: S101 — guarded above.
+    primary = _primary_metric_name(objective)
+    candidates: list[SelectionCandidate] = []
+    for i, cv in enumerate(cross):
+        per_fold = [
+            float(m.get(primary, 0.0)) if isinstance(m, Mapping) else 0.0 for m in cv.oos_metrics
+        ]
+        trade_count = int(
+            sum(int(m.get("n_trades", 0)) for m in cv.oos_metrics if isinstance(m, Mapping))
+        )
+        candidates.append(
+            SelectionCandidate(
+                trial_id=i,
+                params=dict(cv.params),
+                aggregate_score=_finite(cv.aggregate_score),
+                aggregate_metrics={
+                    k: float(v)
+                    for k, v in cv.aggregate_metrics.items()
+                    if isinstance(v, (int, float))
+                },
+                per_fold_oos_primary=per_fold,
+                trade_count=trade_count,
+                accepted=cv.aggregate_accepted,
+            )
+        )
+    history: list[TrialPoint] = [
+        TrialPoint(params=dict(r.params), score=_finite(r.score))
+        for r in trial_rows
+        if r.phase.startswith("train_fold_")
+    ]
+    o = overrides or SelectionOverrides()
+    robust = (
+        o.robust_objective
+        if o.robust_objective is not None
+        else experiment.optimize.robust_objective
+    )
+    return run_selection(
+        candidates,
+        history,
+        experiment.optimize.selection,
+        robust_objective=robust,
+        force=o.force,
+        pbo_threshold_override=o.pbo_threshold,
+        pbo_seed=o.pbo_seed,
+    )
+
+
+def _reconcile_final_with_selection(
+    legacy_final: CrossValidationOutcome | None,
+    cross: Sequence[CrossValidationOutcome],
+    decision: SelectionDecision,
+) -> CrossValidationOutcome | None:
+    """The selection layer is authoritative over the aggregate-score winner.
+
+    When the layer rejects (PBO over threshold without --force), ``final``
+    must be ``None``; the layer's ``would_have_picked`` carries the
+    transparency reference. When accepted, ``final`` is the
+    selection-layer's pick (which may differ from the aggregate-score
+    pick when ``robust_objective`` is true or DSR breaks a tie).
+    """
+    if decision.status != SelectionStatus.ACCEPTED:
+        return None
+    if decision.best_trial_id is None or decision.best_trial_id >= len(cross):
+        return legacy_final
+    return cross[decision.best_trial_id]
+
+
+def _finite(x: float) -> float:
+    if x == float("-inf"):
+        return float("-inf")
+    return float(x)
 
 
 def _search_fold(  # noqa: PLR0913 — full IO surface.
@@ -947,6 +1066,7 @@ __all__ = [
     "CrossValidationOutcome",
     "FoldWinner",
     "OptimizationResult",
+    "SelectionOverrides",
     "TrialRow",
     "per_dim_resolutions",
     "run_optimization",

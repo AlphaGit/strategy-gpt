@@ -70,7 +70,7 @@ select = [
     "PL",  # pylint subset
 ]
 # Allow assert in tests (S101); the rule is sound elsewhere.
-per-file-ignores = { "tests/**/*.py" = ["S101", "ANN", "PLR2004"] }
+per-file-ignores = { "tests/**/*.py" = ["S101", "ANN", "PLR2004", "S311"] }
 
 [tool.ruff.format]
 # Ruff format defaults are Black-compatible.

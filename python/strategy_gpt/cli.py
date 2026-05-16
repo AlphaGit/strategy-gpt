@@ -42,8 +42,9 @@ from .optimization_ledger import (
     read_best,
     read_manifest,
     read_trials,
+    reselect,
 )
-from .optimization_runner import run_optimization
+from .optimization_runner import SelectionOverrides, run_optimization
 from .types import AdjustmentPolicy, Bar, BarRequest, CacheMode, Resolution
 
 app = typer.Typer(help="Strategy-GPT research loop CLI.")
@@ -307,6 +308,29 @@ def optimize_root(  # noqa: PLR0913 — CLI options + composition.
         bool,
         typer.Option("--json", help="Emit machine-readable JSON instead of plain text."),
     ] = False,
+    robust_objective: Annotated[
+        bool,
+        typer.Option(
+            "--robust-objective",
+            help="Final-rank by parameter-sensitivity (robust) score in place of DSR.",
+        ),
+    ] = False,
+    pbo_threshold: Annotated[
+        float | None,
+        typer.Option(
+            "--pbo-threshold",
+            min=0.0,
+            max=1.0,
+            help="Override the PBO rejection threshold (default 0.5).",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Publish a best despite a rejected_pbo decision; the override is recorded.",
+        ),
+    ] = False,
 ) -> None:
     """Run a per-fold optimization or invoke an ``optimize`` subcommand."""
     if ctx.invoked_subcommand is not None:
@@ -363,6 +387,11 @@ def optimize_root(  # noqa: PLR0913 — CLI options + composition.
     if benchmark_report is not None:
         # write_benchmark requires start() to have set opt_dir; do that lazily.
         pass
+    overrides = SelectionOverrides(
+        force=force,
+        pbo_threshold=pbo_threshold,
+        robust_objective=robust_objective if robust_objective else None,
+    )
     result = run_optimization(
         experiment=experiment,
         objective=obj,
@@ -372,6 +401,7 @@ def optimize_root(  # noqa: PLR0913 — CLI options + composition.
         dataset_manifest=dataset_manifest,
         opt_id=opt_id,
         persist_writer=writer,
+        selection_overrides=overrides,
     )
     if benchmark_report is not None:
         writer.write_benchmark(benchmark_report)
@@ -516,6 +546,82 @@ def optimize_replay(  # noqa: PLR0913 — CLI options surface is wide.
         typer.echo(str(out))
     else:
         typer.echo(payload)
+
+
+@optimize_app.command("reselect")
+def optimize_reselect(  # noqa: PLR0913 — flags mirror the selection layer.
+    opt_id: Annotated[str, typer.Argument(help="Optimization id to reselect over.")],
+    ledger_root: Annotated[Path, typer.Option(help="Optimization ledger root.")] = Path("ledger"),
+    robust_objective: Annotated[
+        bool, typer.Option("--robust-objective", help="Rank by robust score.")
+    ] = False,
+    no_robust_objective: Annotated[
+        bool,
+        typer.Option(
+            "--no-robust-objective",
+            help="Force DSR ranking (overrides the spec's robust_objective flag).",
+        ),
+    ] = False,
+    pbo_threshold: Annotated[
+        float | None,
+        typer.Option("--pbo-threshold", min=0.0, max=1.0),
+    ] = None,
+    force: Annotated[bool, typer.Option("--force")] = False,
+    top_k: Annotated[int | None, typer.Option("--top-k", min=2)] = None,
+) -> None:
+    """Re-run the selection layer over an existing optimization run."""
+    opt_dir = opt_dir_for(ledger_root, opt_id)
+    if not opt_dir.exists():
+        typer.echo(f"no optimization at {opt_dir}", err=True)
+        raise typer.Exit(code=1)
+    robust: bool | None
+    if robust_objective and no_robust_objective:
+        typer.echo("pass at most one of --robust-objective / --no-robust-objective", err=True)
+        raise typer.Exit(code=2)
+    if robust_objective:
+        robust = True
+    elif no_robust_objective:
+        robust = False
+    else:
+        robust = None
+    out_path = reselect(
+        opt_dir,
+        robust_objective=robust,
+        pbo_threshold=pbo_threshold,
+        force=force,
+        top_k=top_k,
+    )
+    typer.echo(str(out_path))
+
+
+@optimize_app.command("compare")
+def optimize_compare(
+    opt_id: Annotated[str, typer.Argument(help="Optimization id.")],
+    best_a: Annotated[str, typer.Argument(help="First best.json filename.")],
+    best_b: Annotated[str, typer.Argument(help="Second best.json filename.")],
+    ledger_root: Annotated[Path, typer.Option(help="Optimization ledger root.")] = Path("ledger"),
+) -> None:
+    """Side-by-side diff of two selection outputs for the same opt_id."""
+    opt_dir = opt_dir_for(ledger_root, opt_id)
+    a_path, b_path = opt_dir / best_a, opt_dir / best_b
+    if not a_path.exists() or not b_path.exists():
+        typer.echo(f"missing best file(s) under {opt_dir}", err=True)
+        raise typer.Exit(code=1)
+    a = json.loads(a_path.read_text())
+    b = json.loads(b_path.read_text())
+    lines = [f"comparing {best_a} vs {best_b}"]
+    for key in ("decision", "pbo", "would_have_picked"):
+        av = a.get(key)
+        bv = b.get(key)
+        marker = "=" if av == bv else "≠"
+        lines.append(f"  {marker} {key}:")
+        lines.append(f"      a: {json.dumps(av, sort_keys=True)}")
+        lines.append(f"      b: {json.dumps(bv, sort_keys=True)}")
+    a_final = (a.get("final") or {}).get("params")
+    b_final = (b.get("final") or {}).get("params")
+    lines.append(f"  final.params (a): {json.dumps(a_final, sort_keys=True)}")
+    lines.append(f"  final.params (b): {json.dumps(b_final, sort_keys=True)}")
+    typer.echo("\n".join(lines))
 
 
 def _load_objective(path: Path) -> dict[str, Any]:

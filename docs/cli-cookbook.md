@@ -317,6 +317,36 @@ strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
 
 `--method recursive_grid|grid|random` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
 
+### Overfitting-aware selection
+
+Every optimization runs an overfitting-aware selection layer over its
+`trials.parquet` before publishing `best.json`. See `docs/optimization.md`
+for the methodology. Common recipes:
+
+```bash
+# Rank final by robust score (parameter-sensitivity) instead of DSR
+strategy-gpt optimize --spec experiment.yaml --robust-objective
+
+# Tighten / loosen the PBO rejection threshold
+strategy-gpt optimize --spec experiment.yaml --pbo-threshold 0.3
+strategy-gpt optimize --spec experiment.yaml --pbo-threshold 0.7
+
+# Publish a best despite a rejected_pbo decision (records the override)
+strategy-gpt optimize --spec experiment.yaml --force
+
+# Re-run the selection layer post-hoc with different knobs
+strategy-gpt optimize reselect <opt_id> --pbo-threshold 0.7
+strategy-gpt optimize reselect <opt_id> --robust-objective
+strategy-gpt optimize reselect <opt_id> --top-k 30 --robust-objective
+
+# Compare two selection outputs from the same run
+strategy-gpt optimize compare <opt_id> best.json best_<timestamp>.json
+```
+
+`reselect` writes a new `best_<timestamp>.json` next to the original
+without overwriting it — the audit trail of selection decisions over the
+same trial set is always preserved.
+
 ---
 
 ## Quick reference
@@ -336,3 +366,8 @@ strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
 | Benchmark before optimizing | `strategy-gpt optimize --spec <experiment.yaml> --benchmark --yes` |
 | Inspect an optimization | `strategy-gpt optimize inspect <opt_id>` |
 | Replay a recorded trial | `strategy-gpt optimize replay <opt_id> --trial <trial_id>` |
+| Robust-rank selection | `strategy-gpt optimize --spec <experiment.yaml> --robust-objective` |
+| Override PBO threshold | `strategy-gpt optimize --spec <experiment.yaml> --pbo-threshold 0.7` |
+| Force despite rejected_pbo | `strategy-gpt optimize --spec <experiment.yaml> --force` |
+| Post-hoc reselect | `strategy-gpt optimize reselect <opt_id> --pbo-threshold 0.7` |
+| Compare selections | `strategy-gpt optimize compare <opt_id> best.json best_<ts>.json` |

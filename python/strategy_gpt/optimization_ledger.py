@@ -1,5 +1,8 @@
 """Persistence layout for optimization runs.
 
+Also hosts the post-hoc reselection helper :func:`reselect` invoked by
+``strategy-gpt optimize reselect``.
+
 Directory layout (see ``design.md §6`` of the ``optimize-command`` change)::
 
     ledger/
@@ -28,7 +31,7 @@ import json
 import sqlite3
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +44,15 @@ from .optimization_runner import (
     CrossValidationOutcome,
     OptimizationResult,
     TrialRow,
+)
+from .selection import (
+    SELECTION_METHODOLOGY,
+    SelectionCandidate,
+    SelectionDecision,
+    SelectionKnobs,
+    SelectionStatus,
+    TrialPoint,
+    run_selection,
 )
 
 _OPTIMIZATIONS_SUBDIR = "optimizations"
@@ -167,6 +179,7 @@ class OptimizationLedger:
             ],
             "experiment_spec": _experiment_json(experiment),
             "objective": dict(objective),
+            "selection_methodology": dict(SELECTION_METHODOLOGY),
         }
         self.manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
         _ensure_index(self._sqlite_path)
@@ -216,7 +229,9 @@ class OptimizationLedger:
             msg = "OptimizationLedger: emit_row called before start()."
             raise RuntimeError(msg)
         if self._writer is None:
-            self._writer = pq.ParquetWriter(self.trials_path, _TRIAL_SCHEMA, compression="zstd")
+            self._writer = pq.ParquetWriter(  # type: ignore[no-untyped-call]
+                self.trials_path, _TRIAL_SCHEMA, compression="zstd"
+            )
         rows = self._buffer
         self._buffer = []
         cols = {
@@ -239,12 +254,12 @@ class OptimizationLedger:
             "wall_secs": pa.array([r.wall_secs for r in rows], type=pa.float64()),
         }
         table = pa.Table.from_pydict(cols, schema=_TRIAL_SCHEMA)
-        self._writer.write_table(table)
+        self._writer.write_table(table)  # type: ignore[no-untyped-call]
 
     def finish(self, result: OptimizationResult) -> None:
         self._flush()
         if self._writer is not None:
-            self._writer.close()
+            self._writer.close()  # type: ignore[no-untyped-call]
             self._writer = None
         if self.opt_dir is None or self.manifest_path is None:
             msg = "OptimizationLedger: finish() called before start()."
@@ -306,7 +321,7 @@ def _experiment_json(experiment: Any) -> dict[str, Any]:  # noqa: ANN401
 
 def _best_payload(result: OptimizationResult) -> dict[str, Any]:
     final = result.final
-    return {
+    payload: dict[str, Any] = {
         "opt_id": result.opt_id,
         "started_at": result.started_at.isoformat(),
         "finished_at": result.finished_at.isoformat(),
@@ -324,6 +339,85 @@ def _best_payload(result: OptimizationResult) -> dict[str, Any]:
         "resolved_parallelism": result.resolved_parallelism,
         "seed": result.seed,
     }
+    payload.update(_selection_payload(result))
+    return payload
+
+
+def _selection_payload(result: OptimizationResult) -> dict[str, Any]:
+    selection = result.selection
+    if selection is None:
+        return {
+            "decision": None,
+            "pbo": None,
+            "deflated_sharpe": [],
+            "sensitivity_score": [],
+            "would_have_picked": None,
+            "selection_methodology": dict(SELECTION_METHODOLOGY),
+        }
+    return {
+        "decision": _decision_payload(selection),
+        "pbo": _pbo_payload(selection),
+        "deflated_sharpe": _dsr_payload(selection),
+        "sensitivity_score": _sensitivity_payload(selection),
+        "would_have_picked": selection.would_have_picked_trial_id,
+        "selection_methodology": dict(selection.methodology) or dict(SELECTION_METHODOLOGY),
+    }
+
+
+def _decision_payload(decision: SelectionDecision) -> dict[str, Any]:
+    return {
+        "status": decision.status.value,
+        "best_trial_id": decision.best_trial_id,
+        "would_have_picked": decision.would_have_picked_trial_id,
+        "reason": decision.reason,
+        "ranking": list(decision.ranking),
+        "robust_objective": decision.robust_objective,
+        "force_override": decision.force_override,
+        "pbo_threshold": decision.pbo_threshold,
+        "effective_n": decision.effective_n,
+        "history_size": decision.history_size,
+    }
+
+
+def _pbo_payload(decision: SelectionDecision) -> dict[str, Any]:
+    return {
+        "value": decision.pbo.pbo,
+        "n_splits": decision.pbo.n_splits,
+        "enumerated": decision.pbo.enumerated,
+        "seed": decision.pbo.seed,
+        "n_trials": decision.pbo.n_trials,
+        "n_folds": decision.pbo.n_folds,
+        "threshold": decision.pbo_threshold,
+        "rejected": decision.status == SelectionStatus.REJECTED_PBO,
+    }
+
+
+def _dsr_payload(decision: SelectionDecision) -> list[dict[str, Any]]:
+    return [
+        {
+            "trial_id": cs.trial_id,
+            "raw_sharpe": _safe_float(cs.raw_sharpe),
+            "expected_max_sharpe": _safe_float(cs.dsr.expected_max_sharpe),
+            "sharpe_variance": _safe_float(cs.dsr.sharpe_variance),
+            "z": _safe_float(cs.dsr.z),
+            "dsr": _safe_float(cs.dsr.dsr),
+        }
+        for cs in decision.candidate_scores
+    ]
+
+
+def _sensitivity_payload(decision: SelectionDecision) -> list[dict[str, Any]]:
+    return [
+        {
+            "trial_id": cs.trial_id,
+            "raw_score": _safe_float(cs.sensitivity.raw_score),
+            "neighborhood_mean": _safe_float(cs.sensitivity.neighborhood_mean),
+            "neighborhood_std": _safe_float(cs.sensitivity.neighborhood_std),
+            "robust_score": _safe_float(cs.sensitivity.robust_score),
+            "neighbors_used": cs.sensitivity.neighbors_used,
+        }
+        for cs in decision.candidate_scores
+    ]
 
 
 def _cv_payload(cv: CrossValidationOutcome) -> dict[str, Any]:
@@ -378,7 +472,7 @@ def read_trials(opt_dir: Path) -> list[TrialRecord]:
     path = opt_dir / "trials.parquet"
     if not path.exists():
         return []
-    table = pq.read_table(path)
+    table = pq.read_table(path)  # type: ignore[no-untyped-call]
     rows = table.to_pylist()
     return [
         TrialRecord(
@@ -444,6 +538,173 @@ def build_replay_batch(manifest: Mapping[str, Any], trial: TrialRecord) -> dict[
     }
 
 
+def reselect(  # noqa: PLR0913 — surface mirrors the CLI flags.
+    opt_dir: Path,
+    *,
+    robust_objective: bool | None = None,
+    pbo_threshold: float | None = None,
+    force: bool = False,
+    top_k: int | None = None,
+    timestamp: str | None = None,
+) -> Path:
+    """Re-run the selection layer over an existing optimization's artifacts.
+
+    Reads ``manifest.json`` (for the original experiment-spec, objective,
+    and selection knobs), ``best.json`` (for the cross-validation
+    candidates), and ``trials.parquet`` (for the trial history fed to the
+    sensitivity layer). Writes a new ``best_<timestamp>.json`` next to
+    the original ``best.json`` and updates the manifest's
+    ``reselection_history`` with one entry per call. Returns the path of
+    the new artifact.
+    """
+    manifest = read_manifest(opt_dir)
+    best = read_best(opt_dir)
+    if best is None:
+        msg = f"reselect: no best.json found at {opt_dir}"
+        raise FileNotFoundError(msg)
+    objective: Mapping[str, Any] = manifest.get("objective", {})
+    primary_name = "sharpe"
+    primary = objective.get("primary") if isinstance(objective, Mapping) else None
+    if isinstance(primary, Mapping):
+        m = primary.get("metric")
+        if isinstance(m, str):
+            primary_name = m
+    es = manifest.get("experiment_spec", {})
+    optimize_block = es.get("optimize", {})
+    knobs_raw = optimize_block.get("selection")
+    knobs = (
+        SelectionKnobs.model_validate(knobs_raw)
+        if isinstance(knobs_raw, Mapping) and knobs_raw is not None
+        else SelectionKnobs()
+    )
+    spec_robust = bool(optimize_block.get("robust_objective", False))
+    robust = spec_robust if robust_objective is None else robust_objective
+
+    cv_payloads = best.get("cross_validation", [])
+    candidates: list[SelectionCandidate] = []
+    for i, cv in enumerate(cv_payloads):
+        oos = cv.get("oos_metrics", []) or []
+        per_fold = [float(m.get(primary_name, 0.0)) if isinstance(m, Mapping) else 0.0 for m in oos]
+        trade_count = int(sum(int(m.get("n_trades", 0)) for m in oos if isinstance(m, Mapping)))
+        agg = cv.get("aggregate_metrics", {}) or {}
+        candidates.append(
+            SelectionCandidate(
+                trial_id=i,
+                params=dict(cv.get("params", {})),
+                aggregate_score=float(cv.get("aggregate_score", 0.0)),
+                aggregate_metrics={
+                    k: float(v) for k, v in agg.items() if isinstance(v, (int, float))
+                },
+                per_fold_oos_primary=per_fold,
+                trade_count=trade_count,
+                accepted=bool(cv.get("aggregate_accepted", True)),
+            )
+        )
+
+    history: list[TrialPoint] = []
+    for r in read_trials(opt_dir):
+        if not r.phase.startswith("train_fold_"):
+            continue
+        history.append(TrialPoint(params=dict(r.params), score=float(r.score)))
+
+    if top_k is not None:
+        knobs = knobs.model_copy(update={"pbo": knobs.pbo.model_copy(update={"top_k": top_k})})
+
+    decision = run_selection(
+        candidates,
+        history,
+        knobs,
+        robust_objective=robust,
+        force=force,
+        pbo_threshold_override=pbo_threshold,
+    )
+
+    ts = timestamp or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    out_path = opt_dir / f"best_{ts}.json"
+    payload = _reselect_payload(best, decision)
+    out_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    _record_reselection(opt_dir / "manifest.json", out_path, decision)
+    return out_path
+
+
+def _reselect_payload(
+    original_best: Mapping[str, Any], decision: SelectionDecision
+) -> dict[str, Any]:
+    payload = dict(original_best)
+    payload["decision"] = {
+        "status": decision.status.value,
+        "best_trial_id": decision.best_trial_id,
+        "would_have_picked": decision.would_have_picked_trial_id,
+        "reason": decision.reason,
+        "ranking": list(decision.ranking),
+        "robust_objective": decision.robust_objective,
+        "force_override": decision.force_override,
+        "pbo_threshold": decision.pbo_threshold,
+        "effective_n": decision.effective_n,
+        "history_size": decision.history_size,
+    }
+    payload["pbo"] = {
+        "value": decision.pbo.pbo,
+        "n_splits": decision.pbo.n_splits,
+        "enumerated": decision.pbo.enumerated,
+        "seed": decision.pbo.seed,
+        "n_trials": decision.pbo.n_trials,
+        "n_folds": decision.pbo.n_folds,
+        "threshold": decision.pbo_threshold,
+        "rejected": decision.status == SelectionStatus.REJECTED_PBO,
+    }
+    payload["deflated_sharpe"] = [
+        {
+            "trial_id": cs.trial_id,
+            "raw_sharpe": _safe_float(cs.raw_sharpe),
+            "expected_max_sharpe": _safe_float(cs.dsr.expected_max_sharpe),
+            "sharpe_variance": _safe_float(cs.dsr.sharpe_variance),
+            "z": _safe_float(cs.dsr.z),
+            "dsr": _safe_float(cs.dsr.dsr),
+        }
+        for cs in decision.candidate_scores
+    ]
+    payload["sensitivity_score"] = [
+        {
+            "trial_id": cs.trial_id,
+            "raw_score": _safe_float(cs.sensitivity.raw_score),
+            "neighborhood_mean": _safe_float(cs.sensitivity.neighborhood_mean),
+            "neighborhood_std": _safe_float(cs.sensitivity.neighborhood_std),
+            "robust_score": _safe_float(cs.sensitivity.robust_score),
+            "neighbors_used": cs.sensitivity.neighbors_used,
+        }
+        for cs in decision.candidate_scores
+    ]
+    payload["would_have_picked"] = decision.would_have_picked_trial_id
+    payload["selection_methodology"] = dict(decision.methodology)
+    # Update final to the selection-layer pick (or None if rejected).
+    if decision.status.value == "accepted" and decision.best_trial_id is not None:
+        cv = original_best.get("cross_validation") or [None]
+        if decision.best_trial_id < len(cv):
+            payload["final"] = cv[decision.best_trial_id]
+    else:
+        payload["final"] = None
+    return payload
+
+
+def _record_reselection(manifest_path: Path, best_path: Path, decision: SelectionDecision) -> None:
+    manifest = json.loads(manifest_path.read_text())
+    history = list(manifest.get("reselection_history", []))
+    history.append(
+        {
+            "best_path": str(best_path.name),
+            "timestamp": best_path.stem.removeprefix("best_"),
+            "status": decision.status.value,
+            "pbo": decision.pbo.pbo,
+            "pbo_threshold": decision.pbo_threshold,
+            "robust_objective": decision.robust_objective,
+            "force_override": decision.force_override,
+        }
+    )
+    manifest["reselection_history"] = history
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+
+
 def opt_dir_for(ledger_root: Path | str, opt_id: str) -> Path:
     return Path(ledger_root) / _OPTIMIZATIONS_SUBDIR / opt_id
 
@@ -462,4 +723,5 @@ __all__ = [
     "read_best",
     "read_manifest",
     "read_trials",
+    "reselect",
 ]

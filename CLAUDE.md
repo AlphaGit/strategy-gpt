@@ -80,6 +80,11 @@ openspec/               Change proposals and capability specs
 - **Trial** — one backtest the optimizer commissioned: a row in `trials.parquet` carrying `(trial_id, round, phase, fold_index, params, seed, metrics, score, accepted, reject_reason, wall_secs)`.
 - **Fold winner** — the best-scoring accepted candidate for one fold's *train* search. Each fold yields exactly one winner.
 - **OOS aggregate** — mean of a fold winner's per-fold OOS metrics across all folds (only `aggregator: mean` in v1). The final candidate is the fold winner with the best OOS-aggregate score, ties broken by lower per-fold OOS-score variance.
+- **Selection layer** — overfitting-aware gate + re-ranking that sits *above* the search method. Operates on `trials.parquet` + `manifest.json`; pure function of the trial set + knobs. Records `decision`, `pbo`, `deflated_sharpe`, `sensitivity_score`, and `would_have_picked` in `best.json`. See `docs/optimization.md`.
+- **PBO** — Probability of Backtest Overfitting (Bailey, Borwein, López de Prado, Zhu 2017). Computed by Combinatorially Symmetric Cross-Validation (CSCV) over the per-fold OOS metric matrix. If PBO exceeds the threshold (default 0.5), the run is `rejected_pbo` and no `best` is published without `--force`.
+- **DSR** — Deflated Sharpe Ratio (Bailey & López de Prado 2014). Adjusts the raw Sharpe for multiple-testing inflation against the expected maximum under the null; reports the probability that the true Sharpe exceeds zero. Default final-rank metric.
+- **Robust score** — parameter-sensitivity score: `mean(score over k-NN neighborhood) − λ·std`. Reported by default; used for final ranking when `optimize.robust_objective: true` (or `--robust-objective`). Computed at selection time only; the search itself always sees the raw objective.
+- **Reselection** — post-hoc invocation of the selection layer over an existing `opt_id` with overridden knobs (`strategy-gpt optimize reselect <opt_id>`). Writes a new `best_<timestamp>.json` adjacent to the original; never overwrites.
 
 ## Module roles (durable contract)
 
