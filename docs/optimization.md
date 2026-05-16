@@ -28,6 +28,38 @@ optimize:
 Library: `scipy.stats.qmc.Sobol`. Determinism: fully seedable when
 scrambled; deterministic by construction otherwise.
 
+### `successive_halving`
+
+Multi-fidelity over the fold-count axis (Jamieson & Talwalkar 2016).
+Evaluates `initial_candidates` Sobol-seeded points on `initial_folds`
+folds, drops the bottom 1 - 1/eta by mean score, doubles the fold
+budget, repeats until the full fold count is reached. Final-rung
+survivors are cross-validated like every other method's winners.
+
+Trades early-cascade compute for steeper-than-random pruning of bad
+candidates. Most cost goes into the small-fold rungs; the full-fold
+evaluation is paid only by the survivor handful.
+
+Categorical params are not supported when `init_method: sobol`;
+declare them as ints with a numeric encoding instead.
+
+```yaml
+optimize:
+  method: successive_halving
+  successive_halving:
+    initial_candidates: 64
+    eta: 3
+    initial_folds: 2
+    init_method: sobol
+    init_seed: 42
+```
+
+Library: in-house driver over the project's Sobol/Random seeders.
+Phase tags emitted as `train_fold_<i>_rung_<r>` so the parquet log
+makes the cascade recoverable: candidates killed at rung r exist only
+in their own folds' rung-r-and-earlier rows. Full Hyperband (bracket
+sweeps) is intentionally out of scope.
+
 ### `cma_es`
 
 Covariance Matrix Adaptation Evolution Strategy (Hansen 2016). Adapts
@@ -86,8 +118,7 @@ first generation across replays.
 
 `recursive_grid` (default), `grid`, `random`, `bayesian` (TPE). See
 existing `optimize.<method>` knob blocks in
-[`docs/experiment-spec.md`](experiment-spec.md). Additional methods (`successive_halving`, `lhs_polish`) land in
-upcoming chunks of this change.
+[`docs/experiment-spec.md`](experiment-spec.md). `lhs_polish` lands in the next chunk.
 
 ## Supply-chain rule
 

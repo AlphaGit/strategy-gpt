@@ -9,7 +9,12 @@ write the method module, then register it here.
 
 from __future__ import annotations
 
-from .base import FoldSearchContext, SearchMethod
+from .base import (
+    FoldSearchContext,
+    GlobalSearchContext,
+    GlobalSearchMethod,
+    SearchMethod,
+)
 from .bayesian import BayesianSearch
 from .cma_es import CmaEsSearch
 from .differential_evolution import DifferentialEvolutionSearch
@@ -17,8 +22,9 @@ from .grid import GridSearch
 from .random_search import RandomSearch
 from .recursive_grid import RecursiveGridSearch
 from .sobol import SobolSearch
+from .successive_halving import SuccessiveHalvingSearch
 
-_METHODS: tuple[SearchMethod, ...] = (
+_METHODS: tuple[SearchMethod | GlobalSearchMethod, ...] = (
     RecursiveGridSearch(),
     GridSearch(),
     RandomSearch(),
@@ -26,12 +32,13 @@ _METHODS: tuple[SearchMethod, ...] = (
     SobolSearch(),
     DifferentialEvolutionSearch(),
     CmaEsSearch(),
+    SuccessiveHalvingSearch(),
 )
 
-REGISTRY: dict[str, SearchMethod] = {m.name: m for m in _METHODS}
+REGISTRY: dict[str, SearchMethod | GlobalSearchMethod] = {m.name: m for m in _METHODS}
 
 
-def get(method_name: str) -> SearchMethod:
+def get(method_name: str) -> SearchMethod | GlobalSearchMethod:
     """Look up the strategy for a given method name; raises on unknown."""
     try:
         return REGISTRY[method_name]
@@ -40,4 +47,11 @@ def get(method_name: str) -> SearchMethod:
         raise ValueError(msg) from e
 
 
-__all__ = ["REGISTRY", "FoldSearchContext", "SearchMethod", "get"]
+__all__ = [
+    "REGISTRY",
+    "FoldSearchContext",
+    "GlobalSearchContext",
+    "GlobalSearchMethod",
+    "SearchMethod",
+    "get",
+]

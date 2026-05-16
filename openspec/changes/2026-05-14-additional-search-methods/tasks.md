@@ -32,12 +32,12 @@
 
 ## 5. Successive Halving searcher
 
-- [ ] 5.1 Add `SuccessiveHalvingSearcher` in-house implementation.
-- [ ] 5.2 Initial candidates generated via `SobolSearcher` (default) or `LHS` (knob).
-- [ ] 5.3 Extend the per-fold orchestrator: this method bypasses the "every candidate × every fold" assumption — orchestrator MUST consult the method to learn each candidate's fold subset.
-- [ ] 5.4 Extend the `trials.parquet` `phase` enum with `train_fold_<i>_rung_<r>`; document in the persistence layout.
-- [ ] 5.5 Pydantic model `SuccessiveHalvingKnobs`.
-- [ ] 5.6 Test: 64 candidates, eta=3, 8 folds → survivor counts `64 → 21 → 7 → 2` and matching parquet row counts.
+- [x] 5.1 Add `SuccessiveHalvingSearcher` in-house implementation.
+- [/] 5.2 Initial candidates generated via `SobolSearcher` (default) or `LHS` (knob).
+- [x] 5.3 Extend the per-fold orchestrator: this method bypasses the "every candidate × every fold" assumption — orchestrator MUST consult the method to learn each candidate's fold subset.
+- [x] 5.4 Extend the `trials.parquet` `phase` enum with `train_fold_<i>_rung_<r>`; document in the persistence layout.
+- [x] 5.5 Pydantic model `SuccessiveHalvingKnobs`.
+- [x] 5.6 Test: 64 candidates, eta=3, 8 folds → survivor counts `64 → 21 → 7 → 2` and matching parquet row counts.
 
 ## 6. LHS + Hooke-Jeeves searcher
 
@@ -50,7 +50,7 @@
 ## 7. Benchmark predictor extensions
 
 - [/] 7.1 Add per-method plan-run-count formulas in `python/strategy_gpt/benchmark.py`.
-- [ ] 7.2 Successive Halving requires summing per-rung costs; predictor MUST account for the surviving-candidate cascade.
+- [x] 7.2 Successive Halving requires summing per-rung costs; predictor MUST account for the surviving-candidate cascade.
 - [ ] 7.3 Update the `--benchmark` printed report to display the method-specific breakdown (e.g., "rung 0: 64 cands × 2 folds = 128 runs").
 
 ## 8. Method-versus-method advisory
@@ -69,7 +69,7 @@
 - [x] 10.2 CMA-ES on a 4-D mixed (2 float, 2 int) space: assert int params are integer in every recorded trial.
 - [x] 10.3 Sobol with `n_points=128, scramble=true, owen_seed=42`: assert byte-identical sequence across two runs.
 - [x] 10.4 DE with `init=sobol`: assert the first-generation candidates match a standalone Sobol run with the same seed and `n=popsize`.
-- [ ] 10.5 Successive Halving end-to-end: assert killed candidates do not appear in later-rung trials; assert the final-rung survivors are the cross-OOS evaluated candidates.
+- [x] 10.5 Successive Halving end-to-end: assert killed candidates do not appear in later-rung trials; assert the final-rung survivors are the cross-OOS evaluated candidates.
 - [ ] 10.6 LHS + Hooke-Jeeves: assert Hooke-Jeeves halves step_size when no improvement found in a sweep; assert convergence on a paraboloid.
 
 ## 11. Docs

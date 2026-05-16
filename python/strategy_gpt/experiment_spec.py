@@ -197,6 +197,29 @@ class RecursiveGridKnobs(BaseModel):
     plateau_epsilon: float = Field(default=1e-4, gt=0)
 
 
+class SuccessiveHalvingKnobs(BaseModel):
+    """Knobs for ``method: successive_halving`` (Jamieson & Talwalkar 2016).
+
+    Multi-fidelity optimization over the *fold-count* axis: candidates are
+    evaluated on a small initial subset of folds, the bottom 1 - 1/eta
+    are dropped, the surviving subset gets evaluated on a larger fold
+    budget, and the cascade repeats until the full fold count is reached.
+    Bracket sweeps (full Hyperband) are deliberately out of scope; the
+    halving cascade itself is the useful subset.
+
+    ``init_method`` controls how the rung-0 candidate set is generated.
+    Categorical params are not supported when ``init_method: sobol``;
+    declare them as ints with a numeric encoding instead.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    initial_candidates: int = Field(default=64, ge=2)
+    eta: int = Field(default=3, ge=2)
+    initial_folds: int = Field(default=2, ge=1)
+    init_method: Literal["sobol", "random"] = "sobol"
+    init_seed: int = 0
+
+
 class CmaEsKnobs(BaseModel):
     """Knobs for ``method: cma_es`` (Hansen 2016).
 
@@ -291,6 +314,7 @@ class OptimizeBlock(BaseModel):
         "sobol",
         "differential_evolution",
         "cma_es",
+        "successive_halving",
     ]
     seed: int = 0
     aggregator: Literal["mean"] = "mean"
@@ -302,6 +326,7 @@ class OptimizeBlock(BaseModel):
     sobol: SobolKnobs | None = None
     differential_evolution: DEKnobs | None = None
     cma_es: CmaEsKnobs | None = None
+    successive_halving: SuccessiveHalvingKnobs | None = None
     persist: PersistBlock
     selection: SelectionKnobs = SelectionKnobs()
     robust_objective: bool = False
@@ -515,6 +540,7 @@ __all__ = [
     "SelectionKnobs",
     "SensitivityKnobs",
     "SobolKnobs",
+    "SuccessiveHalvingKnobs",
     "load",
     "validate_search_space",
 ]

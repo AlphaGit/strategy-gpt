@@ -315,7 +315,7 @@ strategy-gpt optimize inspect <opt_id> --trial 4271     # one trial row
 strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
 ```
 
-`--method recursive_grid|grid|random|sobol|differential_evolution|cma_es` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
+`--method recursive_grid|grid|random|sobol|differential_evolution|cma_es|successive_halving` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
 
 ### Sobol quasi-random (drop-in replacement for `random`)
 
@@ -335,6 +335,25 @@ optimize:
     scramble: true
     owen_seed: 42
   persist: { root: ./ledger, name: vxx-sobol }
+```
+
+### Successive Halving (multi-fidelity)
+
+Evaluates many candidates on a small fold subset, halves the bottom of
+the rank by `1/eta`, doubles the fold budget, repeats. Cheaper than
+flat per-fold search when most candidates are obviously bad.
+
+```bash
+strategy-gpt optimize --spec experiment.yaml --method successive_halving
+
+# Or declare in the spec
+optimize:
+  method: successive_halving
+  successive_halving:
+    initial_candidates: 64
+    eta: 3
+    initial_folds: 2
+  persist: { root: ./ledger, name: vxx-sh }
 ```
 
 ### CMA-ES (Hansen)

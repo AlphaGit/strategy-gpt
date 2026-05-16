@@ -439,8 +439,8 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
             folds=folds,
         )
 
-    for fold_index, fold in enumerate(folds):
-        winner = _search_fold(
+    fold_winners.extend(
+        _run_search_phase(
             experiment=experiment,
             objective=objective,
             engine=engine,
@@ -448,17 +448,15 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
             bars=bars,
             dataset_manifest=dataset_manifest,
             template=template,
-            optim=experiment.optimize,
             space=space,
-            fold_index=fold_index,
-            fold=fold,
+            folds=folds,
             parallelism=parallelism,
             trial_counter=trial_counter,
             trial_rows=trial_rows,
             poll_interval_secs=poll_interval_secs,
             persist_writer=persist_writer,
         )
-        fold_winners.append(winner)
+    )
 
     cross = _cross_validate(
         experiment=experiment,
@@ -642,7 +640,91 @@ def _search_fold(  # noqa: PLR0913 — full IO surface.
         poll_interval_secs=poll_interval_secs,
         persist_writer=persist_writer,
     )
-    return get_method(optim.method).search_fold(ctx)
+    method = get_method(optim.method)
+    if not hasattr(method, "search_fold"):
+        msg = (
+            f"{optim.method!r} owns the global cross-fold loop; the orchestrator "
+            "must call its search_global via _run_search_phase, not _search_fold."
+        )
+        raise RuntimeError(msg)
+    return method.search_fold(ctx)
+
+
+def _run_search_phase(  # noqa: PLR0913 — full IO surface.
+    *,
+    experiment: ExperimentSpec,
+    objective: Mapping[str, Any],
+    engine: Engine,
+    artifact_path: Path,
+    bars: list[Bar],
+    dataset_manifest: str,
+    template: RunConfig,
+    space: dict[str, RandomParam],
+    folds: list[FoldRange],
+    parallelism: int,
+    trial_counter: Iterator[int],
+    trial_rows: list[TrialRow],
+    poll_interval_secs: float,
+    persist_writer: _PersistWriter | None,
+) -> list[FoldWinner]:
+    """Run the search phase using the method's strategy.
+
+    Per-fold methods (``SearchMethod`` only) run once per fold in
+    rolling fold-scheme order. Global methods (``GlobalSearchMethod``,
+    e.g. successive halving) own the cross-fold loop themselves and
+    receive every fold in a single :class:`GlobalSearchContext`.
+    """
+    from .search import (  # noqa: PLC0415 — lazy to avoid import cycle.
+        GlobalSearchContext,
+        GlobalSearchMethod,
+    )
+    from .search import get as get_method  # noqa: PLC0415 — lazy to avoid import cycle.
+
+    assert experiment.optimize is not None  # noqa: S101 — guarded by caller.
+    optim = experiment.optimize
+    method = get_method(optim.method)
+    if isinstance(method, GlobalSearchMethod):
+        ctx_global = GlobalSearchContext(
+            experiment=experiment,
+            objective=objective,
+            engine=engine,
+            artifact_path=artifact_path,
+            bars=bars,
+            dataset_manifest=dataset_manifest,
+            template=template,
+            optim=optim,
+            space=space,
+            folds=folds,
+            parallelism=parallelism,
+            trial_counter=trial_counter,
+            trial_rows=trial_rows,
+            poll_interval_secs=poll_interval_secs,
+            persist_writer=persist_writer,
+        )
+        return method.search_global(ctx_global)
+    winners: list[FoldWinner] = []
+    for fold_index, fold in enumerate(folds):
+        winners.append(
+            _search_fold(
+                experiment=experiment,
+                objective=objective,
+                engine=engine,
+                artifact_path=artifact_path,
+                bars=bars,
+                dataset_manifest=dataset_manifest,
+                template=template,
+                optim=optim,
+                space=space,
+                fold_index=fold_index,
+                fold=fold,
+                parallelism=parallelism,
+                trial_counter=trial_counter,
+                trial_rows=trial_rows,
+                poll_interval_secs=poll_interval_secs,
+                persist_writer=persist_writer,
+            )
+        )
+    return winners
 
 
 def _failed_outcome(error: str) -> EvaluationOutcome:
