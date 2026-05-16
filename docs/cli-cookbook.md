@@ -315,7 +315,7 @@ strategy-gpt optimize inspect <opt_id> --trial 4271     # one trial row
 strategy-gpt optimize replay <opt_id> --trial 4271 --out result.json
 ```
 
-`--method recursive_grid|grid|random|sobol` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
+`--method recursive_grid|grid|random|sobol|differential_evolution` overrides the method on the fly. `--parallelism auto` (default for the VXX example) resolves to `max(1, usable_cpus - 1)` and is recorded in the optimization manifest.
 
 ### Sobol quasi-random (drop-in replacement for `random`)
 
@@ -335,6 +335,25 @@ optimize:
     scramble: true
     owen_seed: 42
   persist: { root: ./ledger, name: vxx-sobol }
+```
+
+### Differential evolution (Storn & Price)
+
+Population-based search; each generation packs as one engine batch. Best
+on noisy, multi-modal surfaces with mixed-integer dims.
+
+```bash
+# Sobol-seeded DE with default knobs
+strategy-gpt optimize --spec experiment.yaml --method differential_evolution
+
+# Or declare in the spec
+optimize:
+  method: differential_evolution
+  differential_evolution:
+    popsize: auto       # 15 * D
+    n_generations: 50
+    init: sobol
+  persist: { root: ./ledger, name: vxx-de }
 ```
 
 ### Overfitting-aware selection

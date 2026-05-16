@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import math
 import statistics
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -36,6 +37,7 @@ from .experiment_spec import (
     ChoiceParam as SpecChoiceParam,
 )
 from .experiment_spec import (
+    DEKnobs,
     ExperimentSpec,
     OptimizeBlock,
     RecursiveGridKnobs,
@@ -62,6 +64,10 @@ from .optimizer import (
     RecursiveGridSearcher,
     SobolSearcher,
     Trial,
+    de_bounds_and_integrality,
+    de_project_individual,
+    de_resolve_popsize,
+    de_sobol_init,
 )
 from .optimizer import (
     IntParam as OptIntParam,
@@ -656,6 +662,25 @@ def _search_fold(  # noqa: PLR0913 — full IO surface.
             poll_interval_secs=poll_interval_secs,
             persist_writer=persist_writer,
         )
+    if optim.method == "differential_evolution":
+        return _search_fold_differential_evolution(
+            experiment=experiment,
+            objective=objective,
+            engine=engine,
+            artifact_path=artifact_path,
+            bars=bars,
+            dataset_manifest=dataset_manifest,
+            template=template,
+            optim=optim,
+            space=space,
+            fold_index=fold_index,
+            fold=fold,
+            parallelism=parallelism,
+            trial_counter=trial_counter,
+            trial_rows=trial_rows,
+            poll_interval_secs=poll_interval_secs,
+            persist_writer=persist_writer,
+        )
     return _search_fold_one_shot(
         experiment=experiment,
         objective=objective,
@@ -759,6 +784,133 @@ def _search_fold_recursive_grid(  # noqa: PLR0913
         params=best_params,
         train_metrics=best_metrics,
         train_score=best.outcome.score,
+    )
+
+
+def _search_fold_differential_evolution(  # noqa: PLR0913 — DE owns its own search loop.
+    *,
+    experiment: ExperimentSpec,
+    objective: Mapping[str, Any],
+    engine: Engine,
+    artifact_path: Path,
+    bars: list[Bar],
+    dataset_manifest: str,
+    template: RunConfig,
+    optim: OptimizeBlock,
+    space: dict[str, RandomParam],
+    fold_index: int,
+    fold: FoldRange,
+    parallelism: int,
+    trial_counter: Iterator[int],
+    trial_rows: list[TrialRow],
+    poll_interval_secs: float,
+    persist_writer: _PersistWriter | None,
+) -> FoldWinner:
+    """DE drives the search via scipy; each generation is one packed batch.
+
+    scipy's ``differential_evolution`` invokes the objective with the whole
+    population (``vectorized=True``) once per generation, which lets us
+    pack every individual into one engine batch.
+    """
+    from scipy.optimize import (  # noqa: PLC0415 — optional dep, deferred import.
+        differential_evolution,
+    )
+
+    knobs = optim.differential_evolution if optim.differential_evolution is not None else DEKnobs()
+    keys, bounds, integrality = de_bounds_and_integrality(space)
+    if not keys:
+        return _fallback_winner(trial_rows, fold_index)
+    popsize = de_resolve_popsize(knobs.popsize, len(keys))
+
+    init_array = (
+        de_sobol_init(space, keys, popsize, seed=optim.seed)
+        if knobs.init == "sobol"
+        else knobs.init
+    )
+
+    gen_counter = itertools.count()
+    best_params: ParamSet | None = None
+    best_metrics: MetricsDict | None = None
+    best_score = float("-inf")
+
+    def evaluate_population(population: Any) -> Any:  # noqa: ANN401
+        nonlocal best_params, best_metrics, best_score
+        import numpy as np  # noqa: PLC0415 — optional dep, deferred.
+
+        # scipy.vectorized=True hands a (D, popsize) array; project to candidates.
+        cols = population.shape[1]
+        candidates = [
+            de_project_individual(population[:, i], keys, integrality) for i in range(cols)
+        ]
+        gen = next(gen_counter)
+        spec = _pack_batch(
+            experiment=experiment,
+            dataset_manifest=dataset_manifest,
+            runs=[_build_run(template, c, fold.train) for c in candidates],
+            parallelism=parallelism,
+        )
+        entries = _submit_and_collect(
+            engine,
+            artifact_path=artifact_path,
+            bars=bars,
+            spec=spec,
+            dataset_manifest=dataset_manifest,
+            poll_interval_secs=poll_interval_secs,
+        )
+        scores = np.zeros(cols, dtype=float)
+        for i, (params, entry) in enumerate(zip(candidates, entries, strict=True)):
+            outcome = _score(objective, entry.metrics) if entry.ok else _failed_outcome(entry.error)
+            accepted = outcome.accepted
+            row = TrialRow(
+                trial_id=next(trial_counter),
+                round=gen,
+                phase=f"train_fold_{fold_index}",
+                fold_index=fold_index,
+                params=params,
+                seed=template.seed,
+                metrics=entry.metrics,
+                score=outcome.score,
+                accepted=accepted,
+                reject_reason="" if accepted else _reject_reason(entry, outcome),
+                wall_secs=entry.wall_secs,
+            )
+            trial_rows.append(row)
+            if persist_writer is not None:
+                persist_writer.emit_row(row)
+            if accepted and outcome.score > best_score:
+                best_score = outcome.score
+                best_params = params
+                best_metrics = entry.metrics
+            # DE minimizes; return negative score so the surface's maximum
+            # is DE's minimum. Use a large penalty for non-finite scores.
+            scores[i] = -outcome.score if math.isfinite(outcome.score) else 1e18
+        if persist_writer is not None:
+            persist_writer.flush()
+        return scores
+
+    differential_evolution(
+        evaluate_population,
+        bounds=bounds,
+        maxiter=knobs.n_generations,
+        popsize=popsize,
+        strategy=knobs.strategy,
+        mutation=(knobs.mutation_low, knobs.mutation_high),
+        recombination=knobs.crossover,
+        seed=optim.seed,
+        init=init_array,
+        integrality=integrality,
+        tol=knobs.tol,
+        vectorized=True,
+        polish=False,
+    )
+
+    if best_params is None or best_metrics is None:
+        return _fallback_winner(trial_rows, fold_index)
+    return FoldWinner(
+        fold_index=fold_index,
+        params=best_params,
+        train_metrics=best_metrics,
+        train_score=best_score,
     )
 
 

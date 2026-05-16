@@ -1,0 +1,55 @@
+# VXX volatility-range experiment — Differential Evolution variant.
+
+artifact: ../../crates/target/debug/libvxx_strategy.dylib
+strategy_label: vxx-de
+
+bars:
+  dataset: 29bdecf5fe758d38d524025321aacfb2825daf2fbcce4a3c2c04377bf635b97b
+
+engine:
+  fill_model: NextBarOpen
+  initial_capital: 100000.0
+  commission_per_fill: 0.0
+  sanity:
+    max_intent_size: 1.0e9
+    max_position_size: 1.0e9
+
+runs:
+  - params:
+      size: 100.0
+      symbol: VXX
+    modes:
+      - { kind: plain }
+    seed: 42
+    slice:
+      start: 2018-01-01T00:00:00Z
+      end:   2026-12-31T00:00:00Z
+
+folds:
+  count: 4
+  scheme: rolling
+
+optimize:
+  method: differential_evolution
+  seed: 42
+  aggregator: mean
+  space:
+    vol_lo:
+      type: float
+      low: 0.20
+      high: 0.50
+    vol_hi:
+      type: float
+      low: 0.70
+      high: 1.30
+  differential_evolution:
+    popsize: 8
+    n_generations: 4
+    strategy: best1bin
+    init: sobol
+    tol: 0.0
+  persist:
+    root: ./ledger
+    name: vxx-de-smoke
+
+parallelism: auto

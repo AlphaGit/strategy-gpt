@@ -197,6 +197,41 @@ class RecursiveGridKnobs(BaseModel):
     plateau_epsilon: float = Field(default=1e-4, gt=0)
 
 
+class DEKnobs(BaseModel):
+    """Knobs for ``method: differential_evolution`` (Storn & Price 1997).
+
+    Population evaluated per generation as one packed engine batch via
+    :class:`scipy.optimize.differential_evolution` running in
+    ``vectorized=True`` mode. Integer params declared in the search space
+    are honored via the solver's ``integrality`` flag. Categorical
+    (``choice``) params are not supported by DE; declare them as integers
+    if you need to sweep them.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    popsize: int | Literal["auto"] = "auto"
+    """``auto`` resolves to ``15 * D`` where D is the number of search dimensions."""
+    n_generations: int = Field(default=50, ge=1)
+    strategy: Literal["best1bin", "rand1bin", "currenttobest1bin", "best2bin", "rand2bin"] = (
+        "best1bin"
+    )
+    mutation_low: float = Field(default=0.5, ge=0.0, le=2.0)
+    mutation_high: float = Field(default=1.0, ge=0.0, le=2.0)
+    crossover: float = Field(default=0.7, ge=0.0, le=1.0)
+    init: Literal["sobol", "latinhypercube", "random"] = "sobol"
+    tol: float = Field(default=0.01, ge=0.0)
+
+    @model_validator(mode="after")
+    def _check_mutation(self) -> DEKnobs:
+        if self.mutation_high < self.mutation_low:
+            msg = (
+                f"DEKnobs: mutation_high ({self.mutation_high}) must be >= "
+                f"mutation_low ({self.mutation_low})."
+            )
+            raise ValueError(msg)
+        return self
+
+
 class SobolKnobs(BaseModel):
     """Knobs for ``method: sobol`` (Owen-scrambled quasi-random).
 
@@ -233,6 +268,7 @@ class OptimizeBlock(BaseModel):
         "random",
         "bayesian",
         "sobol",
+        "differential_evolution",
     ]
     seed: int = 0
     aggregator: Literal["mean"] = "mean"
@@ -242,6 +278,7 @@ class OptimizeBlock(BaseModel):
     bayesian: BayesianKnobs | None = None
     recursive_grid: RecursiveGridKnobs | None = None
     sobol: SobolKnobs | None = None
+    differential_evolution: DEKnobs | None = None
     persist: PersistBlock
     selection: SelectionKnobs = SelectionKnobs()
     robust_objective: bool = False
@@ -434,6 +471,7 @@ __all__ = [
     "BayesianKnobs",
     "Caps",
     "ChoiceParam",
+    "DEKnobs",
     "DatasetRef",
     "DsrKnobs",
     "EngineConfig",

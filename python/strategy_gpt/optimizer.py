@@ -240,6 +240,102 @@ class SobolSearcher:
 
 
 # ---------------------------------------------------------------------------
+# Differential Evolution helpers
+# ---------------------------------------------------------------------------
+
+
+def de_bounds_and_integrality(
+    space: Mapping[str, RandomParam],
+) -> tuple[list[str], list[tuple[float, float]], list[bool]]:
+    """Project an optimizer search space to scipy DE's (bounds, integrality).
+
+    Categoricals (:class:`ChoiceParam`) are not supported; declare them as
+    integers if you need DE to sweep them. ``log``-scaled continuous params
+    are projected in linear space — log-scaled DE is not commonly useful
+    for the bounded ranges this platform produces.
+    """
+    keys: list[str] = []
+    bounds: list[tuple[float, float]] = []
+    integrality: list[bool] = []
+    for name, p in space.items():
+        if isinstance(p, ChoiceParam):
+            msg = (
+                f"DE does not support ChoiceParam ({name!r}); declare it as "
+                "an IntParam with a numeric encoding instead."
+            )
+            raise TypeError(msg)
+        if isinstance(p, IntParam):
+            keys.append(name)
+            bounds.append((float(p.low), float(p.high)))
+            integrality.append(True)
+        elif isinstance(p, ContinuousParam):
+            keys.append(name)
+            bounds.append((float(p.low), float(p.high)))
+            integrality.append(False)
+        else:  # pragma: no cover — RandomParam union is exhaustive.
+            msg = f"unsupported space entry: {type(p).__name__}"
+            raise TypeError(msg)
+    return keys, bounds, integrality
+
+
+def de_project_individual(
+    individual: Sequence[float],
+    keys: Sequence[str],
+    integrality: Sequence[bool],
+) -> ParamSet:
+    """Map a DE individual (vector of floats) back to a named param set."""
+    out: ParamSet = {}
+    for i, k in enumerate(keys):
+        v = float(individual[i])
+        out[k] = round(v) if integrality[i] else v
+    return out
+
+
+def de_resolve_popsize(popsize: int | str, n_dims: int) -> int:
+    """Resolve ``popsize: auto`` → ``15 * D`` per Storn & Price defaults."""
+    if isinstance(popsize, int):
+        return max(popsize, 5)
+    if popsize == "auto":
+        return max(15 * n_dims, 5)
+    msg = f"de_resolve_popsize: unexpected popsize={popsize!r}"
+    raise ValueError(msg)
+
+
+def de_sobol_init(
+    space: Mapping[str, RandomParam],
+    keys: Sequence[str],
+    popsize: int,
+    seed: int,
+) -> Any:  # noqa: ANN401 — returns np.ndarray; ndarray import deferred.
+    """Build a Sobol-seeded init array (``popsize * D``) for scipy DE.
+
+    Mirrors :class:`SobolSearcher` so the first generation matches a
+    standalone Sobol run with the same seed and ``n=popsize``.
+    """
+    import numpy as np  # noqa: PLC0415 — optional dep, deferred import.
+
+    points = list(
+        SobolSearcher(
+            space={k: space[k] for k in keys},
+            n_points=popsize,
+            scramble=True,
+            owen_seed=seed,
+        ).candidates()
+    )
+    # Truncate to exact popsize (Sobol may round up to a power of two).
+    points = points[:popsize]
+    if len(points) < popsize:
+        # Pad with random points to fill — extremely unlikely path.
+        rng = random.Random(seed)  # noqa: S311 — non-cryptographic by design.
+        while len(points) < popsize:
+            points.append({k: _sample(rng, space[k]) for k in keys})
+    return np.array(
+        [[float(p[k]) for k in keys] for p in points],
+        dtype=float,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
 
@@ -926,5 +1022,9 @@ __all__ = [
     "SobolSearcher",
     "TPESearcher",
     "Trial",
+    "de_bounds_and_integrality",
+    "de_project_individual",
+    "de_resolve_popsize",
+    "de_sobol_init",
     "optimize",
 ]

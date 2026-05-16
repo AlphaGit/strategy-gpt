@@ -16,12 +16,12 @@
 
 ## 3. Differential Evolution searcher
 
-- [ ] 3.1 Add `DESearcher` wrapping `scipy.optimize.differential_evolution`.
-- [ ] 3.2 Implement `popsize: auto` → `15 * D`.
-- [ ] 3.3 Default `init: sobol` (use the project's Sobol searcher for the seed phase).
-- [ ] 3.4 Default `integrality=True` on every declared `IntParam`.
-- [ ] 3.5 Pydantic model `DEKnobs`.
-- [ ] 3.6 Per-generation packed batch dispatch.
+- [x] 3.1 Add `DESearcher` wrapping `scipy.optimize.differential_evolution`.
+- [x] 3.2 Implement `popsize: auto` → `15 * D`.
+- [x] 3.3 Default `init: sobol` (use the project's Sobol searcher for the seed phase).
+- [x] 3.4 Default `integrality=True` on every declared `IntParam`.
+- [x] 3.5 Pydantic model `DEKnobs`.
+- [x] 3.6 Per-generation packed batch dispatch.
 
 ## 4. Sobol searcher
 
@@ -49,7 +49,7 @@
 
 ## 7. Benchmark predictor extensions
 
-- [x] 7.1 Add per-method plan-run-count formulas in `python/strategy_gpt/benchmark.py`.
+- [/] 7.1 Add per-method plan-run-count formulas in `python/strategy_gpt/benchmark.py`.
 - [ ] 7.2 Successive Halving requires summing per-rung costs; predictor MUST account for the surviving-candidate cascade.
 - [ ] 7.3 Update the `--benchmark` printed report to display the method-specific breakdown (e.g., "rung 0: 64 cands × 2 folds = 128 runs").
 
@@ -68,7 +68,7 @@
 - [ ] 10.1 Each method on a 2-D synthetic objective with a known global optimum: assert convergence within tolerance, assert seed-determinism, assert `trials.parquet` row count matches the predictor formula.
 - [ ] 10.2 CMA-ES on a 4-D mixed (2 float, 2 int) space: assert int params are integer in every recorded trial.
 - [x] 10.3 Sobol with `n_points=128, scramble=true, owen_seed=42`: assert byte-identical sequence across two runs.
-- [ ] 10.4 DE with `init=sobol`: assert the first-generation candidates match a standalone Sobol run with the same seed and `n=popsize`.
+- [x] 10.4 DE with `init=sobol`: assert the first-generation candidates match a standalone Sobol run with the same seed and `n=popsize`.
 - [ ] 10.5 Successive Halving end-to-end: assert killed candidates do not appear in later-rung trials; assert the final-rung survivors are the cross-OOS evaluated candidates.
 - [ ] 10.6 LHS + Hooke-Jeeves: assert Hooke-Jeeves halves step_size when no improvement found in a sweep; assert convergence on a paraboloid.
 

@@ -28,13 +28,41 @@ optimize:
 Library: `scipy.stats.qmc.Sobol`. Determinism: fully seedable when
 scrambled; deterministic by construction otherwise.
 
+### `differential_evolution`
+
+Storn & Price (1997) differential evolution via
+`scipy.optimize.differential_evolution` in `vectorized=True` mode —
+every generation packs the full population into a single engine batch.
+Strong on noisy, multi-modal surfaces with mixed-integer parameters
+(integer dims sweep through the solver's `integrality` flag). Sobol
+init by default, matching :class:`SobolSearcher`'s first `popsize`
+points byte-for-byte. Choice (categorical) params are not supported —
+declare them as ints with a numeric encoding.
+
+```yaml
+optimize:
+  method: differential_evolution
+  differential_evolution:
+    popsize: auto                       # auto -> 15 * D
+    n_generations: 50
+    strategy: best1bin                  # | rand1bin | currenttobest1bin
+    mutation_low: 0.5
+    mutation_high: 1.0
+    crossover: 0.7
+    init: sobol                         # | latinhypercube | random
+```
+
+Library: `scipy.optimize.differential_evolution`. Determinism: scipy
+honors `seed=`; population init is Sobol-seeded for byte-equivalent
+first generation across replays.
+
 ### Other methods
 
 `recursive_grid` (default), `grid`, `random`, `bayesian` (TPE). See
 existing `optimize.<method>` knob blocks in
 [`docs/experiment-spec.md`](experiment-spec.md). Additional methods
-(`cma_es`, `differential_evolution`, `successive_halving`, `lhs_polish`)
-land in upcoming chunks of this change.
+(`cma_es`, `successive_halving`, `lhs_polish`) land in upcoming chunks
+of this change.
 
 ## Supply-chain rule
 
