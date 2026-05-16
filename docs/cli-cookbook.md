@@ -126,25 +126,23 @@ Produces `crates/target/debug/libvxx_strategy.dylib` and `crates/target/debug/en
 
 ```bash
 strategy-gpt run \
-  --spec examples/vxx/batch.json \
-  --artifact crates/target/debug/libvxx_strategy.dylib \
+  --spec examples/vxx/experiment.yaml \
   --worker crates/target/debug/engine-worker \
-  --bars examples/vxx/bars.json \
-  --dataset-manifest 29bdecf5fe758d38d524025321aacfb2825daf2fbcce4a3c2c04377bf635b97b \
-  --wait --time-cap-secs 120
+  --wait
 ```
 
 | Flag | Purpose |
 |---|---|
-| `--spec`              | Path to a `BatchSpec` JSON. See [BatchSpec JSON reference](./batch-spec.md). |
-| `--artifact`          | Compiled strategy `cdylib` produced by the build pipeline. |
-| `--worker`            | `engine-worker` binary; the orchestrator spawns one subprocess per `RunSpec`. |
-| `--bars`              | JSON list of bars (output of the materialize step above). |
-| `--dataset-manifest`  | Manifest hash from `strategy-gpt fetch`; opaque passthrough to the ledger. |
+| `--spec`              | Path to an `experiment-spec` YAML or JSON. See [experiment-spec reference](./experiment-spec.md). The spec carries `artifact`, `bars` (`dataset` or `request`), `engine`, `runs`, `parallelism`, and `caps`. |
+| `--worker`            | `engine-worker` binary; the orchestrator spawns one subprocess per `RunSpec`. Defaults to `crates/target/debug/engine-worker`. |
+| `--gateway-root`      | Gateway cache root used for bars resolution. Defaults to `cache`. |
 | `--wait`              | Block until job completion; print full `JobStatus` JSON. Without it: print the handle and return immediately. |
-| `--time-cap-secs`     | Per-run wall-clock cap. Workers exceeding it are killed by the coordinator. |
-| `--mem-cap-bytes`     | Per-run memory cap (Linux). |
 | `--poll-interval-secs`| Poll interval when `--wait` is set. Default `0.5`. |
+
+Per-run wall-clock and memory caps move into the spec under `caps:`
+(`time_cap_secs`, `mem_cap_bytes`). Per-run slippage is no longer an
+`engine` field; declare it as a `Slippage { bps_grid }` mode on the
+affected run(s).
 
 `JobStatus` shape returned by `--wait`:
 
@@ -169,34 +167,29 @@ strategy-gpt run \
 ### Submit without waiting (manual polling)
 
 ```bash
-HANDLE=$(strategy-gpt run \
-  --spec examples/vxx/batch.json \
-  --artifact crates/target/debug/libvxx_strategy.dylib \
-  --worker crates/target/debug/engine-worker \
-  --bars examples/vxx/bars.json \
-  --dataset-manifest <hash>)
+HANDLE=$(strategy-gpt run --spec examples/vxx/experiment.yaml)
 echo "submitted: $HANDLE"
 # Poll later via the Python engine surface; CLI poll subcommand lands with phase 13.
 ```
 
 ### Tweak parameters without recompiling
 
-Edit `examples/vxx/batch.json`:
+Edit `examples/vxx/experiment.yaml`:
 
-```jsonc
-"params": {
-  "vol_lo": 0.35,    // change me
-  "vol_hi": 0.80,    // change me
-  "size":   100.0,
-  "symbol": "VXX"
-}
+```yaml
+runs:
+  - params:
+      vol_lo: 0.35    # change me
+      vol_hi: 0.80    # change me
+      size:   100.0
+      symbol: VXX
 ```
 
 Re-run `strategy-gpt run`. The artifact hash is unchanged; the engine reuses the compiled `.dylib`. Parameter changes never trigger a rebuild — that's what `params` is for.
 
 ### Multi-run sweep
 
-Add more `RunSpec` entries to `batch.json`'s `runs` array. The engine compiles once and fans out across `parallelism` worker subprocesses. See [BatchSpec JSON reference — Multi-run example](./batch-spec.md#multi-run-example-parameter-sweep).
+Add more entries to the spec's `runs:` list. The engine compiles once and fans out across `parallelism` worker subprocesses. See [BatchSpec JSON reference — Multi-run example](./batch-spec.md#multi-run-example-parameter-sweep) for the internal shape that `experiment-spec` translates into.
 
 ---
 
@@ -286,7 +279,7 @@ Steps 4-5 collapse into `strategy-gpt hypothesize` once the CLI driver lands.
 | Cache stats | `strategy-gpt cache-stats --root cache` |
 | Recent decisions | `strategy-gpt recent-decisions --root ledger --limit 25` |
 | Replay a run | `strategy-gpt replay --run-id <id>` |
-| Submit batch (await) | `strategy-gpt run --spec <s.json> --artifact <a.dylib> --worker <w> --bars <b.json> --dataset-manifest <h> --wait` |
+| Submit batch (await) | `strategy-gpt run --spec <experiment.yaml> --wait` |
 | Submit batch (async) | same, drop `--wait` (returns handle) |
 | KB ingest | *(stub — phase 8)* |
 | Hypothesis loop | *(stub — drive via Python; see above)* |

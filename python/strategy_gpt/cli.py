@@ -9,7 +9,7 @@ Surface (rewrite-architecture task 13.1):
 - ``cache-stats`` — summarize the on-disk blob store.
 - ``recent-decisions`` — dump the ledger's recent-decision view.
 - ``replay`` — reconstruct a recorded run's BatchSpec + dataset.
-- ``run`` — submit a BatchSpec to the engine (requires engine-worker binary).
+- ``run`` — submit an experiment-spec to the engine (requires engine-worker binary).
 - ``ingest`` — KB ingestion (phase 8).
 - ``hypothesize`` — hypothesis-loop entry (phase 9).
 - ``optimize`` — parameter optimizer entry (phase 10/11 wiring).
@@ -18,17 +18,20 @@ Surface (rewrite-architecture task 13.1):
 from __future__ import annotations
 
 import json
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from pydantic import TypeAdapter
 
 from . import __version__
+from . import experiment_spec as espec
 from .engine import Engine
 from .gateway import Gateway
 from .ledger import Ledger
-from .types import AdjustmentPolicy, BarRequest, CacheMode, Resolution
+from .types import AdjustmentPolicy, Bar, BarRequest, CacheMode, Resolution
 
 app = typer.Typer(help="Strategy-GPT research loop CLI.")
 
@@ -134,16 +137,19 @@ def replay(
 
 
 @app.command()
-def run(  # noqa: PLR0913 — typer command surface; resource caps + paths.
-    spec: Annotated[Path, typer.Option(help="Path to a JSON BatchSpec file.")],
-    artifact: Annotated[Path, typer.Option(help="Compiled strategy cdylib path.")],
-    worker: Annotated[Path, typer.Option(help="Path to the engine-worker binary.")],
-    bars: Annotated[Path, typer.Option(help="Path to a JSON file with the bar list.")],
-    dataset_manifest: Annotated[
-        str, typer.Option(help="Dataset manifest hash (pass-through to the ledger).")
-    ] = "",
-    time_cap_secs: Annotated[float | None, typer.Option(help="Per-run wall-clock cap.")] = None,
-    mem_cap_bytes: Annotated[int | None, typer.Option(help="Per-run memory cap (Linux).")] = None,
+def run(
+    spec: Annotated[
+        Path,
+        typer.Option(help="Path to an experiment-spec YAML or JSON file."),
+    ],
+    worker: Annotated[
+        Path,
+        typer.Option(help="Path to the engine-worker binary."),
+    ] = Path("crates/target/debug/engine-worker"),
+    gateway_root: Annotated[
+        Path,
+        typer.Option(help="Gateway cache root used for bars resolution."),
+    ] = Path("cache"),
     wait: Annotated[
         bool,
         typer.Option(help="Block until the job finishes; print JobStatus JSON instead of handle."),
@@ -152,31 +158,73 @@ def run(  # noqa: PLR0913 — typer command surface; resource caps + paths.
         float, typer.Option(help="Poll interval when --wait is set.")
     ] = 0.5,
 ) -> None:
-    """Submit a BatchSpec to the engine.
+    """Submit an experiment-spec to the engine.
+
+    The experiment-spec carries the artifact, bars source, engine
+    config, run list, parallelism, and per-run resource caps. See
+    `docs/experiment-spec.md` for the schema.
 
     Default behavior prints the opaque job handle so callers can poll
     separately. Pass ``--wait`` to block until the job reaches a terminal
-    state and print the full ``JobStatus`` JSON (status + results / error).
+    state and print the full ``JobStatus`` JSON (status + results /
+    error).
     """
-    from pydantic import TypeAdapter
-
-    from .types import Bar
-
-    spec_payload = json.loads(spec.read_text())
-    bars_payload = TypeAdapter(list[Bar]).validate_json(bars.read_text())
-    eng = Engine(worker, time_cap_secs=time_cap_secs, mem_cap_bytes=mem_cap_bytes)
-    handle = eng.submit_batch(artifact, bars_payload, spec_payload, dataset_manifest)
+    parsed = espec.load(spec)
+    bars_list, dataset_manifest = _resolve_bars(parsed, gateway_root)
+    batch_spec = parsed.to_batch_spec(dataset_manifest)
+    eng = Engine(
+        worker,
+        time_cap_secs=parsed.caps.time_cap_secs,
+        mem_cap_bytes=parsed.caps.mem_cap_bytes,
+    )
+    handle = eng.submit_batch(parsed.artifact, bars_list, batch_spec, dataset_manifest)
     if not wait:
         typer.echo(handle)
         return
-    import time
-
     while True:
         status = eng.poll(handle)
         if status.status in ("completed", "failed", "cancelled"):
             typer.echo(status.model_dump_json(indent=2))
             return
         time.sleep(poll_interval_secs)
+
+
+def _resolve_bars(
+    parsed: espec.ExperimentSpec,
+    gateway_root: Path,
+) -> tuple[list[Bar], str]:
+    """Resolve an experiment-spec's `bars` block into a bar list and manifest hash."""
+    if isinstance(parsed.bars, espec.RequestRef):
+        gw = Gateway(gateway_root)
+        request = parsed.bars.request
+        if request.provider == "yfinance":
+            gw.register_yfinance_provider(request.provider)
+        response = gw.fetch(request, "prefer_cache")
+        return list(response.bars), response.manifest_hash
+    manifest = parsed.bars.dataset
+    bars_list = _load_cached_bars(gateway_root, manifest)
+    return bars_list, manifest
+
+
+def _load_cached_bars(gateway_root: Path, manifest_hash: str) -> list[Bar]:
+    """Load bars for an already-cached dataset by manifest hash.
+
+    The current cache stores per-year parquet blobs; materializing them
+    back into a Bar list requires the gateway's normalizer. Pending a
+    direct ``Gateway.load_by_manifest(...)`` surface, the v1 loader
+    requires the caller to have materialized the bars previously and
+    raises a structured error otherwise.
+    """
+    materialized = gateway_root / "materialized" / f"{manifest_hash}.json"
+    if not materialized.exists():
+        msg = (
+            f"dataset not cached: manifest hash {manifest_hash} has no materialized bars "
+            f"at {materialized}. Either fetch the dataset via `strategy-gpt fetch` and "
+            "materialize bars (see docs/cli-cookbook.md `Materialize cached bars to JSON`), "
+            "or rewrite the spec to use `bars: { request: ... }` for auto-fetch."
+        )
+        raise typer.BadParameter(msg)
+    return TypeAdapter(list[Bar]).validate_json(materialized.read_text())
 
 
 @app.command()

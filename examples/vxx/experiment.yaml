@@ -1,0 +1,31 @@
+# VXX volatility-range reference experiment.
+# See docs/experiment-spec.md for the schema.
+
+artifact: ../../crates/target/debug/libvxx_strategy.dylib
+strategy_label: vxx-local
+
+bars:
+  dataset: 29bdecf5fe758d38d524025321aacfb2825daf2fbcce4a3c2c04377bf635b97b
+
+engine:
+  fill_model: NextBarOpen
+  initial_capital: 100000.0
+  commission_per_fill: 0.0
+  sanity:
+    max_intent_size: 1.0e9
+    max_position_size: 1.0e9
+
+runs:
+  - params:
+      vol_lo: 0.35
+      vol_hi: 0.80
+      size: 100.0
+      symbol: VXX
+    modes:
+      - { kind: plain }
+    seed: 42
+    slice:
+      start: 2018-01-01T00:00:00Z
+      end:   2026-12-31T00:00:00Z
+
+parallelism: 1

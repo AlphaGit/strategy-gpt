@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://strategy-gpt.local/experiment-spec.schema.json",
+  "title": "ExperimentSpec",
+  "description": "Single-file declarative definition of a strategy-gpt backtest experiment. Consumed by `strategy-gpt run --spec <file>`. See docs/experiment-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact", "bars", "runs"],
+  "properties": {
+    "artifact": {
+      "type": "string",
+      "description": "Filesystem path to the compiled strategy cdylib. Relative paths resolve against the spec file's directory."
+    },
+    "strategy_label": {
+      "type": ["string", "null"],
+      "description": "Opaque label recorded as BatchSpec.strategy. Defaults to the artifact filename stem."
+    },
+    "bars": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dataset"],
+          "properties": {
+            "dataset": {
+              "type": "string",
+              "description": "Manifest hash of a cache-resident dataset."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["request"],
+          "properties": {
+            "request": { "$ref": "#/$defs/BarRequest" }
+          }
+        }
+      ]
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fill_model": { "enum": ["NextBarOpen", "CurrentBarClose"], "default": "NextBarOpen" },
+        "initial_capital": { "type": "number", "default": 100000.0 },
+        "commission_per_fill": { "type": "number", "default": 0.0 },
+        "sanity": { "$ref": "#/$defs/SanityBounds" }
+      },
+      "description": "User-facing engine configuration. `slippage_bps` is NOT permitted here; express per-fill slippage as a Slippage mode on a run."
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/RunConfig" }
+    },
+    "parallelism": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1 },
+        { "const": "auto" }
+      ],
+      "default": 1
+    },
+    "caps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "time_cap_secs": { "type": ["number", "null"] },
+        "mem_cap_bytes": { "type": ["integer", "null"] }
+      }
+    }
+  },
+  "$defs": {
+    "BarRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "symbol", "start", "end", "resolution", "adjustment"],
+      "properties": {
+        "provider": { "type": "string" },
+        "symbol": { "type": "string" },
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" },
+        "resolution": { "enum": ["Minute", "FiveMinute", "FifteenMinute", "Hour", "Day", "Week"] },
+        "adjustment": { "enum": ["raw", "back_adjusted"] },
+        "secondary_providers": { "type": "array", "items": { "type": "string" }, "default": [] }
+      }
+    },
+    "SanityBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_intent_size", "max_position_size"],
+      "properties": {
+        "max_intent_size": { "type": "number" },
+        "max_position_size": { "type": "number" }
+      }
+    },
+    "TimeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" }
+      }
+    },
+    "RunConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slice"],
+      "properties": {
+        "params": { "type": "object", "default": {} },
+        "modes": {
+          "type": "array",
+          "default": [{ "kind": "plain" }],
+          "items": { "$ref": "#/$defs/Mode" }
+        },
+        "seed": { "type": "integer", "default": 0 },
+        "slice": { "$ref": "#/$defs/TimeRange" }
+      }
+    },
+    "Mode": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["plain", "monte_carlo", "slippage", "regime_filter", "sensitivity"] }
+      }
+    }
+  }
+}

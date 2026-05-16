@@ -70,7 +70,8 @@ openspec/               Change proposals and capability specs
 - **Objective spec** — declarative, per-strategy: primary metric, secondary metrics with weights or hard constraints, tradeoff mode (`lexicographic`, `weighted_sum`, `pareto`), walk-forward configuration. Consumed by Evaluator and Optimizer uniformly.
 - **Hypothesis** — named, human-readable claim that a specific change will move a target metric, with a falsification criterion.
 - **Bar** — OHLCV bar with UTC timestamp; atomic input to strategies.
-- **BatchSpec / RunSpec** — engine input. One strategy artifact, one dataset, many runs (parameters × modes × slices × seeds).
+- **ExperimentSpec** — *user-facing* experiment envelope (`experiment-spec.yaml` / `.json`) consumed by `strategy-gpt run --spec`. Carries `artifact`, polymorphic `bars` (cache-resident `dataset` or auto-fetched `request`), `engine`, `runs`, `parallelism`, `caps`. See `docs/experiment-spec.md`. Translates internally to a `BatchSpec` before submit.
+- **BatchSpec / RunSpec** — *internal* engine input across the PyO3 boundary. One strategy artifact, one dataset, many runs (parameters × modes × slices × seeds). Composed by the experiment-spec loader; not authored directly.
 - **Modes** — `Plain`, `MonteCarlo { n, block_size }`, `Slippage { bps_grid }`, `RegimeFilter { ranges }`, `Sensitivity`.
 - **Decision log** — ledger record of accepted/rejected hypotheses with rationale; reloaded as context on subsequent loop runs.
 

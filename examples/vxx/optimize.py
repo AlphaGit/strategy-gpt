@@ -7,8 +7,9 @@ What this does
   `objectives::validate_spec` binding.
 - Enumerates a grid of `(vol_lo, vol_hi)` candidates over the
   realized-vol scale observed in the engine indicator.
-- For each candidate, builds a `BatchSpec` against `examples/vxx/batch.json`
-  with the candidate params, submits to the engine, polls until
+- For each candidate, loads `examples/vxx/experiment.yaml` via the
+  experiment-spec loader, applies the candidate params on the single
+  run, submits the resulting BatchSpec to the engine, polls until
   completion, extracts `metrics` from the single-run result, and scores
   them against the objective spec via `objectives::evaluate_spec`.
 - Runs `strategy_gpt.optimizer.optimize(...)` and prints the best trial
@@ -31,6 +32,7 @@ from typing import Any
 
 import yaml
 
+from strategy_gpt import experiment_spec as espec
 from strategy_gpt._native_shim import require_native
 from strategy_gpt.engine import Engine
 from strategy_gpt.objectives import validate_spec
@@ -38,12 +40,10 @@ from strategy_gpt.optimizer import GridSearcher, optimize
 from strategy_gpt.types import EvaluationOutcome
 
 REPO = Path(__file__).resolve().parents[2]
-SPEC_PATH = REPO / "examples" / "vxx" / "batch.json"
+SPEC_PATH = REPO / "examples" / "vxx" / "experiment.yaml"
 BARS_PATH = REPO / "examples" / "vxx" / "bars.json"
 OBJECTIVE_PATH = REPO / "crates" / "vxx-strategy" / "objective.yaml"
-ARTIFACT = REPO / "crates" / "target" / "debug" / "libvxx_strategy.dylib"
 WORKER = REPO / "crates" / "target" / "debug" / "engine-worker"
-DATASET_MANIFEST = "29bdecf5fe758d38d524025321aacfb2825daf2fbcce4a3c2c04377bf635b97b"
 
 POLL_SECS = 0.5
 TIME_CAP_SECS = 120.0
@@ -62,16 +62,22 @@ def _load_bars_payload() -> str:
     return BARS_PATH.read_text()
 
 
-def _make_evaluator(eng: Engine, base_spec: dict[str, Any], bars_json: str):
+def _make_evaluator(
+    eng: Engine,
+    base_spec: dict[str, Any],
+    bars_json: str,
+    artifact: Path,
+    dataset_manifest: str,
+):
     def evaluate(params: dict[str, Any]) -> dict[str, float]:
         spec = deepcopy(base_spec)
         spec["runs"][0]["params"] = {**spec["runs"][0]["params"], **params}
         bars = json.loads(bars_json)
         handle: str = eng._engine.submit_batch(  # noqa: SLF001 — bypass pydantic re-validation per candidate.
-            str(ARTIFACT),
+            str(artifact),
             bars_json,
             json.dumps(spec),
-            DATASET_MANIFEST,
+            dataset_manifest,
             None,
         )
         # Bars list reused; suppress pyright unused var.
@@ -90,8 +96,18 @@ def _make_evaluator(eng: Engine, base_spec: dict[str, Any], bars_json: str):
 
 
 def main() -> None:
-    if not ARTIFACT.exists():
-        msg = f"artifact missing: {ARTIFACT}. Build with `cargo build -p vxx-strategy`."
+    experiment = espec.load(SPEC_PATH)
+    artifact = experiment.artifact
+    if not isinstance(experiment.bars, espec.DatasetRef):
+        msg = (
+            "examples/vxx/optimize.py expects `bars: {dataset: <hash>}` so it can "
+            "reuse a single cached bar set across the sweep. Switch the spec to "
+            "DatasetRef or extend this script to call the gateway."
+        )
+        raise SystemExit(msg)
+    dataset_manifest = experiment.bars.dataset
+    if not artifact.exists():
+        msg = f"artifact missing: {artifact}. Build with `cargo build -p vxx-strategy`."
         raise SystemExit(msg)
     if not BARS_PATH.exists():
         msg = (
@@ -101,7 +117,7 @@ def main() -> None:
         )
         raise SystemExit(msg)
     objective = _load_objective()
-    base_spec = json.loads(SPEC_PATH.read_text())
+    base_spec = experiment.to_batch_spec(dataset_manifest)
     bars_json = _load_bars_payload()
 
     eng = Engine(WORKER, time_cap_secs=TIME_CAP_SECS)
@@ -117,7 +133,7 @@ def main() -> None:
     n = searcher.count()
     print(f"running {n} candidates...")
 
-    evaluate = _make_evaluator(eng, base_spec, bars_json)
+    evaluate = _make_evaluator(eng, base_spec, bars_json, artifact, dataset_manifest)
 
     native = require_native()
 
