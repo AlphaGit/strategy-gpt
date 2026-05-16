@@ -574,7 +574,18 @@ def _classify_smoke_completed(status: JobStatus, policy: SmokePolicy) -> SmokeOu
             rationale="smoke_failed: empty_results",
             diagnostics={"kind": "empty_results"},
         )
-    result = results[0]
+    entry = results[0]
+    if entry.get("status") == "failed":
+        return SmokeOutcome(
+            ok=False,
+            rationale="smoke_failed: run_failed",
+            diagnostics={
+                "kind": "run_failed",
+                "error_kind": entry.get("error_kind", "unknown"),
+                "message": entry.get("message", ""),
+            },
+        )
+    result = entry.get("result", entry)
     trades = result.get("trades", [])
     metrics_raw = result.get("metrics")
     exec_log = result.get("exec_log", [])

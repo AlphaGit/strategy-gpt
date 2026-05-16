@@ -68,6 +68,60 @@ pub struct ResultMeta {
     pub runner_version: RunnerVersion,
 }
 
+/// Per-run outcome inside a packed batch.
+///
+/// Under [`crate::spec::FailureMode::Continue`] every run produces a
+/// `RunResult` entry at its submission index — successes carry the
+/// [`BacktestResult`], failures carry a structured error record that
+/// downstream consumers (the optimizer, the ledger) can persist without
+/// inferring failure cause from a message string.
+///
+/// Under [`crate::spec::FailureMode::Abort`] the coordinator still returns
+/// a `Vec<RunResult>` so the result type is uniform, but the first failure
+/// shortcircuits dispatch and surfaces as an outer `CoordinatorError`
+/// instead — callers only see `RunResult` lists for runs that completed
+/// before the abort.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum RunResult {
+    Ok {
+        run_index: usize,
+        result: Box<BacktestResult>,
+    },
+    Failed {
+        run_index: usize,
+        error_kind: String,
+        message: String,
+    },
+}
+
+impl RunResult {
+    pub fn run_index(&self) -> usize {
+        match self {
+            RunResult::Ok { run_index, .. } | RunResult::Failed { run_index, .. } => *run_index,
+        }
+    }
+
+    pub fn ok(run_index: usize, result: BacktestResult) -> Self {
+        RunResult::Ok {
+            run_index,
+            result: Box::new(result),
+        }
+    }
+
+    pub fn failed(
+        run_index: usize,
+        error_kind: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        RunResult::Failed {
+            run_index,
+            error_kind: error_kind.into(),
+            message: message.into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BacktestResult {
     pub meta: ResultMeta,

@@ -46,6 +46,7 @@ fn main() -> ExitCode {
             })
         }
     };
+    apply_per_run_test_hooks(&request);
 
     let response = match run(request) {
         Ok(result) => WorkerResponse::Ok {
@@ -156,6 +157,27 @@ fn apply_test_hooks() {
     if let Ok(s) = std::env::var("STRATEGY_GPT_TEST_EXIT_CODE") {
         if let Ok(code) = s.parse::<u8>() {
             std::process::exit(code as i32);
+        }
+    }
+}
+
+/// Per-run test hooks. `STRATEGY_GPT_TEST_FAIL_SEEDS` is a comma-separated
+/// list of seeds; if the incoming run's seed appears, the worker exits
+/// non-zero so the coordinator records a structured failure. Lets a single
+/// integration test seed deterministic mid-batch failures (task 4.2).
+fn apply_per_run_test_hooks(request: &WorkerRequest) {
+    let Ok(seeds) = std::env::var("STRATEGY_GPT_TEST_FAIL_SEEDS") else {
+        return;
+    };
+    for token in seeds.split(',') {
+        if let Ok(seed) = token.trim().parse::<u64>() {
+            if seed == request.run.seed {
+                let _ = writeln!(
+                    io::stderr(),
+                    "engine-worker: STRATEGY_GPT_TEST_FAIL_SEEDS hit (seed={seed})"
+                );
+                std::process::exit(11);
+            }
         }
     }
 }

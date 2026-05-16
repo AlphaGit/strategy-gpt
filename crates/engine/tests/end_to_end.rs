@@ -92,6 +92,7 @@ fn fixture_batch(runs: Vec<RunSpec>) -> BatchSpec {
             sanity: Default::default(),
         },
         parallelism: 1,
+        failure_mode: Default::default(),
     }
 }
 

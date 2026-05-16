@@ -91,6 +91,7 @@ fn plugin_factory_drives_run_batch_and_apply_modes() {
         runs: vec![run.clone()],
         engine: EngineConfig::default(),
         parallelism: 1,
+        failure_mode: Default::default(),
     };
 
     let mut results =

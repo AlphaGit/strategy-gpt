@@ -17,10 +17,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from pydantic import TypeAdapter
 
 from strategy_gpt._native_shim import native_available
 from strategy_gpt.engine import Engine
-from strategy_gpt.types import Bar, Resolution
+from strategy_gpt.types import Bar, FailureMode, Resolution, RunResult
 
 pytestmark = pytest.mark.skipif(
     not native_available(), reason="native extension not built (run `maturin develop`)"
@@ -133,8 +134,10 @@ def test_submit_batch_completes_with_results() -> None:
     assert status.status == "completed", f"job failed: {status.error}"
     assert status.results is not None
     assert len(status.results) == 1
-    result = status.results[0]
-    assert result["meta"]["dataset_manifest"] == "manifest_hash"
+    entry = status.results[0]
+    assert entry["status"] == "ok"
+    assert entry["run_index"] == 0
+    assert entry["result"]["meta"]["dataset_manifest"] == "manifest_hash"
 
 
 def test_poll_unknown_handle_raises() -> None:
@@ -160,6 +163,67 @@ def test_cancel_unknown_handle_raises() -> None:
     engine = Engine(_build_engine_worker())
     with pytest.raises(ValueError, match="unknown handle"):
         engine.cancel("not-a-real-handle")
+
+
+def test_continue_mode_isolates_failed_run_in_packed_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """200-run packed batch under continue mode with one injected failure.
+
+    Verifies the RunResult discriminated shape crosses the PyO3 boundary
+    intact: 199 `ok` entries plus one `failed` entry at the seeded index.
+    The worker's `STRATEGY_GPT_TEST_FAIL_SEEDS` hook is inherited by child
+    subprocesses through the parent environment.
+    """
+    artifact = _build_example_strategy()
+    bars = _synthetic_bars(10)
+    start_iso = bars[0].ts.isoformat()
+    end_iso = (bars[-1].ts + timedelta(days=1)).isoformat()
+    n = 200
+    fail_seed = 5_000 + 137
+    monkeypatch.setenv("STRATEGY_GPT_TEST_FAIL_SEEDS", str(fail_seed))
+    spec: dict[str, object] = {
+        "strategy": "example_noop_artifact",
+        "dataset": "manifest_hash",
+        "runs": [
+            {
+                "params": {},
+                "modes": [{"kind": "plain"}],
+                "seed": 5_000 + i,
+                "slice": {"start": start_iso, "end": end_iso},
+            }
+            for i in range(n)
+        ],
+        "engine": {
+            "fill_model": "NextBarOpen",
+            "initial_capital": 100_000.0,
+            "commission_per_fill": 0.0,
+            "slippage_bps": 0.0,
+            "sanity": {"max_intent_size": 1.0e9, "max_position_size": 1.0e9},
+        },
+        "parallelism": 4,
+        "failure_mode": FailureMode.CONTINUE.value,
+    }
+
+    engine = Engine(_build_engine_worker())
+    handle = engine.submit_batch(artifact, bars, spec, "manifest_hash")
+    status = _wait_for_terminal(engine, handle, timeout_s=60.0)
+    assert status.status == "completed", f"job failed: {status.error}"
+    assert status.results is not None
+    assert len(status.results) == n
+
+    adapter: TypeAdapter[list[RunResult]] = TypeAdapter(list[RunResult])
+    typed = adapter.validate_python(status.results)
+    ok_count = sum(1 for r in typed if r.status == "ok")
+    failed = [r for r in typed if r.status == "failed"]
+    assert ok_count == n - 1
+    assert len(failed) == 1
+    failure = failed[0]
+    assert failure.run_index == 137
+    assert failure.error_kind == "worker_exited"
+    assert "11" in failure.message
+    for idx, entry in enumerate(typed):
+        assert entry.run_index == idx, f"submission-index alignment lost at {idx}"
 
 
 def test_poll_payload_is_valid_json() -> None:

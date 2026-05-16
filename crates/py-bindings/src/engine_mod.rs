@@ -26,7 +26,7 @@ use std::thread;
 use std::time::Duration;
 
 use engine::coordinator::{Coordinator, CoordinatorError, ResourceCaps};
-use engine::{spec::BatchSpec, BacktestResult};
+use engine::{spec::BatchSpec, RunResult};
 use engine_rt::Bar;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -39,7 +39,7 @@ use crate::{json_err, runtime_err};
 /// poll so callers see a consistent view without holding the lock.
 enum JobState {
     Running,
-    Completed(Vec<BacktestResult>),
+    Completed(Vec<RunResult>),
     Failed(String),
     Cancelled,
 }
@@ -226,7 +226,7 @@ enum PollPayload<'a> {
     },
     Completed {
         status: &'a str,
-        results: &'a [BacktestResult],
+        results: &'a [RunResult],
     },
     Failed {
         status: &'a str,

@@ -35,12 +35,13 @@ pub use plugin::{OwnedPluginStrategy, PluginError, PluginFactory, PluginStrategy
 pub use position_book::PositionBook;
 pub use regime::annotate_regimes;
 pub use result::{
-    BacktestMetrics, BacktestResult, EquityPoint, RegimeTag, ResultMeta, SensitivityPoint,
-    SensitivityResult, StressResult, StressScenario, Trade,
+    BacktestMetrics, BacktestResult, EquityPoint, RegimeTag, ResultMeta, RunResult,
+    SensitivityPoint, SensitivityResult, StressResult, StressScenario, Trade,
 };
 pub use runtime::RuntimeContext;
 pub use sanity::SanityBounds;
 pub use spec::{
-    BatchSpec, DatasetRef, EngineConfig, Mode, ParamSet, RunSpec, StrategyArtifactRef, TimeRange,
+    BatchSpec, DatasetRef, EngineConfig, FailureMode, Mode, ParamSet, RunSpec, StrategyArtifactRef,
+    TimeRange,
 };
 pub use trade_log::TradeLog;

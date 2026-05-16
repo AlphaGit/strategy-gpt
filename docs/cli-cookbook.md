@@ -149,13 +149,17 @@ affected run(s).
 ```json
 { "status": "completed",
   "results": [
-    { "metrics":   { "sharpe": ..., "max_drawdown": ..., "n_trades": ..., ... },
-      "trades":    [...],
-      "signals":   [...],
-      "equity":    [...],
-      "regimes":   [...],
-      "exec_log":  [...],
-      "meta":      { "artifact_hash": "...", "dataset_manifest": "...", "seed": ..., "runner_version": "..." }
+    { "status": "ok",
+      "run_index": 0,
+      "result": {
+        "metrics":   { "sharpe": ..., "max_drawdown": ..., "n_trades": ..., ... },
+        "trades":    [...],
+        "signals":   [...],
+        "equity":    [...],
+        "regimes":   [...],
+        "exec_log":  [...],
+        "meta":      { "artifact_hash": "...", "dataset_manifest": "...", "seed": ..., "runner_version": "..." }
+      }
     }
   ],
   "error": null
@@ -163,6 +167,8 @@ affected run(s).
 ```
 
 `status` is one of `completed | failed | cancelled`. On failure `error` is populated and `results` is null. See [BatchSpec JSON reference — `BacktestResult`](./batch-spec.md) for the full output schema.
+
+Each `results[i]` is a `RunResult` discriminated entry — successful runs carry `{ status: "ok", run_index, result }`; failed runs (only emitted under `failure_mode: continue`) carry `{ status: "failed", run_index, error_kind, message }`. `strategy-gpt run` defaults to `failure_mode: abort`, so a single bad run still surfaces as an outer `failed` job; opt into `continue` from a packed `BatchSpec` when you want per-run isolation (the optimizer's primary use case).
 
 ### Submit without waiting (manual polling)
 

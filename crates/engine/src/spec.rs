@@ -85,6 +85,22 @@ impl Default for EngineConfig {
     }
 }
 
+/// Batch-level failure policy. Selects what the engine does when a run
+/// fails (panic, OOM, timeout, non-zero exit, plugin error).
+///
+/// `Abort` matches the historical `strategy-gpt run` contract: the first
+/// failure cancels the rest of the batch and the engine returns a
+/// structured error. `Continue` is for the optimizer's packed batches:
+/// per-run failures become [`crate::RunResult::Failed`] entries in the
+/// result list and the engine keeps dispatching.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureMode {
+    #[default]
+    Abort,
+    Continue,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BatchSpec {
     pub strategy: StrategyArtifactRef,
@@ -92,6 +108,12 @@ pub struct BatchSpec {
     pub runs: Vec<RunSpec>,
     pub engine: EngineConfig,
     /// Soft limit on parallelism. The single-process executor used by tests
-    /// ignores this; the multi-worker coordinator (task 4.3) will respect it.
+    /// ignores this; the multi-worker coordinator caps concurrent workers
+    /// at exactly this value.
     pub parallelism: usize,
+    /// Batch-level failure policy. Defaults to [`FailureMode::Abort`] so
+    /// payloads emitted before this field was added still deserialize and
+    /// keep the loud-failure default for the `run` command.
+    #[serde(default)]
+    pub failure_mode: FailureMode,
 }

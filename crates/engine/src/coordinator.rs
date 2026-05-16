@@ -31,8 +31,8 @@ use std::time::{Duration, Instant};
 use engine_rt::Bar;
 
 use crate::regime::annotate_regimes;
-use crate::result::BacktestResult;
-use crate::spec::{BatchSpec, RunSpec};
+use crate::result::{BacktestResult, RunResult};
+use crate::spec::{BatchSpec, FailureMode, RunSpec};
 use crate::wire::{read_message, write_message, WireError, WorkerRequest, WorkerResponse};
 
 /// Per-run resource caps the coordinator enforces.
@@ -105,8 +105,16 @@ impl Coordinator {
         self
     }
 
-    /// Execute every run in `batch` against `bars`. Returns results in the
-    /// same order as `batch.runs`.
+    /// Execute every run in `batch` against `bars`. Returns one
+    /// [`RunResult`] per submitted run in submission-index order.
+    ///
+    /// Under [`FailureMode::Abort`] (the default) the first failure cancels
+    /// remaining runs and surfaces as a [`CoordinatorError::WorkerFailed`];
+    /// runs that completed before the abort are dropped to preserve the
+    /// loud-failure contract of `strategy-gpt run`. Under
+    /// [`FailureMode::Continue`] every run is dispatched and per-run
+    /// failures are recorded as [`RunResult::Failed`] entries in the
+    /// returned list.
     ///
     /// `artifact_path` is the filesystem path to the strategy `cdylib` the
     /// workers should load. The caller resolves
@@ -115,7 +123,9 @@ impl Coordinator {
     ///
     /// `cancel`, when set to `true`, signals cooperative cancellation: any
     /// already-running child is killed and pending runs are skipped. The
-    /// function returns [`CoordinatorError::Cancelled`].
+    /// function returns [`CoordinatorError::Cancelled`] regardless of
+    /// `failure_mode` — cancellation is a batch-level event, not a run
+    /// failure.
     pub fn execute(
         &self,
         batch: &BatchSpec,
@@ -123,16 +133,18 @@ impl Coordinator {
         artifact_path: &Path,
         dataset_manifest: &str,
         cancel: Option<Arc<AtomicBool>>,
-    ) -> Result<Vec<BacktestResult>, CoordinatorError> {
+    ) -> Result<Vec<RunResult>, CoordinatorError> {
         if batch.runs.is_empty() {
             return Ok(Vec::new());
         }
         let cancel = cancel.unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
         let abort = Arc::new(AtomicBool::new(false));
         let first_error: Arc<Mutex<Option<CoordinatorError>>> = Arc::new(Mutex::new(None));
+        let failure_mode = batch.failure_mode;
 
         // Queue of (index, run) work items. Threads pop from the front; on
-        // failure / cancel they drain the queue so no further work starts.
+        // failure under `Abort` they drain the queue so no further work
+        // starts, while under `Continue` they keep pulling.
         let queue: Arc<Mutex<VecDeque<(usize, RunSpec)>>> = Arc::new(Mutex::new(
             batch
                 .runs
@@ -141,9 +153,11 @@ impl Coordinator {
                 .enumerate()
                 .collect::<VecDeque<_>>(),
         ));
-        let results: Arc<Mutex<Vec<Option<BacktestResult>>>> =
+        let results: Arc<Mutex<Vec<Option<RunResult>>>> =
             Arc::new(Mutex::new((0..batch.runs.len()).map(|_| None).collect()));
 
+        // Worker-pool size capped to exactly `parallelism`; never spawn
+        // more threads even when many runs are pending.
         let parallelism = batch.parallelism.max(1).min(batch.runs.len());
         let artifact_path_str = artifact_path.to_string_lossy().into_owned();
 
@@ -192,19 +206,31 @@ impl Coordinator {
                     ) {
                         Ok(result) => {
                             let mut r = results.lock().expect("results mutex");
-                            r[idx] = Some(*result);
+                            r[idx] = Some(RunResult::ok(idx, *result));
                         }
-                        Err(e) => {
-                            abort.store(true, Ordering::Relaxed);
-                            let mut slot = first_error.lock().expect("first_error mutex");
-                            if slot.is_none() {
-                                *slot = Some(CoordinatorError::WorkerFailed {
-                                    run_index: idx,
-                                    source: Box::new(e),
-                                });
-                            }
+                        Err(CoordinatorError::Cancelled) => {
+                            // Cancellation is a batch-level event; the
+                            // outer cancel branch reports it.
                             break;
                         }
+                        Err(e) => match failure_mode {
+                            FailureMode::Abort => {
+                                abort.store(true, Ordering::Relaxed);
+                                let mut slot = first_error.lock().expect("first_error mutex");
+                                if slot.is_none() {
+                                    *slot = Some(CoordinatorError::WorkerFailed {
+                                        run_index: idx,
+                                        source: Box::new(e),
+                                    });
+                                }
+                                break;
+                            }
+                            FailureMode::Continue => {
+                                let (kind, message) = classify_failure(&e);
+                                let mut r = results.lock().expect("results mutex");
+                                r[idx] = Some(RunResult::failed(idx, kind, message));
+                            }
+                        },
                     }
                 }
             }));
@@ -234,23 +260,51 @@ impl Coordinator {
             return Err(err);
         }
 
-        // All runs succeeded. Collect, annotate regimes once, stamp.
+        // Annotate regimes once; stamp on every successful run.
         let regimes = annotate_regimes(bars);
-        let collected: Vec<BacktestResult> = results
+        let collected: Vec<RunResult> = results
             .lock()
             .expect("results mutex")
             .iter_mut()
-            .map(|slot| {
-                slot.take()
-                    .expect("every run must have produced a result when no error was recorded")
-            })
-            .map(|mut r| {
-                r.regimes.clone_from(&regimes);
+            .enumerate()
+            .map(|(idx, slot)| {
+                let mut r = slot
+                    .take()
+                    .expect("every run must have produced an outcome when no abort was recorded");
+                debug_assert_eq!(
+                    r.run_index(),
+                    idx,
+                    "submission-index aggregation must align each slot",
+                );
+                if let RunResult::Ok { result, .. } = &mut r {
+                    result.regimes.clone_from(&regimes);
+                }
                 r
             })
             .collect();
         Ok(collected)
     }
+}
+
+/// Classify a [`CoordinatorError`] into the `(error_kind, message)` pair
+/// stored on [`RunResult::Failed`]. Stable across reruns: the kind label
+/// is fixed per variant and the message is sourced from the error's own
+/// `Display`, which inherits determinism from the underlying worker
+/// channel.
+fn classify_failure(err: &CoordinatorError) -> (&'static str, String) {
+    let kind = match err {
+        CoordinatorError::WorkerExited { .. } => "worker_exited",
+        CoordinatorError::WorkerReported(_) => "worker_reported",
+        CoordinatorError::TimeCapExceeded { .. } => "time_cap_exceeded",
+        CoordinatorError::MemCapExceeded { .. } => "mem_cap_exceeded",
+        CoordinatorError::Io(_) => "io",
+        CoordinatorError::Wire(_) => "wire",
+        CoordinatorError::Spawn { .. } => "spawn",
+        CoordinatorError::DispatchPanic { .. } => "dispatch_panic",
+        CoordinatorError::WorkerFailed { .. } => "worker_failed",
+        CoordinatorError::Cancelled => "cancelled",
+    };
+    (kind, format!("{err}"))
 }
 
 /// Errors returned by [`Coordinator::execute`].

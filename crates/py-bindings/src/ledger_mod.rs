@@ -223,6 +223,7 @@ impl PyLedger {
             }],
             engine: run.engine_config.clone(),
             parallelism: 1,
+            failure_mode: Default::default(),
         };
 
         let payload = serde_json::json!({

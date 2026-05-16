@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -414,6 +414,52 @@ class BacktestResult(BaseModel):
     sensitivity: SensitivityResult | None = None
 
 
+# ---------------------------------------------------------------------------
+# engine: BatchSpec.failure_mode + packed RunResult entries
+# ---------------------------------------------------------------------------
+
+
+class FailureMode(StrEnum):
+    """Batch-level failure policy. Mirrors `engine::spec::FailureMode`.
+
+    ``abort`` (default) — first failure cancels remaining runs and surfaces
+    as an outer batch error. ``continue`` — per-run failures land in the
+    result list as :class:`RunResultFailed` entries.
+    """
+
+    ABORT = "abort"
+    CONTINUE = "continue"
+
+
+class RunResultOk(BaseModel):
+    """Successful packed-batch entry. Mirrors `engine::RunResult::Ok`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: Literal["ok"] = "ok"
+    run_index: int
+    result: BacktestResult
+
+
+class RunResultFailed(BaseModel):
+    """Failed packed-batch entry. Mirrors `engine::RunResult::Failed`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: Literal["failed"] = "failed"
+    run_index: int
+    error_kind: str
+    message: str
+
+
+RunResult = Annotated[RunResultOk | RunResultFailed, Field(discriminator="status")]
+"""Discriminated union of packed-batch run outcomes.
+
+Use as ``TypeAdapter(list[RunResult])`` to deserialize a result list
+returned by `Engine.poll(handle).results`.
+"""
+
+
 __all__ = [
     "AdjustmentPolicy",
     "BacktestMetrics",
@@ -432,12 +478,16 @@ __all__ = [
     "EngineConfig",
     "EquityPoint",
     "EvaluationOutcome",
+    "FailureMode",
     "FillModel",
     "HypothesisRecord",
     "RegimeTag",
     "Resolution",
     "ResultMeta",
     "RunRecord",
+    "RunResult",
+    "RunResultFailed",
+    "RunResultOk",
     "RunnerVersion",
     "SanityBounds",
     "SensitivityPoint",

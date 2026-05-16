@@ -26,8 +26,9 @@ use std::time::Duration;
 
 use chrono::{TimeZone, Utc};
 use engine::coordinator::{Coordinator, CoordinatorError, ResourceCaps};
+use engine::result::RunResult;
 use engine::spec::{
-    BatchSpec, DatasetRef, EngineConfig, Mode, RunSpec, StrategyArtifactRef, TimeRange,
+    BatchSpec, DatasetRef, EngineConfig, FailureMode, Mode, RunSpec, StrategyArtifactRef, TimeRange,
 };
 use engine_rt::{Bar, Resolution};
 
@@ -94,6 +95,20 @@ fn batch_spec(runs: Vec<RunSpec>, parallelism: usize) -> BatchSpec {
         runs,
         engine: EngineConfig::default(),
         parallelism,
+        failure_mode: FailureMode::Abort,
+    }
+}
+
+fn unwrap_ok(r: &RunResult) -> &engine::BacktestResult {
+    match r {
+        RunResult::Ok { result, .. } => result.as_ref(),
+        RunResult::Failed {
+            run_index,
+            error_kind,
+            message,
+        } => panic!(
+            "expected Ok at index {run_index}, got Failed kind={error_kind} message={message}",
+        ),
     }
 }
 
@@ -116,10 +131,11 @@ fn coordinator_runs_single_batch_end_to_end() {
         .execute(&spec, &bars, &strategy, "manifest_hash", None)
         .expect("execute");
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].meta.dataset_manifest, "manifest_hash");
-    assert_eq!(results[0].meta.strategy_artifact, "example_noop_artifact");
+    let r0 = unwrap_ok(&results[0]);
+    assert_eq!(r0.meta.dataset_manifest, "manifest_hash");
+    assert_eq!(r0.meta.strategy_artifact, "example_noop_artifact");
     assert!(
-        !results[0].regimes.is_empty(),
+        !r0.regimes.is_empty(),
         "regime annotation should fire over 30 bars"
     );
 }
@@ -136,10 +152,12 @@ fn coordinator_preserves_run_order_with_parallelism() {
         .expect("execute");
     assert_eq!(results.len(), 4);
     for (i, r) in results.iter().enumerate() {
+        let inner = unwrap_ok(r);
         assert_eq!(
-            r.meta.seed, runs[i].seed,
+            inner.meta.seed, runs[i].seed,
             "result {i} must correspond to run {i} (seed match)"
         );
+        assert_eq!(r.run_index(), i, "RunResult.run_index aligns with slot");
     }
 }
 
@@ -264,4 +282,172 @@ fn coordinator_empty_batch_returns_empty_vec() {
         .execute(&spec, &bars, &strategy, "manifest_hash", None)
         .expect("execute");
     assert!(results.is_empty());
+}
+
+#[test]
+fn coordinator_aggregates_in_submission_order_under_out_of_order_completion() {
+    // Forty runs across eight workers with a uniform sleep make completion
+    // order non-deterministic; the FIFO dispatcher + indexed slot
+    // aggregation must still hand results back in submission order.
+    let (bars, strategy, _, slice) = standard_setup();
+    let coordinator = Coordinator::new(worker_bin())
+        .with_poll_interval(Duration::from_millis(5))
+        .with_env([("STRATEGY_GPT_TEST_SLEEP_MS", "30")]);
+    let n = 40;
+    let runs: Vec<RunSpec> = (0..n)
+        .map(|i| run_spec(slice.start, slice.end, 5_000 + i as u64))
+        .collect();
+    let spec = batch_spec(runs.clone(), 8);
+    let results = coordinator
+        .execute(&spec, &bars, &strategy, "manifest_hash", None)
+        .expect("execute");
+    assert_eq!(results.len(), n);
+    for (i, r) in results.iter().enumerate() {
+        assert_eq!(r.run_index(), i, "result at slot {i} is misaligned");
+        let inner = unwrap_ok(r);
+        assert_eq!(inner.meta.seed, runs[i].seed, "seed match at index {i}");
+    }
+}
+
+fn continue_batch(runs: Vec<RunSpec>, parallelism: usize) -> BatchSpec {
+    let mut spec = batch_spec(runs, parallelism);
+    spec.failure_mode = FailureMode::Continue;
+    spec
+}
+
+#[test]
+fn coordinator_continue_mode_isolates_per_run_failures() {
+    let (bars, strategy, _, slice) = standard_setup();
+    // 1,000-run packed batch with failures at indices 0, 499, 999. Each run's
+    // seed encodes its index so the worker test hook can fail-by-seed.
+    let n: usize = 1_000;
+    let runs: Vec<RunSpec> = (0..n)
+        .map(|i| run_spec(slice.start, slice.end, 1_000 + i as u64))
+        .collect();
+    let fail_seeds = "1000,1499,1999";
+    let coordinator = Coordinator::new(worker_bin())
+        .with_poll_interval(Duration::from_millis(2))
+        .with_env([("STRATEGY_GPT_TEST_FAIL_SEEDS", fail_seeds)]);
+    let spec = continue_batch(runs, 8);
+    let results = coordinator
+        .execute(&spec, &bars, &strategy, "manifest_hash", None)
+        .expect("continue mode must not surface batch-level error");
+    assert_eq!(results.len(), n);
+    let failed_indices: Vec<usize> = results
+        .iter()
+        .filter_map(|r| match r {
+            RunResult::Failed { run_index, .. } => Some(*run_index),
+            RunResult::Ok { .. } => None,
+        })
+        .collect();
+    assert_eq!(
+        failed_indices,
+        vec![0, 499, 999],
+        "failures must land at the injected indices"
+    );
+    for r in &results {
+        match r {
+            RunResult::Ok { .. } => {}
+            RunResult::Failed {
+                error_kind,
+                message,
+                ..
+            } => {
+                assert_eq!(
+                    error_kind, "worker_exited",
+                    "failure kind stable across reruns"
+                );
+                assert!(
+                    message.contains("11"),
+                    "message should preserve worker exit code 11, got {message}",
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn coordinator_continue_mode_is_deterministic_across_reruns() {
+    let (bars, strategy, _, slice) = standard_setup();
+    let n = 200;
+    let runs: Vec<RunSpec> = (0..n)
+        .map(|i| run_spec(slice.start, slice.end, 9_000 + i as u64))
+        .collect();
+    let coordinator = Coordinator::new(worker_bin())
+        .with_poll_interval(Duration::from_millis(2))
+        .with_env([("STRATEGY_GPT_TEST_FAIL_SEEDS", "9000,9100,9199")]);
+    let spec = continue_batch(runs, 4);
+    let run = || {
+        coordinator
+            .execute(&spec, &bars, &strategy, "manifest_hash", None)
+            .expect("execute")
+    };
+    let first = run();
+    let second = run();
+    assert_eq!(first.len(), second.len());
+    for (a, b) in first.iter().zip(second.iter()) {
+        match (a, b) {
+            (
+                RunResult::Failed {
+                    run_index: ai,
+                    error_kind: ak,
+                    message: am,
+                },
+                RunResult::Failed {
+                    run_index: bi,
+                    error_kind: bk,
+                    message: bm,
+                },
+            ) => {
+                assert_eq!(ai, bi);
+                assert_eq!(ak, bk);
+                assert_eq!(am, bm);
+            }
+            (RunResult::Ok { run_index: ai, .. }, RunResult::Ok { run_index: bi, .. }) => {
+                assert_eq!(ai, bi);
+            }
+            _ => panic!("rerun produced a different outcome shape at index"),
+        }
+    }
+}
+
+// 10,000-run smoke: validates the artifact-compile-once promise and that
+// the worker pool saturates at `parallelism` without leaking handles.
+// Marked `#[ignore]` so it is opt-in (`cargo test -- --ignored`) — the run
+// is throughput-sensitive and CPU-bound.
+#[test]
+#[ignore = "large packed-batch smoke; opt-in with --ignored"]
+fn coordinator_large_packed_batch_smoke() {
+    let (bars, strategy, _, slice) = standard_setup();
+    let n: usize = 10_000;
+    let runs: Vec<RunSpec> = (0..n)
+        .map(|i| run_spec(slice.start, slice.end, 20_000 + i as u64))
+        .collect();
+    let parallelism = 8;
+    let coordinator = Coordinator::new(worker_bin()).with_poll_interval(Duration::from_millis(2));
+    let spec = continue_batch(runs, parallelism);
+    let started = std::time::Instant::now();
+    let results = coordinator
+        .execute(&spec, &bars, &strategy, "manifest_hash", None)
+        .expect("execute");
+    let elapsed = started.elapsed();
+    assert_eq!(results.len(), n);
+    assert!(
+        results.iter().all(|r| matches!(r, RunResult::Ok { .. })),
+        "10k-run smoke must produce only Ok outcomes",
+    );
+    for (i, r) in results.iter().enumerate() {
+        assert_eq!(r.run_index(), i, "index alignment lost at {i}");
+    }
+    // Loose throughput floor: 10 runs per second per worker is a generous
+    // lower bound for a 30-bar no-op strategy; the test fails fast if a
+    // regression breaks the artifact-compile-once contract or the worker
+    // pool sizing.
+    let upper_bound = Duration::from_secs((n as u64) / (parallelism as u64) / 10);
+    assert!(
+        elapsed < upper_bound,
+        "10k-run smoke too slow ({:?} >= {:?}); compile-once may be broken",
+        elapsed,
+        upper_bound
+    );
 }
