@@ -1,0 +1,118 @@
+site_name: strategy-gpt
+site_description: LLM-driven research loop for creating and testing quantitative trading strategies.
+site_url: https://alphagit.github.io/strategy-gpt/
+repo_url: https://github.com/AlphaGit/strategy-gpt
+repo_name: AlphaGit/strategy-gpt
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - assets/javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - For quants: for-quants/index.md
+  - For engineers: for-engineers/index.md
+  - Tutorials:
+      - tutorials/index.md
+  - How-to:
+      - how-to/index.md
+      - CLI cookbook: how-to/cli-cookbook.md
+      - Interpret PBO rejection: how-to/interpret-pbo-rejection.md
+  - Reference:
+      - reference/index.md
+      - Experiment spec: reference/experiment-spec.md
+      - Batch spec (internal): reference/batch-spec.md
+      - Objective spec: reference/objective-spec.md
+  - Explanation:
+      - explanation/index.md
+      - Domain vocabulary: explanation/domain-vocabulary.md
+      - Architecture: explanation/architecture.md
+      - Overfitting & selection: explanation/overfitting-and-selection.md
+      - Methodology page template: explanation/methodology-page-template.md
+      - Bibliography: explanation/bibliography.md
+  - Decisions:
+      - decisions/index.md
+      - ADR template: decisions/0000-adr-template.md
+      - 0001 Rust execution layer: decisions/0001-rust-execution-layer.md
+      - 0002 Python orchestration: decisions/0002-python-orchestration.md
+      - 0003 PyO3 trusted boundary: decisions/0003-pyo3-trusted-crate-boundary.md
+      - 0004 Worker subprocess + Arrow IPC: decisions/0004-engine-worker-subprocess-arrow-ipc.md
+      - 0005 No worker sandboxing: decisions/0005-worker-process-isolation-no-sandbox.md
+      - 0006 Sealed Strategy trait: decisions/0006-sealed-strategy-trait.md
+      - 0007 SQLite + parquet ledger: decisions/0007-sqlite-parquet-ledger.md
+      - 0008 Hybrid graph + vector KB: decisions/0008-hybrid-graph-vector-kb.md
+      - 0009 Content-addressed cache: decisions/0009-year-segmented-content-addressed-cache.md
+      - 0010 Abort-on-failure batches: decisions/0010-abort-on-failure-batch-semantics.md
+      - 0011 PBO threshold default 0.5: decisions/0011-pbo-threshold-default-0_5.md
+      - 0012 Mean-only OOS aggregator: decisions/0012-oos-aggregator-mean-only.md
+      - 0013 Rust 1.82 pin: decisions/0013-rust-toolchain-pin-1-82.md
+      - 0014 Lint stance: decisions/0014-lint-stance.md
+      - 0015 Docs platform: decisions/0015-docs-platform-mkdocs-mike-pages.md

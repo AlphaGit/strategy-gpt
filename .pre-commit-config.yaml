@@ -56,3 +56,9 @@ repos:
         language: system
         files: \.rs$|crates/.+/Cargo\.toml$|crates/Cargo\.lock$
         pass_filenames: false
+      - id: mkdocs-build
+        name: mkdocs build --strict
+        entry: bash -c 'if command -v mkdocs >/dev/null 2>&1; then mkdocs build --strict; else echo "skipping: mkdocs not installed (pip install -r requirements-docs.txt)"; fi'
+        language: system
+        files: ^(docs/|mkdocs\.yml|requirements-docs\.txt)
+        pass_filenames: false

@@ -1,0 +1,7 @@
+# Pinned docs platform deps. All versions verified ≥7 days old at pin time
+# (cutoff 2026-05-10). Replaced pymdown-extensions 10.21.3 (2026-05-13) with
+# 10.21.2 per supply-chain freshness rule.
+mkdocs==1.6.1
+mkdocs-material==9.7.6
+mike==2.2.0
+pymdown-extensions==10.21.2

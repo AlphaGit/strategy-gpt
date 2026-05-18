@@ -1,0 +1,85 @@
+name: docs
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/v*'
+  pull_request:
+    branches:
+      - main
+      - 'release/v*'
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: mkdocs build --strict
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install docs deps
+        run: pip install -r requirements-docs.txt
+
+      - name: build (strict)
+        run: mkdocs build --strict
+
+  deploy:
+    name: mike deploy
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install docs deps
+        run: pip install -r requirements-docs.txt
+
+      - name: configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: deploy dev (main)
+        if: github.ref == 'refs/heads/main'
+        run: mike deploy --update-aliases dev --push
+
+      - name: deploy release minor (release/v*)
+        if: startsWith(github.ref, 'refs/heads/release/v')
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"     # e.g. release/v0.3
+          MINOR="${BRANCH#release/}"             # e.g. v0.3
+          # Determine if this is the highest release/v* branch present.
+          git fetch --all --tags
+          HIGHEST=$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/v*' \
+                    | sed 's|.*/release/||' \
+                    | sort -V \
+                    | tail -n1)
+          if [ "$MINOR" = "$HIGHEST" ]; then
+            mike deploy --update-aliases "$MINOR" latest --push
+            mike set-default latest --push
+          else
+            mike deploy --update-aliases "$MINOR" --push
+          fi

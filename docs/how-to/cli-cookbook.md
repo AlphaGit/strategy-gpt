@@ -69,8 +69,7 @@ Expects `./my-csvs/VXX.csv` with header `timestamp,open,high,low,close,volume`. 
 
 `strategy-gpt run` reads bars from a JSON file. Cache blobs are not directly that shape; pull them through the gateway:
 
-```bash
-python -c "
+```python
 import json
 from datetime import datetime, UTC
 from pathlib import Path
@@ -88,7 +87,6 @@ resp = gw.fetch(req, 'prefer_cache')
 bars = [b.model_dump(mode='json') for b in resp.bars]
 Path('examples/vxx/bars.json').write_text(json.dumps(bars))
 print(len(bars), 'bars')
-"
 ```
 
 This is a one-time per-dataset step. The output JSON is reused across every subsequent `strategy-gpt run` against the same window.
@@ -133,7 +131,7 @@ strategy-gpt run \
 
 | Flag | Purpose |
 |---|---|
-| `--spec`              | Path to an `experiment-spec` YAML or JSON. See [experiment-spec reference](./experiment-spec.md). The spec carries `artifact`, `bars` (`dataset` or `request`), `engine`, `runs`, `parallelism`, and `caps`. |
+| `--spec`              | Path to an `experiment-spec` YAML or JSON. See [experiment-spec reference](../reference/experiment-spec.md). The spec carries `artifact`, `bars` (`dataset` or `request`), `engine`, `runs`, `parallelism`, and `caps`. |
 | `--worker`            | `engine-worker` binary; the orchestrator spawns one subprocess per `RunSpec`. Defaults to `crates/target/debug/engine-worker`. |
 | `--gateway-root`      | Gateway cache root used for bars resolution. Defaults to `cache`. |
 | `--wait`              | Block until job completion; print full `JobStatus` JSON. Without it: print the handle and return immediately. |
@@ -166,7 +164,7 @@ affected run(s).
 }
 ```
 
-`status` is one of `completed | failed | cancelled`. On failure `error` is populated and `results` is null. See [BatchSpec JSON reference — `BacktestResult`](./batch-spec.md) for the full output schema.
+`status` is one of `completed | failed | cancelled`. On failure `error` is populated and `results` is null. See [BatchSpec JSON reference — `BacktestResult`](../reference/batch-spec.md) for the full output schema.
 
 Each `results[i]` is a `RunResult` discriminated entry — successful runs carry `{ status: "ok", run_index, result }`; failed runs (only emitted under `failure_mode: continue`) carry `{ status: "failed", run_index, error_kind, message }`. `strategy-gpt run` defaults to `failure_mode: abort`, so a single bad run still surfaces as an outer `failed` job; opt into `continue` from a packed `BatchSpec` when you want per-run isolation (the optimizer's primary use case).
 
@@ -196,7 +194,7 @@ Re-run `strategy-gpt run`. The artifact hash is unchanged; the engine reuses the
 
 ### Multi-run sweep
 
-Add more entries to the spec's `runs:` list. The engine compiles once and fans out across `parallelism` worker subprocesses. See [BatchSpec JSON reference — Multi-run example](./batch-spec.md#multi-run-example-parameter-sweep) for the internal shape that `experiment-spec` translates into.
+Add more entries to the spec's `runs:` list. The engine compiles once and fans out across `parallelism` worker subprocesses. See [BatchSpec JSON reference — Multi-run example](../reference/batch-spec.md#multi-run-example-parameter-sweep) for the internal shape that `experiment-spec` translates into.
 
 ---
 
@@ -253,7 +251,7 @@ for hyp in state.accepted:
     print(hyp.name, hyp.falsification_criterion, hyp.proposed_change)
 ```
 
-Requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (see [.envrc.example](../.envrc.example)). The smoke fixture (`python -m strategy_gpt.smoke`) stubs the reasoning client and runs offline; consult [`python/strategy_gpt/smoke.py`](../python/strategy_gpt/smoke.py) for the full mock wiring.
+Requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (see `.envrc.example`). The smoke fixture (`python -m strategy_gpt.smoke`) stubs the reasoning client and runs offline; consult `python/strategy_gpt/smoke.py` for the full mock wiring.
 
 ### Minimum end-to-end loop (one strategy improvement cycle)
 
@@ -418,8 +416,10 @@ optimize:
 ### Overfitting-aware selection
 
 Every optimization runs an overfitting-aware selection layer over its
-`trials.parquet` before publishing `best.json`. See `docs/optimization.md`
-for the methodology. Common recipes:
+`trials.parquet` before publishing `best.json`. See the methodology in
+[Overfitting & selection](../explanation/overfitting-and-selection.md)
+and operator actions in [Interpret PBO rejection](interpret-pbo-rejection.md).
+Common recipes:
 
 ```bash
 # Rank final by robust score (parameter-sensitivity) instead of DSR

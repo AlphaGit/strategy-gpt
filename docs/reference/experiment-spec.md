@@ -8,7 +8,7 @@ resource caps. No additional CLI flags or out-of-band inputs are
 required to reproduce the run.
 
 The JSON Schema is at
-[`crates/experiment-spec/schema.json`](../crates/experiment-spec/schema.json).
+`crates/experiment-spec/schema.json`.
 The pydantic loader is `python/strategy_gpt/experiment_spec.py`. The
 schema is consumed by the engine indirectly: the loader translates an
 `ExperimentSpec` to an internal `BatchSpec` (see [`batch-spec.md`](batch-spec.md))

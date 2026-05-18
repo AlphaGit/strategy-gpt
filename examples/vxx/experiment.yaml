@@ -1,5 +1,5 @@
 # VXX volatility-range reference experiment.
-# See docs/experiment-spec.md for the schema.
+# See docs/reference/experiment-spec.md for the schema.
 
 artifact: ../../crates/target/debug/libvxx_strategy.dylib
 strategy_label: vxx-local

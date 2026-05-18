@@ -1,8 +1,11 @@
 # `BatchSpec` JSON reference
 
+!!! warning "Internal: engine input across the PyO3 boundary; not user-authored"
+    Operators describe experiments via [`experiment-spec`](experiment-spec.md); the loader translates that envelope into a `BatchSpec` before submit. This document is here for engine engineers and replay tooling.
+
 The engine accepts a single input: a **`BatchSpec`**. One strategy, one dataset, N runs. Every CLI invocation of `strategy-gpt run --spec <file>` and every Python call into `Engine.submit_batch(...)` resolves to a `BatchSpec` matching the schema below.
 
-The canonical Rust source is [`crates/engine/src/spec.rs`](../crates/engine/src/spec.rs); the capability contract is [`backtest-engine/spec.md`](../openspec/specs/backtest-engine/spec.md). This document is the operator-facing description of the on-disk JSON shape.
+The canonical Rust source is `crates/engine/src/spec.rs`; the capability contract is `openspec/specs/backtest-engine/spec.md`. This document is the operator-facing description of the on-disk JSON shape.
 
 ---
 
@@ -187,7 +190,7 @@ These exist to catch degenerate hypotheses (e.g. a strategy that submits 1000× 
 
 ## Full worked example
 
-This is the file at [`examples/vxx/batch.json`](../examples/vxx/batch.json) — a single-run backtest of the VXX reference strategy across the full 2018-2026 cached history.
+This is the file at `examples/vxx/batch.json` — a single-run backtest of the VXX reference strategy across the full 2018-2026 cached history.
 
 ```json
 {
@@ -257,7 +260,7 @@ strategy-gpt run \
 
 The strategy is compiled exactly once; 200 backtests run across up to 8 worker subprocesses.
 
-In practice you do not hand-author this — the **parameter optimizer** (`python/strategy_gpt/optimizer.py`) walks a search space (`grid` / `random` / `bayesian`) and emits the `BatchSpec` for you, applying the strategy's `objective.yaml` to score candidates over walk-forward folds. See [`param-optimizer/spec.md`](../openspec/specs/param-optimizer/spec.md).
+In practice you do not hand-author this — the **parameter optimizer** (`python/strategy_gpt/optimizer.py`) walks a search space (`grid` / `random` / `bayesian`) and emits the `BatchSpec` for you, applying the strategy's `objective.yaml` to score candidates over walk-forward folds. See `openspec/specs/param-optimizer/spec.md`.
 
 ---
 
@@ -288,4 +291,4 @@ Not part of the `BatchSpec`, but worth knowing what comes back. Each run produce
 - `meta` — artifact hash, dataset manifest hash, seed, runner version.
 - `stress` / `sensitivity` — present when the corresponding modes ran.
 
-Full schema and scenarios: [`backtest-engine/spec.md`](../openspec/specs/backtest-engine/spec.md).
+Full schema and scenarios: `openspec/specs/backtest-engine/spec.md`.
