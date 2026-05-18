@@ -107,5 +107,7 @@ module = [
     "scipy.*",
     "cma",
     "cma.*",
+    "numpy",
+    "numpy.*",
 ]
 ignore_missing_imports = true
