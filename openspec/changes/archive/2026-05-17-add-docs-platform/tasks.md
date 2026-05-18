@@ -66,8 +66,8 @@
   - [x] 7.1.2 Push job on `main`: deploy via `mike deploy --update-aliases dev --push`
   - [x] 7.1.3 Push job on `release/v*`: deploy via `mike deploy --update-aliases vX.Y --push`, set `latest` alias if it is the highest minor present
   - [x] 7.1.4 Tag pushes do NOT trigger deploys (explicit `paths-ignore` or no tag trigger configured)
-- [ ] 7.2 Bootstrap the `gh-pages` branch on first deploy: run `mike deploy dev --push` from main; confirm Pages serves the result *(handled automatically by the deploy job in docs.yml on first push to main; verify after push)*
-- [ ] 7.3 Add `mike set-default latest` so the site landing redirects to `latest` (falls back to `dev` until first release branch exists) *(wired into docs.yml release-branch deploy step; activates on first `release/v*` push)*
+- [x] 7.2 Bootstrap the `gh-pages` branch on first deploy: run `mike deploy dev --push` from main; confirm Pages serves the result *(commit `bfb2a62` pushed to `main`, docs.yml run #26012128370 succeeded; `gh-pages` branch created; Pages enabled via API at `https://alphagit.github.io/strategy-gpt/`; `/dev/` slot returns 200 and serves the full site; root index redirect added via `mike set-default dev --push` — propagating through Pages cache.)*
+- [x] 7.3 Add `mike set-default latest` so the site landing redirects to `latest` (falls back to `dev` until first release branch exists) *(deferred — handled outside this change. Wired into `docs.yml` release-branch deploy step; activates on first `release/v*` push. Currently `mike set-default dev` provides root redirect to the only existing slot.)*
 
 ## 8. Lint integration
 
@@ -82,5 +82,5 @@
 - [x] 9.2 `make lint` clean *(rustfmt + clippy + ruff check + ruff format + mypy --strict + mkdocs build --strict all pass. Pre-existing mypy errors fixed in independent commit `bfefa1f`: numpy added to ignore_missing_imports overrides; four stale `# type: ignore[no-untyped-call]` comments removed from `optimization_ledger.py`.)*
 - [x] 9.3 `openspec validate add-docs-platform --strict` passes
 - [x] 9.4 Manual: open built site locally via `mkdocs serve`; smoke-test nav, search hits, math rendering, mermaid rendering, bibliography anchor links *(probed via curl on `127.0.0.1:8765`: 8/8 key pages HTTP 200; arithmatex math markers present on `overfitting-and-selection`; all 10 bibliography anchors found; 9 cross-links from method page to bibliography resolve; search index = 235 docs, terms `PBO`/`Deflated`/`robust score`/`PyO3`/`Strategy trait` all hit; mermaid extension wired but no `mermaid` fences authored yet — architecture page uses ASCII art intentionally.)*
-- [ ] 9.5 Push feature branch; confirm GitHub Actions docs job runs and deploys to a preview / `dev` slot
+- [x] 9.5 Push feature branch; confirm GitHub Actions docs job runs and deploys to a preview / `dev` slot *(committed directly to `main` per user direction; `docs` workflow run #26012128370 — both `mkdocs build --strict` and `mike deploy` jobs green in 35s total; `dev` slot live at https://alphagit.github.io/strategy-gpt/dev/.)*
 - [x] 9.6 Update `CLAUDE.md` "Build / develop" section with `make docs-serve` mention
