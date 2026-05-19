@@ -37,12 +37,12 @@ optimize:
   space:
     vol_lo:
       type: float
-      low: 0.20
-      high: 0.50
+      low: 0.0
+      high: 10.00
     vol_hi:
       type: float
-      low: 0.70
-      high: 1.30
+      low: 0.0
+      high: 10.00
   recursive_grid:
     resolution: 10
     top_k: 1
