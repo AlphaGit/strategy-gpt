@@ -492,14 +492,14 @@ class PerStrategyLedger:
     def hypotheses_iter(self) -> Iterator[HypothesisRecordV2]:
         if not self.hypotheses_path.exists():
             return
-        table = pq.read_table(self.hypotheses_path)
+        table = pq.read_table(self.hypotheses_path)  # type: ignore[no-untyped-call]
         for raw in table.column("record_json").to_pylist():
             yield HypothesisRecordV2.model_validate_json(raw)
 
     def decisions_iter(self) -> Iterator[DecisionRecordV2]:
         if not self.decisions_path.exists():
             return
-        table = pq.read_table(self.decisions_path)
+        table = pq.read_table(self.decisions_path)  # type: ignore[no-untyped-call]
         for raw in table.column("record_json").to_pylist():
             yield DecisionRecordV2.model_validate_json(raw)
 
@@ -511,7 +511,7 @@ class PerStrategyLedger:
         """
         if not self.decisions_path.exists():
             return []
-        table = pq.read_table(self.decisions_path)
+        table = pq.read_table(self.decisions_path)  # type: ignore[no-untyped-call]
         sorted_table = table.sort_by([("decided_at", "descending")]).slice(0, limit)
         return [
             DecisionRecordV2.model_validate_json(raw)
@@ -554,11 +554,11 @@ def _append_parquet(path: Path, table: pa.Table, schema: pa.Schema) -> None:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
-        existing = pq.read_table(path)
+        existing = pq.read_table(path)  # type: ignore[no-untyped-call]
         combined = pa.concat_tables([existing.cast(schema), table], promote_options="default")
     else:
         combined = table
-    pq.write_table(combined, path)
+    pq.write_table(combined, path)  # type: ignore[no-untyped-call]
 
 
 __all__ = [

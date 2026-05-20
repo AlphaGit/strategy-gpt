@@ -231,7 +231,9 @@ class OptimizationLedger:
             msg = "OptimizationLedger: emit_row called before start()."
             raise RuntimeError(msg)
         if self._writer is None:
-            self._writer = pq.ParquetWriter(self.trials_path, _TRIAL_SCHEMA, compression="zstd")
+            self._writer = pq.ParquetWriter(  # type: ignore[no-untyped-call]
+                self.trials_path, _TRIAL_SCHEMA, compression="zstd"
+            )
         rows = self._buffer
         self._buffer = []
         cols = {
@@ -254,12 +256,12 @@ class OptimizationLedger:
             "wall_secs": pa.array([r.wall_secs for r in rows], type=pa.float64()),
         }
         table = pa.Table.from_pydict(cols, schema=_TRIAL_SCHEMA)
-        self._writer.write_table(table)
+        self._writer.write_table(table)  # type: ignore[no-untyped-call]
 
     def finish(self, result: OptimizationResult) -> None:
         self._flush()
         if self._writer is not None:
-            self._writer.close()
+            self._writer.close()  # type: ignore[no-untyped-call]
             self._writer = None
         if self.opt_dir is None or self.manifest_path is None:
             msg = "OptimizationLedger: finish() called before start()."
@@ -523,7 +525,7 @@ def read_trials(opt_dir: Path) -> list[TrialRecord]:
     path = opt_dir / "trials.parquet"
     if not path.exists():
         return []
-    table = pq.read_table(path)
+    table = pq.read_table(path)  # type: ignore[no-untyped-call]
     rows = table.to_pylist()
     return [
         TrialRecord(

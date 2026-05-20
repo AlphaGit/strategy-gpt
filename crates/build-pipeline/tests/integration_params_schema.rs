@@ -8,11 +8,11 @@
 
 use std::path::PathBuf;
 
+use build_pipeline::driver::{BuildProfile, ManifestDep, SystemCargo};
 use build_pipeline::{
     declared_param_schema, read_params_schema, ArtifactCache, BuildDriver, BuildOutcome,
     StrategyManifest, Whitelist,
 };
-use build_pipeline::driver::{ManifestDep, BuildProfile, SystemCargo};
 
 fn crate_root(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -119,7 +119,11 @@ fn build_with_params_schema_e2e_via_real_cargo() {
         .expect("real cargo build must succeed");
     let key = match outcome {
         BuildOutcome::Compiled(c) | BuildOutcome::CacheHit(c) => {
-            assert!(c.library_path.exists(), "cdylib must exist at {:?}", c.library_path);
+            assert!(
+                c.library_path.exists(),
+                "cdylib must exist at {:?}",
+                c.library_path
+            );
             c.key
         }
     };
@@ -146,5 +150,8 @@ fn example_strategy_params_schema_parses_empty() {
     let schema =
         read_params_schema(&crate_root("example-strategy")).expect("example schema must parse");
     assert!(schema.params.is_empty());
-    assert_eq!(schema.schema_version, engine_rt::ParamSchema::SCHEMA_VERSION);
+    assert_eq!(
+        schema.schema_version,
+        engine_rt::ParamSchema::SCHEMA_VERSION
+    );
 }
