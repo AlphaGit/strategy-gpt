@@ -16,16 +16,16 @@
 
 ## 2. Phase B — Candidate generation
 
-- [ ] 2.1 Author stage-1 prompt builder (idea + rationale + lift + side effects) consuming diagnosis, KB cites, prior decisions, intra-run history
-- [ ] 2.2 Author stage-2 prompt builder (falsification + param_intent) consuming locked stage-1 + engine-rt API + baseline param schema
-- [ ] 2.3 Author stage-3 prompt builder (files map markdown) consuming locked stage-1 + stage-2 + engine-rt API + baseline source files
+- [x] 2.1 Author stage-1 prompt builder (idea + rationale + lift + side effects) consuming diagnosis, KB cites, prior decisions, intra-run history
+- [x] 2.2 Author stage-2 prompt builder (falsification + param_intent) consuming locked stage-1 + engine-rt API + baseline param schema
+- [x] 2.3 Author stage-3 prompt builder (files map markdown) consuming locked stage-1 + stage-2 + engine-rt API + baseline source files
 - [ ] 2.4 Implement `ReasoningClient` for Anthropic — structured tool-use enforced shape per stage
 - [ ] 2.5 Implement `ReasoningClient` for OpenAI — JSON-schema enforced shape per stage
 - [ ] 2.6 Replace stub `_StubReasoningClient` with a dispatch layer over Anthropic + OpenAI implementations
-- [ ] 2.7 Implement `cheap_critique_node` — runs after stage 1, rejects malformed / duplicate / contradicts-diagnosis / violates-prior-accept
+- [x] 2.7 Implement `cheap_critique_node` — runs after stage 1, rejects malformed / duplicate / contradicts-diagnosis / violates-prior-accept
 - [ ] 2.8 Implement multi-stage repair loop (`K_repair = 2` per stage) with synthesized feedback (parse error / build error / smoke panic / schema mismatch)
 - [ ] 2.9 Wire build-pipeline + cargo lints into the stage-3 validation chain; persist attempts to `DecisionRecord.evidence`
-- [ ] 2.10 Add ADR `docs/decisions/00NN-multi-stage-llm-emission.md`
+- [x] 2.10 Add ADR `docs/decisions/0019-multi-stage-llm-emission.md`
 
 ## 3. Phase C — Candidate evaluation
 

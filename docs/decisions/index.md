@@ -24,6 +24,7 @@ ADRs capture the *why* behind load-bearing technical decisions. Each ADR follows
 | [0016](0016-prompt-api-md-authoritative-llm-context.md) | `engine-rt/PROMPT_API.md` is the authoritative LLM context | accepted |
 | [0017](0017-per-strategy-storage-layout.md) | Per-strategy storage layout under `ledger/strategies/<strategy_name>/` | accepted |
 | [0018](0018-no-versioning-on-hypothesis-records.md) | No `runner_version` field on hypothesis records | accepted |
+| [0019](0019-multi-stage-llm-emission.md) | Multi-stage LLM emission for hypothesis candidates | accepted |
 
 ## Conventions
 
