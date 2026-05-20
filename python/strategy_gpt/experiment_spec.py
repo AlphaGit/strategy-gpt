@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import (
     BaseModel,
     ConfigDict,

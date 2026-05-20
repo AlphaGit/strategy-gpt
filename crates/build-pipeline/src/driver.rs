@@ -235,6 +235,34 @@ impl<C: Cargo> BuildDriver<C> {
         source: &str,
         manifest: &StrategyManifest,
     ) -> Result<BuildOutcome, BuildError> {
+        self.build_impl(source, manifest, None)
+    }
+
+    /// Build a strategy that declares a `params_schema.json`. The schema is
+    /// validated up front, mixed into the artifact cache key, and persisted
+    /// alongside the cached artifact for later introspection via
+    /// [`crate::declared_param_schema`].
+    pub fn build_with_params_schema(
+        &self,
+        source: &str,
+        manifest: &StrategyManifest,
+        params_schema_json: &str,
+    ) -> Result<BuildOutcome, BuildError> {
+        self.build_impl(source, manifest, Some(params_schema_json))
+    }
+
+    fn build_impl(
+        &self,
+        source: &str,
+        manifest: &StrategyManifest,
+        params_schema_json: Option<&str>,
+    ) -> Result<BuildOutcome, BuildError> {
+        // 0. Param schema validation (before any expensive work).
+        let parsed_schema = match params_schema_json {
+            Some(s) => Some(crate::params::parse_params_schema(s)?),
+            None => None,
+        };
+
         // 1. Lint
         let report = run_full_lint(source, manifest, &self.whitelist);
         if !report.is_clean() {
@@ -245,7 +273,12 @@ impl<C: Cargo> BuildDriver<C> {
         }
 
         // 2. Cache lookup
-        let key = ArtifactKey::from_inputs(source, manifest, self.runner_version);
+        let key = ArtifactKey::from_inputs_with_schema(
+            source,
+            manifest,
+            self.runner_version,
+            params_schema_json,
+        );
         if let Some(cached) = self.cache.lookup(key) {
             return Ok(BuildOutcome::CacheHit(cached));
         }
@@ -253,12 +286,21 @@ impl<C: Cargo> BuildDriver<C> {
         // 3. Lay out + cargo build via injected impl
         let project_dir = self.work_root.join(key.as_hex());
         std::fs::create_dir_all(&project_dir)?;
+        if let Some(s) = params_schema_json {
+            std::fs::write(
+                project_dir.join(crate::params::PARAMS_SCHEMA_FILE),
+                s.as_bytes(),
+            )?;
+        }
         let library_path = self.cargo.build(&project_dir, manifest, source)?;
 
         // 4. Cache + return
         let stored =
             self.cache
                 .store(key, library_path, self.runner_version, source.len() as u64)?;
+        if let Some(schema) = parsed_schema.as_ref() {
+            crate::params::write_cached_schema(&self.cache, key, schema)?;
+        }
         Ok(BuildOutcome::Compiled(stored))
     }
 }
@@ -383,6 +425,59 @@ mod tests {
         let err = driver.build(OK_SOURCE, &manifest).unwrap_err();
         assert!(matches!(err, BuildError::ManifestLint(_)));
         assert_eq!(*driver.cargo.calls.borrow(), 0);
+    }
+
+    #[test]
+    fn build_with_params_schema_persists_and_introspects() {
+        let (driver, _out) = make_driver("schema-build");
+        let schema = r#"{
+            "schema_version": 1,
+            "params": [
+                {"name": "vol_lo", "kind": "f64", "min": 0.001, "max": 0.05, "default": 0.01}
+            ]
+        }"#;
+        let outcome = driver
+            .build_with_params_schema(OK_SOURCE, &ok_manifest(), schema)
+            .unwrap();
+        let key = match outcome {
+            BuildOutcome::Compiled(c) | BuildOutcome::CacheHit(c) => c.key,
+        };
+        let schema_back = crate::params::declared_param_schema(&driver.cache, key)
+            .unwrap()
+            .expect("schema should be persisted in cache");
+        assert_eq!(schema_back.params.len(), 1);
+        assert_eq!(schema_back.params[0].name, "vol_lo");
+    }
+
+    #[test]
+    fn build_with_invalid_schema_rejects_before_compile() {
+        let (driver, _out) = make_driver("schema-invalid");
+        let bad_schema = r#"{"schema_version": 99, "params": []}"#;
+        let err = driver
+            .build_with_params_schema(OK_SOURCE, &ok_manifest(), bad_schema)
+            .unwrap_err();
+        assert!(matches!(err, BuildError::ParamsSchema(_)));
+        assert_eq!(*driver.cargo.calls.borrow(), 0);
+    }
+
+    #[test]
+    fn build_with_different_schema_takes_separate_artifacts() {
+        let (driver, _out) = make_driver("schema-distinct");
+        let s1 = r#"{"schema_version": 1, "params": []}"#;
+        let s2 = r#"{
+            "schema_version": 1,
+            "params": [{"name": "x", "kind": "f64", "min": 0.0, "max": 1.0, "default": 0.5}]
+        }"#;
+        let o1 = driver
+            .build_with_params_schema(OK_SOURCE, &ok_manifest(), s1)
+            .unwrap();
+        let o2 = driver
+            .build_with_params_schema(OK_SOURCE, &ok_manifest(), s2)
+            .unwrap();
+        let k1 = o1.artifact().key;
+        let k2 = o2.artifact().key;
+        assert_ne!(k1, k2, "different schemas must hash to different keys");
+        assert_eq!(*driver.cargo.calls.borrow(), 2);
     }
 
     #[test]

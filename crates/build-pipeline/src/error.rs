@@ -22,4 +22,7 @@ pub enum BuildError {
 
     #[error("migration error: {0}")]
     Migration(String),
+
+    #[error("params_schema.json error: {0}")]
+    ParamsSchema(String),
 }

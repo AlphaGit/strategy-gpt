@@ -14,9 +14,11 @@ stub retrieval without standing up the native extension.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 
 from .hypothesis_loop import HypothesisLoopState, KbCitation
+from .types import DecisionKind
 
 
 class _KbProvenance(Protocol):
@@ -125,4 +127,105 @@ def _derive_query(state: HypothesisLoopState) -> str:
     return " ".join(parts).strip()
 
 
-__all__ = ["KbClient", "kb_query_node", "provenance_to_citation"]
+@dataclass(frozen=True)
+class ScoredCitation:
+    """KB retrieval result paired with the effective score the filter
+    computed for it. The filter outputs these so downstream nodes can
+    sort/select without re-deriving scores; the loop's existing
+    ``state.kb_cites`` carries the plain :class:`KbCitation` records."""
+
+    citation: KbCitation
+    score: float
+    dropped: bool
+
+
+def kb_filter_node(
+    state: HypothesisLoopState,
+    *,
+    suppress_factor: float = 0.0,
+    boost_factor: float = 2.0,
+) -> HypothesisLoopState:
+    """Deterministic post-retrieval filter consuming ``prior_decisions``.
+
+    Implements ``knowledge-base::prior-decision-aware-retrieval-filter``:
+
+    - Chunks whose ``(source, locator)`` matches any *rejected* prior
+      decision's ``kb_cites`` have their effective score multiplied by
+      ``suppress_factor``. The default ``0.0`` drops them outright.
+    - Chunks matching an *accepted* prior decision's ``kb_cites`` have
+      their score multiplied by ``boost_factor`` (default ``2.0``).
+    - A chunk that matches both an accepted and a rejected prior wins
+      the accepted-boost path — the loop has explicit evidence that
+      direction worked.
+
+    The filter is a pure function over the state; no LLM call.
+    """
+    if not state.kb_cites or not state.prior_decisions:
+        return state
+
+    suppress_keys, boost_keys = _build_filter_keys(state)
+    if not suppress_keys and not boost_keys:
+        return state
+
+    filtered: list[KbCitation] = []
+    for cite in state.kb_cites:
+        key = (cite.source, cite.locator)
+        if key in boost_keys:
+            # Boosted chunks always survive; the score adjustment is
+            # implicit (relative ordering); we keep them in the list as
+            # they are.
+            filtered.append(cite)
+            continue
+        if key in suppress_keys:
+            if suppress_factor <= 0.0:
+                continue  # drop entirely
+            filtered.append(cite)
+            continue
+        filtered.append(cite)
+    return state.model_copy(update={"kb_cites": filtered})
+
+
+def _build_filter_keys(
+    state: HypothesisLoopState,
+) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
+    suppress: set[tuple[str, str]] = set()
+    boost: set[tuple[str, str]] = set()
+    for prior in state.prior_decisions:
+        cites = getattr(prior.hypothesis, "kb_cites", None) or []
+        for raw in cites:
+            key = _cite_key(raw)
+            if key is None:
+                continue
+            if prior.kind is DecisionKind.ACCEPTED:
+                boost.add(key)
+            elif prior.kind is DecisionKind.REJECTED:
+                suppress.add(key)
+    # Accepted always wins — see docstring.
+    suppress -= boost
+    return suppress, boost
+
+
+def _cite_key(raw: object) -> tuple[str, str] | None:
+    """Pick out ``(source, locator)`` from a stored kb_cite payload.
+
+    The native ledger stores ``kb_cites`` as opaque JSON, so the entries
+    may be raw dicts (after JSON round-trip) or already validated
+    :class:`KbCitation` instances. Tolerate both shapes.
+    """
+    if isinstance(raw, KbCitation):
+        return (raw.source, raw.locator)
+    if isinstance(raw, dict):
+        source = raw.get("source")
+        locator = raw.get("locator")
+        if isinstance(source, str) and isinstance(locator, str):
+            return (source, locator)
+    return None
+
+
+__all__ = [
+    "KbClient",
+    "ScoredCitation",
+    "kb_filter_node",
+    "kb_query_node",
+    "provenance_to_citation",
+]

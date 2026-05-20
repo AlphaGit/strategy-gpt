@@ -21,6 +21,7 @@ pub mod driver;
 pub mod error;
 pub mod linter;
 pub mod migration;
+pub mod params;
 pub mod whitelist;
 
 pub use artifact_cache::{ArtifactCache, ArtifactKey, CachedArtifact};
@@ -28,4 +29,8 @@ pub use driver::{BuildDriver, BuildOutcome, Cargo, StrategyManifest};
 pub use error::BuildError;
 pub use linter::{lint_manifest, lint_source, LintReport};
 pub use migration::{migration_decision, MigrationDecision};
+pub use params::{
+    declared_param_schema, parse_params_schema, read_params_schema, write_cached_schema,
+    PARAMS_SCHEMA_CACHE_FILE, PARAMS_SCHEMA_FILE,
+};
 pub use whitelist::Whitelist;

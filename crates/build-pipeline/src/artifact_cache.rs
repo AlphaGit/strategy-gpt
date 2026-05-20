@@ -21,12 +21,29 @@ impl ArtifactKey {
         manifest: &StrategyManifest,
         runner_version: RunnerVersion,
     ) -> Self {
+        Self::from_inputs_with_schema(source, manifest, runner_version, None)
+    }
+
+    /// Variant that mixes the canonical `params_schema.json` bytes into the
+    /// content hash. Use when the build pipeline persists the declared
+    /// schema alongside the artifact — different schemas MUST resolve to
+    /// distinct cache entries.
+    pub fn from_inputs_with_schema(
+        source: &str,
+        manifest: &StrategyManifest,
+        runner_version: RunnerVersion,
+        params_schema_json: Option<&str>,
+    ) -> Self {
         let mut hasher = blake3::Hasher::new();
         hasher.update(source.as_bytes());
         hasher.update(b"\n");
         hasher.update(canonical_manifest_bytes(manifest).as_bytes());
         hasher.update(b"\n");
         hasher.update(format!("{runner_version}").as_bytes());
+        if let Some(schema) = params_schema_json {
+            hasher.update(b"\nparams_schema:");
+            hasher.update(schema.as_bytes());
+        }
         Self(*hasher.finalize().as_bytes())
     }
 

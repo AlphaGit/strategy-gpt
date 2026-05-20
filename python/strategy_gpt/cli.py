@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import TypeAdapter
 
 from . import __version__

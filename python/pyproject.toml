@@ -24,6 +24,7 @@ dependencies = [
     "rich>=13.9",
     "scipy>=1.17",
     "cma>=4.4",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -109,5 +110,6 @@ module = [
     "cma.*",
     "numpy",
     "numpy.*",
+    "yaml",
 ]
 ignore_missing_imports = true

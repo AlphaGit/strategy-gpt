@@ -207,6 +207,7 @@ fn error_payload(err: BuildError) -> ErrPayload {
         BuildError::Cargo(_) => "cargo",
         BuildError::ArtifactCache(_) => "artifact_cache",
         BuildError::Migration(_) => "migration",
+        BuildError::ParamsSchema(_) => "params_schema",
     };
     ErrPayload {
         kind,

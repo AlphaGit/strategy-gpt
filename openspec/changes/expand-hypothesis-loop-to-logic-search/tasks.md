@@ -1,18 +1,18 @@
 ## 1. Phase A — Foundations
 
-- [ ] 1.1 Author `crates/engine-rt/PROMPT_API.md` with full Strategy trait, Context handle, data types, allowed-crate list, file-layout convention, forbidden constructs, and minimal exemplar
-- [ ] 1.2 Choose and document the param-declaration convention (macro vs. trait-object vs. associated-const table); land convention in `PROMPT_API.md`
-- [ ] 1.3 Implement param-declaration support in `engine-rt` and update `vxx-strategy` + `example-strategy` to use it
-- [ ] 1.4 Expose `declared_param_schema(artifact)` surface from `build-pipeline`
-- [ ] 1.5 Add ADR `docs/decisions/00NN-prompt-api-md-authoritative-llm-context.md`
-- [ ] 1.6 Implement per-strategy ledger layout under `ledger/strategies/<strategy_name>/{hypothesis_records.parquet, decision_records.parquet, baseline/, sources/, responses/}`
-- [ ] 1.7 Implement content-addressed source-blob storage helper (`ledger.write_source_set`, `ledger.read_source_set`)
-- [ ] 1.8 Implement `ledger.baseline_best(strategy, dataset_manifest)` with optimize-ledger lookup + on-demand compute fallback
-- [ ] 1.9 Add ADR `docs/decisions/00NN-per-strategy-storage-layout.md`
-- [ ] 1.10 Write `python/strategy_gpt/markdown_io.py` — strict parser for stage-1/2/3 markdown responses, structured `ParseError` with section identification
-- [ ] 1.11 Unit tests for markdown_io: round-trip serialization, malformed section detection, file-block extraction, DELETE handling
-- [ ] 1.12 Extend `kb_query_node` with a deterministic post-retrieval filter consuming `prior_decisions` (suppress recycled, boost accepted); add unit tests
-- [ ] 1.13 Drop legacy `runner_version` field from hypothesis records (no versioning) and add ADR `docs/decisions/00NN-no-versioning-on-hypothesis-records.md`
+- [x] 1.1 Author `crates/engine-rt/PROMPT_API.md` with full Strategy trait, Context handle, data types, allowed-crate list, file-layout convention, forbidden constructs, and minimal exemplar
+- [x] 1.2 Choose and document the param-declaration convention (macro vs. trait-object vs. associated-const table); land convention in `PROMPT_API.md`
+- [x] 1.3 Implement param-declaration support in `engine-rt` and update `vxx-strategy` + `example-strategy` to use it
+- [x] 1.4 Expose `declared_param_schema(artifact)` surface from `build-pipeline`
+- [x] 1.5 Add ADR `docs/decisions/0016-prompt-api-md-authoritative-llm-context.md`
+- [x] 1.6 Implement per-strategy ledger layout under `ledger/strategies/<strategy_name>/{hypothesis_records.parquet, decision_records.parquet, baseline/, sources/, responses/}`
+- [x] 1.7 Implement content-addressed source-blob storage helper (`ledger.write_source_set`, `ledger.read_source_set`)
+- [x] 1.8 Implement `ledger.baseline_best(strategy, dataset_manifest)` with optimize-ledger lookup + on-demand compute fallback
+- [x] 1.9 Add ADR `docs/decisions/0017-per-strategy-storage-layout.md`
+- [x] 1.10 Write `python/strategy_gpt/markdown_io.py` — strict parser for stage-1/2/3 markdown responses, structured `ParseError` with section identification
+- [x] 1.11 Unit tests for markdown_io: round-trip serialization, malformed section detection, file-block extraction, DELETE handling
+- [x] 1.12 Extend `kb_query_node` with a deterministic post-retrieval filter consuming `prior_decisions` (suppress recycled, boost accepted); add unit tests
+- [x] 1.13 Drop legacy `runner_version` field from hypothesis records (no versioning) and add ADR `docs/decisions/0018-no-versioning-on-hypothesis-records.md`
 
 ## 2. Phase B — Candidate generation
 

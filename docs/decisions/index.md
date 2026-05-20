@@ -21,6 +21,9 @@ ADRs capture the *why* behind load-bearing technical decisions. Each ADR follows
 | [0013](0013-rust-toolchain-pin-1-82.md) | Rust 1.82.0 toolchain pin | accepted |
 | [0014](0014-lint-stance.md) | Lint stance: Rust tool defaults + Python strict | accepted |
 | [0015](0015-docs-platform-mkdocs-mike-pages.md) | Docs platform: MkDocs Material + mike + GitHub Pages | accepted |
+| [0016](0016-prompt-api-md-authoritative-llm-context.md) | `engine-rt/PROMPT_API.md` is the authoritative LLM context | accepted |
+| [0017](0017-per-strategy-storage-layout.md) | Per-strategy storage layout under `ledger/strategies/<strategy_name>/` | accepted |
+| [0018](0018-no-versioning-on-hypothesis-records.md) | No `runner_version` field on hypothesis records | accepted |
 
 ## Conventions
 

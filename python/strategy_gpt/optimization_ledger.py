@@ -231,9 +231,7 @@ class OptimizationLedger:
             msg = "OptimizationLedger: emit_row called before start()."
             raise RuntimeError(msg)
         if self._writer is None:
-            self._writer = pq.ParquetWriter(
-                self.trials_path, _TRIAL_SCHEMA, compression="zstd"
-            )
+            self._writer = pq.ParquetWriter(self.trials_path, _TRIAL_SCHEMA, compression="zstd")
         rows = self._buffer
         self._buffer = []
         cols = {

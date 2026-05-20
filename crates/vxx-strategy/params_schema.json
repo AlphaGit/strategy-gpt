@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "params": [
+    {
+      "name": "vol_lo",
+      "kind": "f64",
+      "min": 0.001,
+      "max": 0.05,
+      "default": 0.01,
+      "description": "Enter short when realized vol falls at or below this threshold."
+    },
+    {
+      "name": "vol_hi",
+      "kind": "f64",
+      "min": 0.01,
+      "max": 0.20,
+      "default": 0.04,
+      "description": "Exit short when realized vol rises at or above this threshold."
+    },
+    {
+      "name": "size",
+      "kind": "f64",
+      "min": 1.0,
+      "max": 10000.0,
+      "default": 100.0,
+      "description": "Short notional in instrument units."
+    },
+    {
+      "name": "symbol",
+      "kind": "string",
+      "default": "VXX",
+      "description": "Instrument symbol."
+    }
+  ]
+}
