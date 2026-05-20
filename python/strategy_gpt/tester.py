@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Literal, Protocol
@@ -843,8 +843,465 @@ def attempt_logic_change(
         return reject_build_failure(ledger, candidate, exc, now=now)
 
 
+# ---------------------------------------------------------------------------
+# attempt_with_optimize — per-candidate mini-optimize + comparative
+# falsification verdict (`tester::attempt-with-optimize-surface-for-logic-
+# change-candidates`).
+# ---------------------------------------------------------------------------
+
+
+from .optimizer import (  # noqa: E402 — imported here to keep the optimizer
+    ParamSet,
+    RandomParam,
+    SobolSearcher,
+)
+from .per_strategy_ledger import Falsification, GuardConstraint, ParamIntent  # noqa: E402
+
+EvaluateFoldFn = Callable[[Mapping[str, Any], int], "BacktestMetrics"]
+"""Caller-supplied per-fold evaluator.
+
+Signature: ``(params, fold_idx) -> BacktestMetrics``. The orchestrator
+wires this to a small batch through the engine; tests inject a pure
+function. Implementations MUST be deterministic for a fixed seed so
+mini-optimize replays remain byte-identical.
+"""
+
+
+_GUARD_DIRECTIONS_LE: frozenset[str] = frozenset({"lte", "lt"})
+_GUARD_DIRECTIONS_GE: frozenset[str] = frozenset({"gte", "gt"})
+_PRIMARY_DIRECTIONS_UP: frozenset[str] = frozenset({"gt", "gte"})
+_PRIMARY_DIRECTIONS_DOWN: frozenset[str] = frozenset({"lt", "lte"})
+
+
+class FalsificationGuardVerdict(BaseModel):
+    """One guard-constraint check outcome."""
+
+    model_config = ConfigDict(frozen=True)
+
+    metric: str
+    direction: str
+    held: bool
+    candidate_value: float
+    baseline_value: float
+    threshold: float
+    rationale: str
+
+
+class FalsificationCheck(BaseModel):
+    """Comparative-falsification verdict block.
+
+    ``classification`` mirrors the spec's four-way matrix:
+
+    - ``accepted`` — primary claim met AND no guard regressed.
+    - ``falsified`` — primary claim NOT met (regardless of guards).
+    - ``regression`` — primary claim met but a guard regressed.
+    - ``noise`` — reserved for the mechanical-gate path; the tester
+      does not classify ``noise`` directly here because variance-aware
+      gating is the mechanical_gate module's concern. Kept in the
+      enum so downstream consumers map cleanly.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    primary_metric: str
+    primary_direction: str
+    primary_delta_target: float
+    primary_observed_delta: float
+    primary_met: bool
+    classification: Literal["accepted", "falsified", "regression"]
+    guard_verdicts: list[FalsificationGuardVerdict] = Field(default_factory=list)
+    rationale: str
+
+
+class AttemptWithOptimizeResult(BaseModel):
+    """Structured return value of :func:`attempt_with_optimize`."""
+
+    model_config = ConfigDict(frozen=True)
+
+    strategy_artifact: str
+    method: str
+    trials: int
+    folds: int
+    best_params: dict[str, Any]
+    per_fold_best_scores: list[float]
+    aggregate_score: float
+    side_effect_flags: list[str]
+    falsification_check: FalsificationCheck
+    objective_metric: str
+    baseline_aggregate_score: float
+    baseline_per_fold_scores: list[float]
+
+
+def _build_search_space(
+    param_intent: ParamIntent,
+    *,
+    kept_bounds: Mapping[str, RandomParam],
+) -> dict[str, RandomParam]:
+    """Project the LLM-stated `param_intent` to an optimizer search space.
+
+    ``added`` parameters become :class:`ContinuousParam` / :class:`IntParam`
+    using the LLM-supplied bounds. ``kept`` parameters inherit bounds from
+    the experiment-spec via ``kept_bounds``; missing entries are an error
+    because the orchestrator MUST surface them rather than silently drop
+    a kept parameter. ``removed`` parameters MUST NOT appear in the
+    output (`tester::removed-parameters-are-absent-from-the-search-space`).
+    """
+    from .optimizer import ContinuousParam, IntParam  # noqa: PLC0415 — lazy
+
+    removed = set(param_intent.removed)
+    space: dict[str, RandomParam] = {}
+
+    for added in param_intent.added:
+        if added.name in removed:
+            msg = f"param `{added.name}` is in both `added` and `removed`"
+            raise ValueError(msg)
+        if added.kind == "f64":
+            if added.min is None or added.max is None:
+                msg = f"added param `{added.name}` of kind f64 requires min/max"
+                raise ValueError(msg)
+            space[added.name] = ContinuousParam(low=float(added.min), high=float(added.max))
+        elif added.kind == "i64":
+            if added.min is None or added.max is None:
+                msg = f"added param `{added.name}` of kind i64 requires min/max"
+                raise ValueError(msg)
+            space[added.name] = IntParam(low=int(added.min), high=int(added.max))
+        else:
+            msg = (
+                f"added param `{added.name}` kind `{added.kind}` is not yet "
+                "supported in the mini-optimize search space"
+            )
+            raise ValueError(msg)
+
+    for name in param_intent.kept:
+        if name in removed:
+            msg = f"param `{name}` is in both `kept` and `removed`"
+            raise ValueError(msg)
+        if name not in kept_bounds:
+            msg = (
+                f"kept param `{name}` has no bounds in the supplied "
+                f"`kept_bounds` mapping (experiment-spec bounds are required)"
+            )
+            raise ValueError(msg)
+        space[name] = kept_bounds[name]
+
+    return space
+
+
+def _aggregate(scores: Sequence[float]) -> float:
+    if not scores:
+        return 0.0
+    return sum(scores) / len(scores)
+
+
+def _classify_falsification(
+    *,
+    primary_metric: str,
+    primary_direction: str,
+    primary_delta_target: float,
+    primary_observed_delta: float,
+    guard_verdicts: list[FalsificationGuardVerdict],
+) -> FalsificationCheck:
+    """Apply the primary + guards verdict matrix.
+
+    Returns ``regression`` whenever any guard fails, regardless of the
+    primary claim. Otherwise ``accepted`` iff primary is met, else
+    ``falsified``. ``noise`` is intentionally absent — variance-aware
+    noise classification is the mechanical_gate module's concern.
+    """
+    if primary_direction in _PRIMARY_DIRECTIONS_UP:
+        primary_met = primary_observed_delta >= primary_delta_target
+    elif primary_direction in _PRIMARY_DIRECTIONS_DOWN:
+        primary_met = primary_observed_delta <= -abs(primary_delta_target)
+    else:
+        msg = f"unsupported primary direction `{primary_direction}`"
+        raise ValueError(msg)
+
+    any_guard_failed = any(not g.held for g in guard_verdicts)
+    if any_guard_failed:
+        classification: Literal["accepted", "falsified", "regression"] = "regression"
+        rationale = (
+            f"primary {primary_metric} delta {primary_observed_delta:+.4f} vs "
+            f"target {primary_delta_target:+.4f} ({'met' if primary_met else 'unmet'}); "
+            "regression flagged: one or more guard constraints broken"
+        )
+    elif primary_met:
+        classification = "accepted"
+        rationale = (
+            f"primary claim met: {primary_metric} delta {primary_observed_delta:+.4f} "
+            f">= target {primary_delta_target:+.4f}, all guards held"
+        )
+    else:
+        classification = "falsified"
+        rationale = (
+            f"primary claim falsified: {primary_metric} delta "
+            f"{primary_observed_delta:+.4f} fell short of target "
+            f"{primary_delta_target:+.4f}"
+        )
+
+    return FalsificationCheck(
+        primary_metric=primary_metric,
+        primary_direction=primary_direction,
+        primary_delta_target=primary_delta_target,
+        primary_observed_delta=primary_observed_delta,
+        primary_met=primary_met,
+        classification=classification,
+        guard_verdicts=guard_verdicts,
+        rationale=rationale,
+    )
+
+
+def _evaluate_guard(
+    guard: GuardConstraint,
+    *,
+    candidate_value: float,
+    baseline_value: float,
+) -> FalsificationGuardVerdict:
+    """Evaluate a single guard against the candidate vs baseline metric.
+
+    Guards declare either an absolute ``delta_vs_baseline`` (e.g.
+    ``max_drawdown delta_vs_baseline 0.05`` -> drawdown must not rise by
+    more than 5 percentage points) or a relative ``factor`` (e.g.
+    ``trade_count factor 0.5`` -> trade count must remain at least 50%
+    of baseline when direction is ``gte``).
+    """
+    direction = guard.direction
+    if guard.delta_vs_baseline is not None:
+        delta = candidate_value - baseline_value
+        threshold = guard.delta_vs_baseline
+        if direction in _GUARD_DIRECTIONS_LE:
+            held = delta <= threshold
+        elif direction in _GUARD_DIRECTIONS_GE:
+            held = delta >= threshold
+        else:
+            msg = f"unsupported guard direction `{direction}` for delta check"
+            raise ValueError(msg)
+        rationale = (
+            f"{guard.metric} delta {delta:+.4f} vs threshold {threshold:+.4f} "
+            f"({direction}): {'held' if held else 'broken'}"
+        )
+        return FalsificationGuardVerdict(
+            metric=guard.metric,
+            direction=direction,
+            held=held,
+            candidate_value=candidate_value,
+            baseline_value=baseline_value,
+            threshold=threshold,
+            rationale=rationale,
+        )
+
+    if guard.factor is not None:
+        factor = guard.factor
+        if direction in _GUARD_DIRECTIONS_GE:
+            held = candidate_value >= factor * baseline_value
+        elif direction in _GUARD_DIRECTIONS_LE:
+            held = candidate_value <= factor * baseline_value
+        else:
+            msg = f"unsupported guard direction `{direction}` for factor check"
+            raise ValueError(msg)
+        rationale = (
+            f"{guard.metric} candidate {candidate_value:.4f} vs "
+            f"{factor:.2f}*baseline {factor * baseline_value:.4f} "
+            f"({direction}): {'held' if held else 'broken'}"
+        )
+        return FalsificationGuardVerdict(
+            metric=guard.metric,
+            direction=direction,
+            held=held,
+            candidate_value=candidate_value,
+            baseline_value=baseline_value,
+            threshold=factor,
+            rationale=rationale,
+        )
+
+    msg = f"guard `{guard.metric}` declares neither delta_vs_baseline nor factor"
+    raise ValueError(msg)
+
+
+_DEFAULT_SIDE_EFFECT_TOL: dict[str, float] = {
+    "n_trades": 0.5,  # ±50% trade count change is non-trivial
+    "avg_trade_length_bars": 0.5,
+    "max_drawdown": 0.5,
+}
+
+
+def _side_effect_flags(
+    candidate_metrics: Mapping[str, float],
+    baseline_metrics: Mapping[str, float],
+    *,
+    tolerances: Mapping[str, float] | None = None,
+) -> list[str]:
+    """Emit flags for metric movements outside a per-metric tolerance band.
+
+    Tolerance is relative (e.g. ``0.5`` means a ±50% change triggers the
+    flag). The default set covers trade-count, holding-period, and
+    drawdown — the three side-effect categories the spec calls out.
+    """
+    tols = dict(_DEFAULT_SIDE_EFFECT_TOL)
+    if tolerances:
+        tols.update(tolerances)
+    flags: list[str] = []
+    for metric, tol in tols.items():
+        if metric not in candidate_metrics or metric not in baseline_metrics:
+            continue
+        b = baseline_metrics[metric]
+        c = candidate_metrics[metric]
+        if b == 0.0:
+            if c != 0.0:
+                flags.append(f"{metric}_changed_from_zero")
+            continue
+        ratio = c / b
+        if ratio >= 1.0 + tol:
+            flags.append(f"{metric}_up_{ratio:.2f}x")
+        elif ratio <= 1.0 - tol:
+            flags.append(f"{metric}_down_{ratio:.2f}x")
+    return flags
+
+
+def _run_search(
+    *,
+    space: Mapping[str, RandomParam],
+    method: str,
+    trials: int,
+    seed: int,
+) -> list[ParamSet]:
+    if method == "sobol":
+        return list(SobolSearcher(space=space, n_points=trials, owen_seed=seed).candidates())
+    if method == "random":
+        from .optimizer import RandomSearcher  # noqa: PLC0415
+
+        return list(RandomSearcher(space=space, n_iter=trials, seed=seed).candidates())
+    msg = f"unsupported mini-optimize method `{method}`; allowed: sobol, random"
+    raise ValueError(msg)
+
+
+def attempt_with_optimize(  # noqa: PLR0913 — orchestration entry point
+    *,
+    strategy_artifact: str,
+    param_intent: ParamIntent,
+    falsification: Falsification,
+    folds: int,
+    method: str = "sobol",
+    trials: int = 64,
+    kept_bounds: Mapping[str, RandomParam],
+    objective_metric: str,
+    evaluate_fold: EvaluateFoldFn,
+    baseline_per_fold_scores: Sequence[float],
+    baseline_metrics: Mapping[str, float],
+    seed: int = 0,
+) -> AttemptWithOptimizeResult:
+    """Mini-optimize a candidate then return the comparative-falsification verdict.
+
+    Steps:
+
+    1. Build the search space from ``param_intent`` plus ``kept_bounds``.
+       ``removed`` parameters are absent by construction.
+    2. Run ``trials`` proposals via ``method``. For each proposal,
+       evaluate every fold with ``evaluate_fold(params, fold_idx)``.
+       Track the per-fold best score and the params that achieved each
+       per-fold best.
+    3. The candidate's aggregate is the mean of per-fold best scores;
+       ``best_params`` is the proposal that maximised the aggregate.
+    4. Compute side-effect flags from the best-aggregate proposal's
+       last-fold metrics vs the supplied baseline metric envelope.
+    5. Evaluate the comparative falsification: primary claim verdict
+       + per-guard verdicts → ``FalsificationCheck``.
+
+    The function is engine-agnostic. The orchestrator wires
+    ``evaluate_fold`` to a small batched submission; unit tests inject a
+    pure function that simulates a metric surface.
+    """
+    if folds < 1:
+        msg = f"folds must be >= 1; got {folds}"
+        raise ValueError(msg)
+    if trials < 1:
+        msg = f"trials must be >= 1; got {trials}"
+        raise ValueError(msg)
+    if len(baseline_per_fold_scores) != folds:
+        msg = (
+            f"baseline_per_fold_scores has {len(baseline_per_fold_scores)} entries; "
+            f"expected one per fold ({folds})"
+        )
+        raise ValueError(msg)
+
+    space = _build_search_space(param_intent, kept_bounds=kept_bounds)
+    proposals = _run_search(space=space, method=method, trials=trials, seed=seed)
+    if not proposals:
+        msg = "mini-optimize search produced no proposals (empty space?)"
+        raise ValueError(msg)
+
+    per_fold_best_score = [float("-inf")] * folds
+    per_fold_best_params: list[ParamSet] = [{} for _ in range(folds)]
+    aggregate_best: tuple[float, ParamSet, list[BacktestMetrics]] | None = None
+
+    for proposal in proposals:
+        fold_scores: list[float] = []
+        fold_metrics: list[BacktestMetrics] = []
+        for fold_idx in range(folds):
+            metrics = evaluate_fold(proposal, fold_idx)
+            fold_metrics.append(metrics)
+            score = float(getattr(metrics, objective_metric))
+            fold_scores.append(score)
+            if score > per_fold_best_score[fold_idx]:
+                per_fold_best_score[fold_idx] = score
+                per_fold_best_params[fold_idx] = dict(proposal)
+        agg = _aggregate(fold_scores)
+        if aggregate_best is None or agg > aggregate_best[0]:
+            aggregate_best = (agg, dict(proposal), fold_metrics)
+
+    assert aggregate_best is not None  # noqa: S101 — guarded by proposals != []
+    best_agg, best_params, best_fold_metrics = aggregate_best
+
+    candidate_metrics_avg: dict[str, float] = {}
+    if best_fold_metrics:
+        first = best_fold_metrics[0].model_dump()
+        for key, value in first.items():
+            if not isinstance(value, (int, float)):
+                continue
+            candidate_metrics_avg[key] = sum(
+                float(getattr(m, key)) for m in best_fold_metrics
+            ) / len(best_fold_metrics)
+
+    side_effect_flags = _side_effect_flags(candidate_metrics_avg, baseline_metrics)
+
+    baseline_aggregate = _aggregate(baseline_per_fold_scores)
+    primary = falsification.primary
+    primary_observed_delta = best_agg - baseline_aggregate
+    guard_verdicts: list[FalsificationGuardVerdict] = []
+    for guard in falsification.guard_constraints:
+        cand_v = candidate_metrics_avg.get(guard.metric, 0.0)
+        base_v = float(baseline_metrics.get(guard.metric, 0.0))
+        guard_verdicts.append(_evaluate_guard(guard, candidate_value=cand_v, baseline_value=base_v))
+
+    falsification_check = _classify_falsification(
+        primary_metric=primary.metric,
+        primary_direction=primary.direction,
+        primary_delta_target=primary.delta_vs_baseline,
+        primary_observed_delta=primary_observed_delta,
+        guard_verdicts=guard_verdicts,
+    )
+
+    return AttemptWithOptimizeResult(
+        strategy_artifact=strategy_artifact,
+        method=method,
+        trials=trials,
+        folds=folds,
+        best_params=best_params,
+        per_fold_best_scores=list(per_fold_best_score),
+        aggregate_score=best_agg,
+        side_effect_flags=side_effect_flags,
+        falsification_check=falsification_check,
+        objective_metric=objective_metric,
+        baseline_aggregate_score=baseline_aggregate,
+        baseline_per_fold_scores=list(baseline_per_fold_scores),
+    )
+
+
 __all__ = [
+    "AttemptWithOptimizeResult",
+    "EvaluateFoldFn",
+    "FalsificationCheck",
     "FalsificationCriterion",
+    "FalsificationGuardVerdict",
     "FalsificationParseError",
     "LogicChangePayload",
     "LogicChangeTranslatedRun",
@@ -860,6 +1317,7 @@ __all__ = [
     "VerdictKind",
     "apply_param_diffs",
     "attempt_logic_change",
+    "attempt_with_optimize",
     "build_full_batch_spec",
     "evaluate_verdict",
     "parse_falsification",

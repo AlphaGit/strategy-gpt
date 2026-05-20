@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -215,19 +216,6 @@ def critique_node(
 # ---------------------------------------------------------------------------
 
 
-def _complexity_penalty(change: object) -> float:
-    """Penalize logic changes (new source) more than parameter diffs.
-
-    A simple heuristic: if the proposed_change carries any of the
-    logic-change keys the tester checks for (`source` / `code` /
-    `rewrite` / `diff` / `patch` / `new_strategy`), this is a recompile;
-    otherwise treat it as a param-only diff with no compile cost."""
-    if not isinstance(change, dict):
-        return 0.5
-    logic_keys = {"source", "code", "rewrite", "diff", "patch", "new_strategy"}
-    return 1.0 if any(k in change for k in logic_keys) else 0.0
-
-
 def _evidence_strength(candidate: HypothesisCandidate) -> float:
     """Reward candidates with citation backing; capped at 1.0."""
     n = len(candidate.kb_cites)
@@ -236,27 +224,93 @@ def _evidence_strength(candidate: HypothesisCandidate) -> float:
     return min(1.0, 0.4 + 0.2 * n)
 
 
-def rank_score(candidate: HypothesisCandidate) -> float:
+@dataclass(frozen=True, slots=True)
+class RankWeights:
+    """Tunable weights for :func:`rank_score`.
+
+    Defaults match ``hypothesis-loop::simplicity-preferring-rank``:
+    lift dominates, evidence second, complexity penalty third, simplicity
+    bonus fourth. Operators retune by passing a custom :class:`RankWeights`
+    to :func:`rank_node`. The values are stable across replays so the
+    ledger's rank order remains deterministic.
+    """
+
+    lift: float = 0.55
+    evidence: float = 0.25
+    complexity_penalty: float = 0.15
+    simplicity_bonus: float = 0.05
+
+
+_DEFAULT_RANK_WEIGHTS = RankWeights()
+
+
+def _complexity_delta(change: object) -> tuple[int, int]:
+    """Compute ``(delta_params, delta_components)`` for a proposed change.
+
+    Spec's continuous complexity differential. Reads either the new
+    structured ``files_manifest`` / ``param_intent`` shape (per ADR 0017)
+    or the legacy logic-change keys for backwards compatibility. Returns
+    ``(0, 0)`` when no structured information is available — the rank
+    still works on lift + evidence in that case.
+    """
+    if not isinstance(change, dict):
+        return (0, 0)
+    delta_params = 0
+    delta_components = 0
+    param_intent = change.get("param_intent")
+    if isinstance(param_intent, dict):
+        added = param_intent.get("added") or []
+        removed = param_intent.get("removed") or []
+        delta_params = (len(added) if isinstance(added, list) else 0) - (
+            len(removed) if isinstance(removed, list) else 0
+        )
+    files_manifest = change.get("files_manifest")
+    deleted_files = change.get("deleted_files")
+    if isinstance(files_manifest, dict):
+        delta_components = len(files_manifest) - (
+            len(deleted_files) if isinstance(deleted_files, list) else 0
+        )
+    return (delta_params, delta_components)
+
+
+def rank_score(
+    candidate: HypothesisCandidate,
+    *,
+    weights: RankWeights | None = None,
+) -> float:
     """Composite score used by :func:`rank_node`.
 
     Linear combination of expected lift (LLM-estimated confidence),
-    evidence strength (citation count), and complexity (negative). The
-    weights are deliberate — lift carries more than evidence which
-    carries more than complexity — but the function is intentionally
-    transparent so an operator can audit ranking decisions from the
-    ledger without re-running the LLM. Stable across replays."""
+    evidence strength (citation count), a complexity penalty proportional
+    to net additions, and a simplicity bonus proportional to net removals.
+    Stable across replays."""
+    w = weights if weights is not None else _DEFAULT_RANK_WEIGHTS
     lift = candidate.estimated_lift_confidence
     evidence = _evidence_strength(candidate)
-    complexity = _complexity_penalty(candidate.proposed_change)
-    return 0.6 * lift + 0.3 * evidence - 0.1 * complexity
+    dp, dc = _complexity_delta(candidate.proposed_change)
+    complexity_delta = dp + dc
+    return (
+        w.lift * lift
+        + w.evidence * evidence
+        - w.complexity_penalty * max(0, complexity_delta)
+        + w.simplicity_bonus * max(0, -complexity_delta)
+    )
 
 
-def rank_node(state: HypothesisLoopState) -> HypothesisLoopState:
+def rank_node(
+    state: HypothesisLoopState,
+    *,
+    weights: RankWeights | None = None,
+) -> HypothesisLoopState:
     """Reorder ``state.accepted`` by composite score (descending).
 
     Pure function, deterministic given the same accepted set. Ties keep
     submission order via Python's stable sort."""
-    ranked = sorted(state.accepted, key=lambda a: rank_score(a.candidate), reverse=True)
+    ranked = sorted(
+        state.accepted,
+        key=lambda a: rank_score(a.candidate, weights=weights),
+        reverse=True,
+    )
     return state.model_copy(update={"accepted": ranked})
 
 
@@ -422,6 +476,7 @@ def run_inner_loop(
 __all__ = [
     "CritiqueOutcome",
     "GenerateError",
+    "RankWeights",
     "ReasoningClient",
     "SimilarityFn",
     "critique_node",

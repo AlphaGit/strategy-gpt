@@ -25,6 +25,7 @@ ADRs capture the *why* behind load-bearing technical decisions. Each ADR follows
 | [0017](0017-per-strategy-storage-layout.md) | Per-strategy storage layout under `ledger/strategies/<strategy_name>/` | accepted |
 | [0018](0018-no-versioning-on-hypothesis-records.md) | No `runner_version` field on hypothesis records | accepted |
 | [0019](0019-multi-stage-llm-emission.md) | Multi-stage LLM emission for hypothesis candidates | accepted |
+| [0020](0020-comparative-falsification-variance-aware-epsilon.md) | Comparative falsification with a variance-aware acceptance floor | accepted |
 
 ## Conventions
 

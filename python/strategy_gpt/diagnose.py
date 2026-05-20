@@ -17,6 +17,7 @@ suppressed signals so the LLM can probe under- or over-firing channels.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -92,8 +93,79 @@ class SignalMisfire(BaseModel):
     suppression_reasons: dict[str, int] = Field(default_factory=dict)
 
 
+class DrawdownEpisode(BaseModel):
+    """One drawdown trough plus its peak-to-trough and recovery duration."""
+
+    model_config = ConfigDict(frozen=True)
+
+    trough_ts: datetime
+    depth: float
+    duration_bars: int
+    recovered: bool
+
+
+class DrawdownTrajectory(BaseModel):
+    """Drawdown trajectory shape summary.
+
+    ``shape`` is one of ``flat`` (no drawdowns), ``shallow``,
+    ``moderate``, ``deep`` — a coarse categorical label the LLM can read
+    in its prompt without parsing numerical depth thresholds. ``episodes``
+    enumerates the top-K troughs by depth so the LLM can reason about
+    isolated vs. clustered drawdowns.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    shape: str
+    max_depth: float
+    n_episodes: int
+    longest_duration_bars: int
+    episodes: list[DrawdownEpisode] = Field(default_factory=list)
+
+
+class HoldingPeriodBucket(BaseModel):
+    """One bucket of the holding-period x pnl histogram."""
+
+    model_config = ConfigDict(frozen=True)
+
+    bucket: str
+    n_trades: int
+    avg_pnl: float
+    total_pnl: float
+
+
+class MissedOpportunityRegion(BaseModel):
+    """A timeline window where signal pressure existed but no trade fired.
+
+    The LLM uses these as candidate regions for new entry logic — a
+    region with high ``suppression_density`` and zero trades is a strong
+    candidate for "loosen suppression here" or "alternative entry
+    channel" hypotheses.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    start: datetime
+    end: datetime
+    suppression_density: float
+    fired_no_trade: int
+    n_trades_in_region: int
+
+
 class Diagnosis(BaseModel):
-    """Diagnose-node output. Carried as ``HypothesisLoopState.diagnosis``."""
+    """Diagnose-node output. Carried as ``HypothesisLoopState.diagnosis``.
+
+    Extended in Phase C with:
+
+    - ``exit_reason_histogram`` — counts of trade ``reason_out`` values,
+      so the LLM can reason about which exit channel dominates.
+    - ``drawdown_trajectory`` — coarse shape categorization + top
+      drawdown episodes.
+    - ``holding_period_pnl_histogram`` — buckets correlating holding
+      period to per-trade PnL.
+    - ``missed_opportunity_regions`` — timeline windows where signal
+      pressure existed but no trade fired.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -102,6 +174,10 @@ class Diagnosis(BaseModel):
     regime_performance: list[RegimePerformance]
     signal_misfires: list[SignalMisfire]
     exec_log_summary: dict[str, int]
+    exit_reason_histogram: dict[str, int] = Field(default_factory=dict)
+    drawdown_trajectory: DrawdownTrajectory | None = None
+    holding_period_pnl_histogram: list[HoldingPeriodBucket] = Field(default_factory=list)
+    missed_opportunity_regions: list[MissedOpportunityRegion] = Field(default_factory=list)
 
 
 def _trade_stats(trades: list[Trade]) -> TradeStats:
@@ -241,6 +317,173 @@ def _signal_misfires(signals: list[SignalEvent], trades: list[Trade]) -> list[Si
     return out
 
 
+def _exit_reason_histogram(trades: list[Trade]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for trade in trades:
+        reason = trade.reason_out or "unspecified"
+        counts[reason] += 1
+    return dict(sorted(counts.items()))
+
+
+_DRAWDOWN_THRESHOLDS = (
+    ("flat", 0.005),
+    ("shallow", 0.05),
+    ("moderate", 0.15),
+)
+
+
+def _drawdown_trajectory(equity: list[EquityPoint]) -> DrawdownTrajectory | None:
+    """Walk the equity series, identify drawdown episodes, classify shape.
+
+    A drawdown episode begins when drawdown crosses below zero and ends
+    when equity recovers to the prior peak (or the series ends). The
+    coarse shape label maps the maximum observed depth to one of the
+    bands in :data:`_DRAWDOWN_THRESHOLDS`; deeper than the deepest band
+    is labeled ``"deep"``.
+    """
+    if not equity:
+        return None
+
+    episodes: list[DrawdownEpisode] = []
+    in_dd = False
+    dd_start_idx = 0
+    dd_trough_idx = 0
+    dd_trough_value = 0.0
+    for i, point in enumerate(equity):
+        if point.drawdown >= 0.0:
+            if in_dd:
+                episodes.append(
+                    DrawdownEpisode(
+                        trough_ts=equity[dd_trough_idx].ts,
+                        depth=dd_trough_value,
+                        duration_bars=i - dd_start_idx,
+                        recovered=True,
+                    )
+                )
+                in_dd = False
+            continue
+        if not in_dd:
+            in_dd = True
+            dd_start_idx = i
+            dd_trough_idx = i
+            dd_trough_value = point.drawdown
+        elif point.drawdown < dd_trough_value:
+            dd_trough_idx = i
+            dd_trough_value = point.drawdown
+
+    if in_dd:
+        episodes.append(
+            DrawdownEpisode(
+                trough_ts=equity[dd_trough_idx].ts,
+                depth=dd_trough_value,
+                duration_bars=len(equity) - dd_start_idx,
+                recovered=False,
+            )
+        )
+
+    max_depth = min((e.depth for e in episodes), default=0.0)
+    longest_duration = max((e.duration_bars for e in episodes), default=0)
+    abs_depth = abs(max_depth)
+    shape = "deep"
+    for label, threshold in _DRAWDOWN_THRESHOLDS:
+        if abs_depth <= threshold:
+            shape = label
+            break
+    top_episodes = sorted(episodes, key=lambda e: e.depth)[:3]
+    return DrawdownTrajectory(
+        shape=shape,
+        max_depth=max_depth,
+        n_episodes=len(episodes),
+        longest_duration_bars=longest_duration,
+        episodes=top_episodes,
+    )
+
+
+_HOLDING_BUCKETS_SECONDS = (
+    ("0-15m", 15 * 60),
+    ("15m-1h", 60 * 60),
+    ("1-4h", 4 * 60 * 60),
+    ("4-24h", 24 * 60 * 60),
+    (">1d", float("inf")),
+)
+
+
+def _holding_period_pnl_histogram(trades: list[Trade]) -> list[HoldingPeriodBucket]:
+    if not trades:
+        return []
+    buckets: dict[str, list[float]] = {label: [] for label, _ in _HOLDING_BUCKETS_SECONDS}
+    for trade in trades:
+        duration = (trade.exit_ts - trade.entry_ts).total_seconds()
+        for label, ceiling in _HOLDING_BUCKETS_SECONDS:
+            if duration <= ceiling:
+                buckets[label].append(trade.pnl)
+                break
+    out: list[HoldingPeriodBucket] = []
+    for label, _ in _HOLDING_BUCKETS_SECONDS:
+        bucket_pnls = buckets[label]
+        if not bucket_pnls:
+            continue
+        out.append(
+            HoldingPeriodBucket(
+                bucket=label,
+                n_trades=len(bucket_pnls),
+                avg_pnl=sum(bucket_pnls) / len(bucket_pnls),
+                total_pnl=sum(bucket_pnls),
+            )
+        )
+    return out
+
+
+def _missed_opportunity_regions(
+    signals: list[SignalEvent],
+    trades: list[Trade],
+    *,
+    window_seconds: float = 60 * 60,
+    min_density: float = 0.5,
+) -> list[MissedOpportunityRegion]:
+    """Tile the signal timeline into ``window_seconds`` buckets, flag the
+    ones where signal pressure exceeded the density floor but no trades
+    fired."""
+    if not signals:
+        return []
+    by_ts = sorted(signals, key=lambda s: s.ts)
+    start = by_ts[0].ts
+    out: list[MissedOpportunityRegion] = []
+    # Use timestamp-relative bucketing so the function does not depend
+    # on an external bar grid.
+    buckets: dict[int, list[SignalEvent]] = defaultdict(list)
+    for s in by_ts:
+        idx = int((s.ts - start).total_seconds() // window_seconds)
+        buckets[idx].append(s)
+    for idx in sorted(buckets):
+        events = buckets[idx]
+        if not events:
+            continue
+        suppressed = sum(1 for e in events if not e.fired and e.suppressed_by)
+        fired_total = sum(1 for e in events if e.fired)
+        if not fired_total:
+            continue
+        density = suppressed / max(1, fired_total + suppressed)
+        if density < min_density:
+            continue
+        window_start = events[0].ts
+        window_end = events[-1].ts
+        n_trades = sum(1 for t in trades if window_start <= t.entry_ts <= window_end)
+        fired_no_trade = max(0, fired_total - n_trades)
+        if n_trades == 0 and fired_no_trade == 0 and suppressed == 0:
+            continue
+        out.append(
+            MissedOpportunityRegion(
+                start=window_start,
+                end=window_end,
+                suppression_density=density,
+                fired_no_trade=fired_no_trade,
+                n_trades_in_region=n_trades,
+            )
+        )
+    return out
+
+
 def diagnose(result: BacktestResult) -> Diagnosis:
     """Compute a structured :class:`Diagnosis` for a backtest result.
 
@@ -257,6 +500,10 @@ def diagnose(result: BacktestResult) -> Diagnosis:
         regime_performance=_regime_performance(result.trades, result.equity, result.regimes),
         signal_misfires=_signal_misfires(result.signals, result.trades),
         exec_log_summary=exec_summary,
+        exit_reason_histogram=_exit_reason_histogram(result.trades),
+        drawdown_trajectory=_drawdown_trajectory(result.equity),
+        holding_period_pnl_histogram=_holding_period_pnl_histogram(result.trades),
+        missed_opportunity_regions=_missed_opportunity_regions(result.signals, result.trades),
     )
 
 
@@ -272,6 +519,10 @@ def diagnose_node(state: HypothesisLoopState, result: BacktestResult) -> Hypothe
 
 __all__ = [
     "Diagnosis",
+    "DrawdownEpisode",
+    "DrawdownTrajectory",
+    "HoldingPeriodBucket",
+    "MissedOpportunityRegion",
     "RegimePerformance",
     "SignalMisfire",
     "TradeStats",

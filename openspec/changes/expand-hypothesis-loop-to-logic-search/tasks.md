@@ -29,23 +29,23 @@
 
 ## 3. Phase C — Candidate evaluation
 
-- [ ] 3.1 Add `tester.attempt_with_optimize(artifact, param_intent, falsification, folds, method, trials)` returning per-fold + aggregate + side-effect flags + falsification verdict
-- [ ] 3.2 Expand tester reject-reason taxonomy (`reject_format`, `reject_schema`, `reject_noise`, `reject_variance`, `reject_verdict`, `reject_deps`) with structured rationale per kind
-- [ ] 3.3 Implement `mechanical_gate_node` — score floor `(cand - baseline) > k · σ_combined` + per-fold CV check; emit borderline flag
-- [ ] 3.4 Implement `verdict_critique_node` — LLM review of measured result vs claim, side-effect envelope, rationale-vs-result mismatch, complexity-cost
-- [ ] 3.5 Replace `_complexity_penalty` with continuous complexity differential; add simplicity bonus to `rank_score`
-- [ ] 3.6 Extend `diagnose.py` with exit-reason histogram, missed-opportunity regions, drawdown trajectory shape, holding-period-vs-PnL histogram
-- [ ] 3.7 Add ADR `docs/decisions/00NN-comparative-falsification-variance-aware-epsilon.md`
+- [x] 3.1 Add `tester.attempt_with_optimize(artifact, param_intent, falsification, folds, method, trials)` returning per-fold + aggregate + side-effect flags + falsification verdict
+- [x] 3.2 Expand tester reject-reason taxonomy (`reject_format`, `reject_schema`, `reject_noise`, `reject_variance`, `reject_verdict`, `reject_deps`) with structured rationale per kind
+- [x] 3.3 Implement `mechanical_gate_node` — score floor `(cand - baseline) > k · σ_combined` + per-fold CV check; emit borderline flag
+- [x] 3.4 Implement `verdict_critique_node` — LLM review of measured result vs claim, side-effect envelope, rationale-vs-result mismatch, complexity-cost
+- [x] 3.5 Replace `_complexity_penalty` with continuous complexity differential; add simplicity bonus to `rank_score`
+- [x] 3.6 Extend `diagnose.py` with exit-reason histogram, missed-opportunity regions, drawdown trajectory shape, holding-period-vs-PnL histogram
+- [x] 3.7 Add ADR `docs/decisions/00NN-comparative-falsification-variance-aware-epsilon.md`
 
 ## 4. Phase D — Orchestration
 
-- [ ] 4.1 Write `python/strategy_gpt/workflow.py` — assemble `langgraph.graph.StateGraph` over existing pure-fn nodes (diagnose, kb_query, kb_filter, generate_stage{1,2,3}, cheap_critique, build_and_smoke, mini_optimize, mechanical_gate, verdict_critique, rank, select)
-- [ ] 4.2 Define conditional edge `should_continue` after `rank` driving the inner iteration loop
-- [ ] 4.3 Write `python/strategy_gpt/hypothesize.py` — orchestrator entry function `hypothesize(strategy, *, ledger, kb, config, persist=True)`
-- [ ] 4.4 Bootstrap state from `ledger.recent_decisions(strategy=...)`; load or compute baseline-best
-- [ ] 4.5 Wire `persist_decisions` to per-strategy layout including source-blob writes
-- [ ] 4.6 Implement `strategy-gpt hypothesize <strategy>` CLI subcommand with flags `--baseline-from`, `--baseline-defaults`, `--max-backtests`, `--quick`, `--borderline-k`, `--k-candidates`, `--iteration-budget`, `--dry-run`
-- [ ] 4.7 Enforce `--max-backtests` ceiling at iteration start; reject iterations that would exceed budget with clear message
+- [x] 4.1 Write `python/strategy_gpt/workflow.py` — assemble `langgraph.graph.StateGraph` over existing pure-fn nodes (diagnose, kb_query, kb_filter, generate_stage{1,2,3}, cheap_critique, build_and_smoke, mini_optimize, mechanical_gate, verdict_critique, rank, select)
+- [x] 4.2 Define conditional edge `should_continue` after `rank` driving the inner iteration loop
+- [x] 4.3 Write `python/strategy_gpt/hypothesize.py` — orchestrator entry function `hypothesize(strategy, *, ledger, kb, config, persist=True)`
+- [x] 4.4 Bootstrap state from `ledger.recent_decisions(strategy=...)`; load or compute baseline-best
+- [x] 4.5 Wire `persist_decisions` to per-strategy layout including source-blob writes
+- [x] 4.6 Implement `strategy-gpt hypothesize <strategy>` CLI subcommand with flags `--baseline-from`, `--baseline-defaults`, `--max-backtests`, `--quick`, `--borderline-k`, `--k-candidates`, `--iteration-budget`, `--dry-run`
+- [x] 4.7 Enforce `--max-backtests` ceiling at iteration start; reject iterations that would exceed budget with clear message
 
 ## 5. Phase E — Operability
 

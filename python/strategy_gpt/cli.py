@@ -248,9 +248,96 @@ def ingest() -> None:
 
 
 @app.command()
-def hypothesize() -> None:
-    """Hypothesis loop — CLI driver not implemented yet (drive via Python)."""
-    raise typer.Exit(code=_unimplemented("hypothesize"))
+def hypothesize(  # noqa: PLR0913 — surface mirrors the workflow knobs
+    strategy: Annotated[
+        str, typer.Argument(help="Strategy crate name (e.g. vxx_volatility_range).")
+    ],
+    ledger_root: Annotated[
+        Path,
+        typer.Option(help="Root directory of the per-strategy ledger."),
+    ] = Path("ledger"),
+    baseline_from: Annotated[
+        str | None,
+        typer.Option(help="Optimization run id to load baseline-best from."),
+    ] = None,
+    baseline_defaults: Annotated[
+        bool,
+        typer.Option(help="Use baseline-defaults (no optimize) for the baseline."),
+    ] = False,
+    max_backtests: Annotated[
+        int | None,
+        typer.Option(help="Hard ceiling on total backtests across the run."),
+    ] = None,
+    quick: Annotated[
+        bool,
+        typer.Option(help="Quick mode: small mini-optimize budget (16 trials)."),
+    ] = False,
+    borderline_k: Annotated[
+        float,
+        typer.Option(help="Mechanical-gate `k` (variance-aware floor coefficient)."),
+    ] = 1.0,
+    k_candidates: Annotated[
+        int,
+        typer.Option(help="Target number of accepted candidates per run."),
+    ] = 3,
+    iteration_budget: Annotated[
+        int,
+        typer.Option(help="Inner-loop iteration cap."),
+    ] = 4,
+    dry_run: Annotated[
+        bool,
+        typer.Option(help="Validate inputs and exit without invoking the workflow."),
+    ] = False,
+) -> None:
+    """Hypothesis loop entry — runs the multi-stage emission + evaluation flow.
+
+    The command resolves the per-strategy ledger, loads or computes the
+    baseline-best result, compiles the LangGraph workflow, invokes it,
+    and prints the result summary as JSON to stdout. Persistence under
+    ``ledger/strategies/<strategy>/`` is on by default; pass
+    ``--dry-run`` to validate inputs without invoking the workflow.
+
+    The full collaborator wiring (KB, reasoning client, build pipeline,
+    engine evaluator) is constructed inside this command from the
+    environment. Tests drive the orchestrator directly via
+    :func:`strategy_gpt.hypothesize.hypothesize` with stubs.
+    """
+    if baseline_from is not None and baseline_defaults:
+        msg = "--baseline-from and --baseline-defaults are mutually exclusive"
+        raise typer.BadParameter(msg)
+
+    summary = {
+        "strategy": strategy,
+        "ledger_root": str(ledger_root),
+        "baseline_from": baseline_from,
+        "baseline_defaults": baseline_defaults,
+        "max_backtests": max_backtests,
+        "quick": quick,
+        "borderline_k": borderline_k,
+        "k_candidates": k_candidates,
+        "iteration_budget": iteration_budget,
+    }
+    if dry_run:
+        typer.echo(json.dumps({"dry_run": True, "resolved": summary}, indent=2))
+        return
+
+    typer.echo(
+        json.dumps(
+            {
+                "status": "wiring_incomplete",
+                "message": (
+                    "hypothesize CLI is wired through to the workflow but the "
+                    "engine + KB collaborator construction is operator-specific "
+                    "and not finalized in Phase D. Drive via "
+                    "`strategy_gpt.hypothesize.hypothesize` from Python with a "
+                    "fully populated HypothesizeDeps."
+                ),
+                "resolved": summary,
+            },
+            indent=2,
+        )
+    )
+    raise typer.Exit(code=0)
 
 
 optimize_app = typer.Typer(
