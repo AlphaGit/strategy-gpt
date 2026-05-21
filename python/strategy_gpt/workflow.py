@@ -31,10 +31,11 @@ network.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
 
@@ -144,6 +145,8 @@ class HypothesizeState(TypedDict, total=False):
     iteration: int
     backtests_consumed: int
     termination_reason: TerminationReason
+    config: HypothesisLoopConfig
+    max_backtests: int | None
     # in-flight candidate slots — cleared between iterations
     stage1_response: str
     stage1_idea: Stage1Idea
@@ -222,7 +225,7 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
 
 
 def generate_stage1_step(state: HypothesizeState, clients: NodeClients) -> HypothesizeState:
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
 
     def build_prompt() -> Any:  # noqa: ANN401
         return build_stage1_prompt(
@@ -272,7 +275,7 @@ def cheap_critique_step(state: HypothesizeState, _clients: NodeClients) -> Hypot
 def generate_stage2_step(state: HypothesizeState, clients: NodeClients) -> HypothesizeState:
     if state.get("candidate_reject_kind") is not None:
         return {}
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
 
     def build_prompt() -> Any:  # noqa: ANN401
         return build_stage2_prompt(
@@ -307,7 +310,7 @@ def generate_stage2_step(state: HypothesizeState, clients: NodeClients) -> Hypot
 def generate_stage3_step(state: HypothesizeState, clients: NodeClients) -> HypothesizeState:
     if state.get("candidate_reject_kind") is not None:
         return {}
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
     stage2 = state["stage2_parsed"]
 
     def build_prompt() -> Any:  # noqa: ANN401
@@ -370,11 +373,11 @@ def _build_param_intent(stage2: Stage2Commitments) -> ParamIntent:
 def mini_optimize_step(state: HypothesizeState, clients: NodeClients) -> HypothesizeState:
     if state.get("candidate_reject_kind") is not None:
         return {}
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
     trials = getattr(cfg, "mini_optimize_trials", 64)
     folds = len(clients.baseline_per_fold_scores)
     consumed = state.get("backtests_consumed", 0)
-    max_backtests = cast("int | None", state.get("max_backtests"))
+    max_backtests = state.get("max_backtests")
     cost = trials * folds
     if max_backtests is not None and consumed + cost > max_backtests:
         return {
@@ -413,7 +416,7 @@ def mechanical_gate_step(state: HypothesizeState, _clients: NodeClients) -> Hypo
     result = state["candidate_attempt_result"]
     if result is None:
         return {}
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
     gate_cfg = MechanicalGateConfig(
         k=getattr(cfg, "borderline_k", 1.0),
         fold_cv_threshold=getattr(cfg, "fold_cv_threshold", 0.5),
@@ -441,7 +444,7 @@ def verdict_critique_step(state: HypothesizeState, clients: NodeClients) -> Hypo
     result = state["candidate_attempt_result"]
     if result is None:
         return {}
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
     payload = VerdictCritiqueInput(
         candidate_name=state["stage1_idea"].candidate_name,
         stage1_idea=state["stage1_idea"],
@@ -520,7 +523,7 @@ def rank_step(state: HypothesizeState, _clients: NodeClients) -> HypothesizeStat
                     rationale=verdict.rationale if verdict is not None else "accepted",
                     evidence={
                         "attempt_result": attempt.model_dump() if attempt is not None else None,
-                        "gate": gate.__dict__ if gate is not None else None,
+                        "gate": dataclasses.asdict(gate) if gate is not None else None,
                     },
                     accepted_at=now,
                 )
@@ -552,7 +555,7 @@ def rank_step(state: HypothesizeState, _clients: NodeClients) -> HypothesizeStat
 
 
 def select_step(state: HypothesizeState, _clients: NodeClients) -> HypothesizeState:
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
     accepted = list(state.get("accepted", []))[: cfg.target_candidates]
     reason = state.get("termination_reason", TerminationReason.RUNNING)
     if reason is TerminationReason.RUNNING:
@@ -575,14 +578,14 @@ def should_continue(state: HypothesizeState) -> str:
     2. ``budget_exhausted`` — iteration counter or max-backtests limit.
     3. otherwise continue.
     """
-    cfg: HypothesisLoopConfig = state["config"]  # type: ignore[typeddict-item]
+    cfg: HypothesisLoopConfig = state["config"]
     if len(state.get("accepted", [])) >= cfg.target_candidates:
         state["termination_reason"] = TerminationReason.SUFFICIENT_CANDIDATES
         return "select"
     if state.get("iteration", 0) >= cfg.iteration_budget:
         state["termination_reason"] = TerminationReason.BUDGET_EXHAUSTED
         return "select"
-    max_backtests = cast("int | None", state.get("max_backtests"))
+    max_backtests = state.get("max_backtests")
     if max_backtests is not None and state.get("backtests_consumed", 0) >= max_backtests:
         state["termination_reason"] = TerminationReason.BUDGET_EXHAUSTED
         return "select"

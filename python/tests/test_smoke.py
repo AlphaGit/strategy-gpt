@@ -1,10 +1,9 @@
-"""Smoke-run regression test.
+"""Smoke-run regression test for the rewritten hypothesis loop.
 
-Asserts the end-to-end pipeline's recorded summary against the fixture in
-``kb/fixtures/smoke_run.json``. Any change in the pipeline's emitted
-shape — diagnosis fields, hypothesis names, optimizer best, rationale —
-must be reflected in the fixture (run with ``python -m
-strategy_gpt.smoke`` to regenerate).
+Compares the recorded :class:`SmokeReport` against the fixture in
+``kb/fixtures/smoke_run.json``. Any intentional flow change requires
+regenerating the fixture via
+``python -m strategy_gpt.smoke --write kb/fixtures/smoke_run.json``.
 """
 
 from __future__ import annotations
@@ -20,23 +19,20 @@ def _fixture_path() -> Path:
 
 
 def test_smoke_report_matches_fixture() -> None:
-    report = run_smoke()
+    actual = run_smoke().to_json()
     fixture = json.loads(_fixture_path().read_text())
-    actual = report.to_json()
-    # Round optimizer score for comparison stability (fixed inputs, but the
-    # field is a float).
-    actual["optimizer_best_score"] = round(actual["optimizer_best_score"], 6)
-    fixture["optimizer_best_score"] = round(fixture["optimizer_best_score"], 6)
     assert actual == fixture
 
 
 def test_smoke_report_has_expected_shape() -> None:
     report = run_smoke()
-    assert report.diagnosis_summary["trade_count"] == 2
-    assert "low_vol" in report.diagnosis_summary["regime_labels"]
-    assert "high_vol" in report.diagnosis_summary["regime_labels"]
-    assert report.accepted_hypotheses, "expected ≥1 accepted hypothesis"
-    assert "rewrite_entry_logic" in report.rejected_hypotheses
-    assert report.optimizer_trial_count == 12
+    assert report.strategy == "vxx_volatility_range"
     assert report.kb_citation_count == 2
-    assert "Selected parameters" in report.rationale
+    assert report.persisted_decision_count == len(report.accepted_names) + len(
+        report.rejected_names
+    )
+    assert report.accepted_names, "expected at least one accepted candidate"
+    # baseline aggregate is computed from the three-fold baseline scores
+    assert abs(report.baseline_aggregate_score - 1.016667) < 1e-3
+    # winning candidate should beat baseline (mini-optimize peaks at vol_lo=0.008)
+    assert max(report.accepted_aggregate_scores) > report.baseline_aggregate_score

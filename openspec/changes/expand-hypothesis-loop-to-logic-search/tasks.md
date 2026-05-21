@@ -49,15 +49,15 @@
 
 ## 5. Phase E — Operability
 
-- [ ] 5.1 Implement hypothesize-run replay command (`strategy-gpt hypothesis replay <decision_id>`) reconstructing files from source blobs → build → mini-optimize → compare to stored evidence
-- [ ] 5.2 Implement `strategy-gpt hypothesis diff <decision_id>` rendering unified diff between candidate files and `baseline_files_hash` blobs
-- [ ] 5.3 Rewrite `python/strategy_gpt/smoke.py` to drive the full new flow end-to-end with stubbed LLM responses; preserve deterministic golden fixture
-- [ ] 5.4 Update CI byte-identity smoke check to cover the new flow
-- [ ] 5.5 Update `python/tests/test_hypothesis_loop.py` for new state shape, multi-stage emission, repair loop, mechanical gate, verdict-critique
-- [ ] 5.6 Add `python/tests/test_workflow_stategraph.py` validating real LangGraph wiring (edges, conditional edges, resumable state)
-- [ ] 5.7 Add `python/tests/test_markdown_io.py`, `python/tests/test_kb_filter.py`, `python/tests/test_mechanical_gate.py`
-- [ ] 5.8 Author `docs/how-to/run-hypothesize.md` (operator-facing)
-- [ ] 5.9 Author `docs/reference/hypothesize-cli.md` (flags + exit codes + output JSON shape)
-- [ ] 5.10 Author `docs/explanation/hypothesize-loop.md` extracted from `design.md` (durable explanation outside the archived change folder)
-- [ ] 5.11 Land all four ADRs from earlier phases under `docs/decisions/`
-- [ ] 5.12 Run `make lint` + `make test` clean; verify `make docs-serve` renders new pages
+- [x] 5.1 Implement hypothesize-run replay command (`strategy-gpt hypothesis replay <decision_id>`) reconstructing files from source blobs → build → mini-optimize → compare to stored evidence
+- [x] 5.2 Implement `strategy-gpt hypothesis diff <decision_id>` rendering unified diff between candidate files and `baseline_files_hash` blobs
+- [x] 5.3 Rewrite `python/strategy_gpt/smoke.py` to drive the full new flow end-to-end with stubbed LLM responses; preserve deterministic golden fixture
+- [x] 5.4 Update CI byte-identity smoke check to cover the new flow
+- [x] 5.5 Update `python/tests/test_hypothesis_loop.py` for new state shape, multi-stage emission, repair loop, mechanical gate, verdict-critique
+- [x] 5.6 Add `python/tests/test_workflow_stategraph.py` validating real LangGraph wiring (edges, conditional edges, resumable state)
+- [x] 5.7 Add `python/tests/test_markdown_io.py`, `python/tests/test_kb_filter.py`, `python/tests/test_mechanical_gate.py`
+- [x] 5.8 Author `docs/how-to/run-hypothesize.md` (operator-facing)
+- [x] 5.9 Author `docs/reference/hypothesize-cli.md` (flags + exit codes + output JSON shape)
+- [x] 5.10 Author `docs/explanation/hypothesize-loop.md` extracted from `design.md` (durable explanation outside the archived change folder)
+- [x] 5.11 Land all four ADRs from earlier phases under `docs/decisions/`
+- [x] 5.12 Run `make lint` + `make test` clean; verify `make docs-serve` renders new pages

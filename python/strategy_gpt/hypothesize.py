@@ -389,7 +389,7 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
         "iteration": 0,
         "backtests_consumed": 0,
         "termination_reason": TerminationReason.RUNNING,
-        "config": config,  # type: ignore[typeddict-unknown-key]
+        "config": config,
         "max_backtests": max_backtests,
     }
 

@@ -70,7 +70,8 @@ jobs:
           import json
           ref = json.loads(Path('../kb/fixtures/smoke_run.json').read_text())
           got = run_smoke().to_json()
-          ref['optimizer_best_score'] = round(ref['optimizer_best_score'], 6)
-          got['optimizer_best_score'] = round(got['optimizer_best_score'], 6)
-          assert ref == got, 'smoke fixture drifted; regenerate via strategy_gpt.smoke.run_smoke'
+          assert ref == got, (
+              'smoke fixture drifted; regenerate via '
+              'python -m strategy_gpt.smoke --write kb/fixtures/smoke_run.json'
+          )
           "

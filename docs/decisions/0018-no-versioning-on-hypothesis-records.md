@@ -2,7 +2,7 @@
 
 ## Context
 
-The `engine-rt` crate exposes a [`RunnerVersion`](../../crates/engine-rt/src/version.rs)
+The `engine-rt` crate exposes a `RunnerVersion`
 that backtest run records pin (see `RunRecord` in the experiment ledger). Run
 records need this because byte-identical replay of a backtest must execute
 against the same ABI; the engine worker refuses to load a `cdylib` whose
@@ -26,7 +26,7 @@ replay is required.
 ## Decision
 
 `HypothesisRecord` does **not** carry a `runner_version` field. The current
-[`crates/engine-rt/src/version.rs`](../../crates/engine-rt/src/version.rs)
+`crates/engine-rt/src/version.rs`
 remains the live ABI version for the run side, but hypothesis records simply
 record what the LLM proposed.
 

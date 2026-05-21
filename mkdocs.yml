@@ -86,16 +86,19 @@ nav:
       - how-to/index.md
       - CLI cookbook: how-to/cli-cookbook.md
       - Interpret PBO rejection: how-to/interpret-pbo-rejection.md
+      - Run the hypothesize loop: how-to/run-hypothesize.md
   - Reference:
       - reference/index.md
       - Experiment spec: reference/experiment-spec.md
       - Batch spec (internal): reference/batch-spec.md
       - Objective spec: reference/objective-spec.md
+      - hypothesize CLI: reference/hypothesize-cli.md
   - Explanation:
       - explanation/index.md
       - Domain vocabulary: explanation/domain-vocabulary.md
       - Architecture: explanation/architecture.md
       - Overfitting & selection: explanation/overfitting-and-selection.md
+      - The hypothesize loop: explanation/hypothesize-loop.md
       - Methodology page template: explanation/methodology-page-template.md
       - Bibliography: explanation/bibliography.md
   - Decisions:
@@ -116,3 +119,8 @@ nav:
       - 0013 Rust 1.82 pin: decisions/0013-rust-toolchain-pin-1-82.md
       - 0014 Lint stance: decisions/0014-lint-stance.md
       - 0015 Docs platform: decisions/0015-docs-platform-mkdocs-mike-pages.md
+      - 0016 PROMPT_API.md authoritative LLM context: decisions/0016-prompt-api-md-authoritative-llm-context.md
+      - 0017 Per-strategy storage layout: decisions/0017-per-strategy-storage-layout.md
+      - 0018 No versioning on hypothesis records: decisions/0018-no-versioning-on-hypothesis-records.md
+      - 0019 Multi-stage LLM emission: decisions/0019-multi-stage-llm-emission.md
+      - 0020 Comparative falsification variance-aware epsilon: decisions/0020-comparative-falsification-variance-aware-epsilon.md

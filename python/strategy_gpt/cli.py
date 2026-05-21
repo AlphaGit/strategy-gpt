@@ -22,9 +22,16 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
+
+if TYPE_CHECKING:
+    from .per_strategy_ledger import (
+        DecisionRecordV2,
+        HypothesisRecordV2,
+        PerStrategyLedger,
+    )
 import yaml
 from pydantic import TypeAdapter
 
@@ -338,6 +345,155 @@ def hypothesize(  # noqa: PLR0913 — surface mirrors the workflow knobs
         )
     )
     raise typer.Exit(code=0)
+
+
+hypothesis_app = typer.Typer(
+    help="Hypothesis-loop replay/diff commands over the per-strategy ledger.",
+    invoke_without_command=False,
+    no_args_is_help=True,
+)
+app.add_typer(hypothesis_app, name="hypothesis")
+
+
+def _find_decision_record(
+    ledger_root: Path,
+    strategy: str | None,
+    decision_id: str,
+) -> tuple[str, PerStrategyLedger, DecisionRecordV2, HypothesisRecordV2]:
+    """Locate ``decision_id`` under ``ledger_root``.
+
+    When ``strategy`` is given the lookup is scoped to that subfolder;
+    otherwise every strategy under ``ledger/strategies/`` is scanned.
+    Returns ``(strategy, ledger, decision, hypothesis)``.
+    """
+    from .per_strategy_ledger import (  # noqa: PLC0415 — heavy import, defer to CLI
+        PerStrategyLedger,
+    )
+
+    candidates: list[str]
+    if strategy is not None:
+        candidates = [strategy]
+    else:
+        strategies_dir = ledger_root / "strategies"
+        if not strategies_dir.is_dir():
+            msg = f"no per-strategy ledger under {strategies_dir}"
+            raise typer.BadParameter(msg)
+        candidates = sorted(p.name for p in strategies_dir.iterdir() if p.is_dir())
+
+    for name in candidates:
+        ledger = PerStrategyLedger(ledger_root, name)
+        decision: DecisionRecordV2 | None = next(
+            (d for d in ledger.decisions_iter() if d.id == decision_id),
+            None,
+        )
+        if decision is None:
+            continue
+        hypothesis: HypothesisRecordV2 | None = next(
+            (h for h in ledger.hypotheses_iter() if h.id == decision.hypothesis_id),
+            None,
+        )
+        if hypothesis is None:
+            msg = (
+                f"decision {decision_id} found in strategy {name!r} but its "
+                f"hypothesis row {decision.hypothesis_id!r} is missing"
+            )
+            raise typer.BadParameter(msg)
+        return name, ledger, decision, hypothesis
+
+    scanned = ", ".join(candidates)
+    msg = f"decision_id {decision_id!r} not found (scanned: {scanned})"
+    raise typer.BadParameter(msg)
+
+
+@hypothesis_app.command("replay")
+def hypothesis_replay(
+    decision_id: Annotated[str, typer.Argument(help="DecisionRecord id to replay.")],
+    ledger_root: Annotated[Path, typer.Option(help="Per-strategy ledger root.")] = Path("ledger"),
+    strategy: Annotated[
+        str | None,
+        typer.Option(help="Optional strategy name; auto-scans all strategies if omitted."),
+    ] = None,
+) -> None:
+    """Reconstruct a recorded candidate's files from source blobs.
+
+    Loads the candidate's stage-3 source bundle from
+    ``ledger/strategies/<strategy>/sources/<files_set_hash>/`` and
+    prints a summary that downstream replay tooling (build + mini-
+    optimize) consumes. Full mini-optimize replay needs the
+    operator-specific engine + KB collaborators (`HypothesizeDeps`);
+    those are constructed in Python, not the CLI.
+    """
+    name, ledger, decision, hypothesis = _find_decision_record(ledger_root, strategy, decision_id)
+    files_set_hash = decision.evidence.get("files_set_hash", "") or hypothesis.baseline_files_hash
+    try:
+        files = ledger.read_source_set(files_set_hash) if files_set_hash else {}
+    except FileNotFoundError as e:
+        raise typer.BadParameter(str(e)) from e
+    summary = {
+        "strategy": name,
+        "decision_id": decision_id,
+        "hypothesis_id": hypothesis.id,
+        "candidate_name": hypothesis.candidate_name,
+        "outcome": decision.outcome.kind,
+        "stage": decision.outcome.stage,
+        "files_set_hash": files_set_hash,
+        "files_in_bundle": sorted(files.keys()),
+        "n_files": len(files),
+        "param_intent_added": [a.name for a in hypothesis.param_intent.added],
+        "param_intent_kept": list(hypothesis.param_intent.kept),
+        "param_intent_removed": list(hypothesis.param_intent.removed),
+        "falsification_primary": hypothesis.falsification.primary.model_dump(),
+    }
+    typer.echo(json.dumps(summary, indent=2, default=str))
+
+
+@hypothesis_app.command("diff")
+def hypothesis_diff(
+    decision_id: Annotated[str, typer.Argument(help="DecisionRecord id to diff.")],
+    ledger_root: Annotated[Path, typer.Option(help="Per-strategy ledger root.")] = Path("ledger"),
+    strategy: Annotated[
+        str | None,
+        typer.Option(help="Optional strategy name; auto-scans all strategies if omitted."),
+    ] = None,
+) -> None:
+    """Render unified diff between a candidate's files and the baseline source bundle.
+
+    The candidate's source set hash is recorded on the decision evidence
+    (``files_set_hash``); the baseline bundle hash is on the hypothesis
+    record (``baseline_files_hash``). Both bundles are reconstructed
+    from the per-strategy source store; ``difflib.unified_diff`` is
+    rendered per file. Files present in one bundle and not the other
+    are reported as full add/delete diffs.
+    """
+    import difflib  # noqa: PLC0415 — only the diff command needs it
+
+    name, ledger, decision, hypothesis = _find_decision_record(ledger_root, strategy, decision_id)
+    candidate_hash = decision.evidence.get("files_set_hash", "")
+    baseline_hash = hypothesis.baseline_files_hash
+    try:
+        candidate_files = ledger.read_source_set(candidate_hash) if candidate_hash else {}
+        baseline_files = ledger.read_source_set(baseline_hash) if baseline_hash else {}
+    except FileNotFoundError as e:
+        raise typer.BadParameter(str(e)) from e
+
+    paths = sorted(set(candidate_files) | set(baseline_files))
+    typer.echo(
+        f"# strategy={name} decision_id={decision_id} "
+        f"candidate={candidate_hash[:12] or 'EMPTY'} "
+        f"baseline={baseline_hash[:12] or 'EMPTY'}"
+    )
+    for path in paths:
+        base_text = baseline_files.get(path, "")
+        cand_text = candidate_files.get(path, "")
+        diff = difflib.unified_diff(
+            base_text.splitlines(keepends=True),
+            cand_text.splitlines(keepends=True),
+            fromfile=f"baseline/{path}",
+            tofile=f"candidate/{path}",
+        )
+        text = "".join(diff)
+        if text:
+            typer.echo(text, nl=False)
 
 
 optimize_app = typer.Typer(
