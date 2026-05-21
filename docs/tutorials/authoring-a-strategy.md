@@ -6,8 +6,9 @@ Implement a new strategy as a `cdylib` Rust crate against the sealed `Strategy` 
 
 ## Prerequisites
 
-- You have completed [Your first backtest](first-backtest.md). The orchestrator, the worker binary, and the cache root all exist and work.
-- A Rust toolchain matching `rust-toolchain.toml`.
+- A working clone of `strategy-gpt`.
+- A Rust toolchain matching `rust-toolchain.toml` (1.82.0).
+- Python 3.11+ with `pip` and a venv (used to install the orchestrator that drives the engine worker).
 - Familiarity with the lifecycle and `Context` API in `crates/engine-rt/PROMPT_API.md` (the same document the hypothesis loop hands to the LLM). Open it alongside this page.
 
 ## Walkthrough
@@ -259,4 +260,4 @@ You wrote a new strategy crate from `example-strategy`, declared its parameters 
 - **Reference** — [`experiment-spec`](../reference/experiment-spec.md): the full schema of the YAML you wrote, including the `modes` axis (`Slippage`, `Sensitivity`) and `folds`.
 - **Explanation** — [Architecture](../explanation/architecture.md): why the strategy crate runs in a worker subprocess and how it crosses the trust boundary.
 - **Decision** — [ADR 0006 — Sealed `Strategy` trait](../decisions/0006-sealed-strategy-trait.md): the rationale behind the sealed-trait shape you just implemented.
-- **Tutorial** — [Running an optimization](running-an-optimization.md): sweep your `lookback` parameter across folds and pick the OOS winner.
+- **Tutorial** — [Your first backtest](first-backtest.md): run the bundled VXX reference strategy end-to-end and read the resulting `BacktestResult`.

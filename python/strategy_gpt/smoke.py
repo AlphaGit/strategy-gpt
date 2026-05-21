@@ -15,9 +15,10 @@ exercised by `test_tester_native.py` / `test_kb_native.py`.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -371,16 +372,35 @@ def _baseline_files() -> dict[str, str]:
 _STRATEGY = "vxx_volatility_range"
 
 
-def run_smoke(*, write_fixture_to: Path | None = None) -> SmokeReport:
+@contextlib.contextmanager
+def _resolve_ledger_root(ledger_root: Path | None) -> Iterator[Path]:
+    """Yield a ledger root. Temp dir when ``None``, caller path otherwise."""
+    if ledger_root is None:
+        with tempfile.TemporaryDirectory(prefix="smoke-ledger-") as tmp:
+            yield Path(tmp)
+    else:
+        ledger_root.mkdir(parents=True, exist_ok=True)
+        yield ledger_root
+
+
+def run_smoke(
+    *,
+    write_fixture_to: Path | None = None,
+    ledger_root: Path | None = None,
+) -> SmokeReport:
     """Drive the rewritten hypothesis loop once and return a recorded report.
 
-    Persists artifacts to an in-process tmpdir so the run leaves no
-    on-disk footprint; ``persisted_decision_count`` confirms the
-    persistence layer wrote the expected rows.
+    When ``ledger_root`` is ``None`` (default) the per-strategy ledger is
+    persisted to a tempdir that is removed on return — the smoke run
+    leaves no on-disk footprint. Pass an explicit ``ledger_root`` to
+    keep the recorded ``HypothesisRecordV2``/``DecisionRecordV2`` rows
+    plus the stage source bundle under
+    ``<ledger_root>/strategies/<strategy>/``; downstream
+    ``strategy-gpt hypothesis replay`` / ``hypothesis diff`` commands
+    read from that layout.
     """
-    with tempfile.TemporaryDirectory(prefix="smoke-ledger-") as tmp:
-        ledger_root = Path(tmp)
-        ledger = PerStrategyLedger(ledger_root, _STRATEGY)
+    with _resolve_ledger_root(ledger_root) as root:
+        ledger = PerStrategyLedger(root, _STRATEGY)
         baseline = _toy_baseline_result()
         baseline_files = _baseline_files()
         baseline_per_fold = [1.0, 1.05, 1.0]
@@ -430,6 +450,12 @@ def run_smoke(*, write_fixture_to: Path | None = None) -> SmokeReport:
             max_backtests=200,
         )
 
+        # Persist the baseline source bundle so ``hypothesis diff`` has
+        # something to diff against. ``hypothesize`` only writes it on
+        # baseline-best cache miss; for the smoke run we want the bundle
+        # on disk regardless so the tutorial replay path is reproducible.
+        ledger.write_source_set(baseline_files)
+
         accepted_scores: list[float] = []
         for accepted in result.accepted:
             evidence = accepted.evidence or {}
@@ -461,8 +487,18 @@ def _main() -> None:
 
     parser = argparse.ArgumentParser(description="Run the hypothesis-loop smoke")
     parser.add_argument("--write", type=Path, default=None, help="Write the JSON fixture here")
+    parser.add_argument(
+        "--ledger-root",
+        type=Path,
+        default=None,
+        help=(
+            "Persist the per-strategy ledger under this root "
+            "(strategies/<strategy>/...) so replay/diff commands can read it. "
+            "Default: ephemeral tempdir."
+        ),
+    )
     args = parser.parse_args()
-    report = run_smoke(write_fixture_to=args.write)
+    report = run_smoke(write_fixture_to=args.write, ledger_root=args.ledger_root)
     print(json.dumps(report.to_json(), indent=2, sort_keys=True))
 
 

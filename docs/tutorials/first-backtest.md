@@ -164,4 +164,4 @@ You exercised the full single-run path: Python orchestrator (`strategy-gpt run`)
 - **Reference** — [`experiment-spec`](../reference/experiment-spec.md): every field on the YAML you just wrote, including `bars.dataset` (cache-only) and the `modes` axis.
 - **Reference** — [`BacktestResult`](../reference/batch-spec.md): the full output schema, including `signals`, `equity`, `exec_log`, `regimes`.
 - **Explanation** — [Architecture](../explanation/architecture.md): the orchestrator/Rust/worker split you just ran through, and why the trust boundaries are where they are.
-- **Tutorial** — [Authoring a strategy](authoring-a-strategy.md): write your own strategy cdylib against the sealed `Strategy` trait.
+- **Tutorial** — [Walking the hypothesize loop](hypothesize-loop.md): drive the `hypothesize`, `hypothesis replay`, and `hypothesis diff` CLI surface against an in-repo fixture ledger.

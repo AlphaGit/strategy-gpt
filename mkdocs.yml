@@ -82,8 +82,9 @@ nav:
   - For engineers: for-engineers/index.md
   - Tutorials:
       - tutorials/index.md
-      - Your first backtest: tutorials/first-backtest.md
       - Authoring a strategy: tutorials/authoring-a-strategy.md
+      - Your first backtest: tutorials/first-backtest.md
+      - Walking the hypothesize loop: tutorials/hypothesize-loop.md
       - Running an optimization: tutorials/running-an-optimization.md
   - How-to:
       - how-to/index.md
