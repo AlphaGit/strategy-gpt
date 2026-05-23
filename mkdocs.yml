@@ -82,13 +82,14 @@ nav:
   - For engineers: for-engineers/index.md
   - Tutorials:
       - tutorials/index.md
-      - Authoring a strategy: tutorials/authoring-a-strategy.md
       - Your first backtest: tutorials/first-backtest.md
+      - Author a strategy: tutorials/author-a-strategy.md
       - Walking the hypothesize loop: tutorials/hypothesize-loop.md
       - Running an optimization: tutorials/running-an-optimization.md
   - How-to:
       - how-to/index.md
       - CLI cookbook: how-to/cli-cookbook.md
+      - Author a strategy: how-to/author-a-strategy.md
       - Interpret PBO rejection: how-to/interpret-pbo-rejection.md
       - Run the hypothesize loop: how-to/run-hypothesize.md
   - Reference:
@@ -100,6 +101,7 @@ nav:
   - Explanation:
       - explanation/index.md
       - Domain vocabulary: explanation/domain-vocabulary.md
+      - Hand-authoring a strategy: explanation/hand-authoring-a-strategy.md
       - Architecture: explanation/architecture.md
       - Overfitting & selection: explanation/overfitting-and-selection.md
       - The hypothesize loop: explanation/hypothesize-loop.md

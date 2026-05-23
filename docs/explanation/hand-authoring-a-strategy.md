@@ -1,8 +1,10 @@
-# Authoring a strategy
+# Hand-authoring a strategy
+
+> **Engineer-targeted reference.** The default path for creating a strategy is [`strategy-gpt author`](../tutorials/author-a-strategy.md) — an interactive LLM dialog that emits a working crate in minutes. This page is the deep dive on the trait surface the LLM is targeting when it does that. Read it when you are extending the trait surface, debugging an author-emitted crate, or contributing to the engine. If you just want to ship a strategy, follow the [author tutorial](../tutorials/author-a-strategy.md) and come back here when you need to know what's underneath.
 
 ## Learning goal
 
-Implement a new strategy as a `cdylib` Rust crate against the sealed `Strategy` trait, build it through the workspace, and run it through the engine end-to-end.
+Implement a new strategy as a `cdylib` Rust crate against the sealed `Strategy` trait, build it through the workspace, and run it through the engine end-to-end — the same path the LLM-driven author command walks programmatically.
 
 ## Prerequisites
 
@@ -256,8 +258,9 @@ You wrote a new strategy crate from `example-strategy`, declared its parameters 
 
 ## What next
 
+- **Tutorial** — [Author a strategy](../tutorials/author-a-strategy.md): the recommended default path. Drive `strategy-gpt author` against a natural-language seed and watch the LLM emit the same shape of crate you just hand-wrote.
 - **Reference** — [`crates/engine-rt/PROMPT_API.md`](https://github.com/AlphaGit/strategy-gpt/blob/main/crates/engine-rt/PROMPT_API.md): the authoritative lifecycle + `Context` surface. Read end-to-end before adding indicators, state, or `submit_order` complications.
 - **Reference** — [`experiment-spec`](../reference/experiment-spec.md): the full schema of the YAML you wrote, including the `modes` axis (`Slippage`, `Sensitivity`) and `folds`.
-- **Explanation** — [Architecture](../explanation/architecture.md): why the strategy crate runs in a worker subprocess and how it crosses the trust boundary.
+- **Explanation** — [Architecture](architecture.md): why the strategy crate runs in a worker subprocess and how it crosses the trust boundary.
 - **Decision** — [ADR 0006 — Sealed `Strategy` trait](../decisions/0006-sealed-strategy-trait.md): the rationale behind the sealed-trait shape you just implemented.
-- **Tutorial** — [Your first backtest](first-backtest.md): run the bundled VXX reference strategy end-to-end and read the resulting `BacktestResult`.
+- **Tutorial** — [Your first backtest](../tutorials/first-backtest.md): run the bundled VXX reference strategy end-to-end and read the resulting `BacktestResult`.

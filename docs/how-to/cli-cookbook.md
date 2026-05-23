@@ -198,6 +198,66 @@ Add more entries to the spec's `runs:` list. The engine compiles once and fans o
 
 ---
 
+## Author a strategy
+
+`strategy-gpt author` is the root primitive for creating a new strategy. It drives an interactive LLM dialog to elicit a structured intent, then emits, builds, and smoke-tests a working `cdylib` under `crates/<name>-strategy/`.
+
+### Prerequisites
+
+`ANTHROPIC_API_KEY` or `OPENAI_API_KEY` must be set in the environment. The workspace should be built once (`cd crates && cargo check --workspace`) and the Python orchestrator installed (`pip install -e 'python/[dev]'` + `maturin develop -m crates/py-bindings/Cargo.toml`).
+
+### Invoke with a seed
+
+```bash
+strategy-gpt author "trend-follow SPY with ATR stops, daily bars"
+```
+
+The LLM opens with the seed and asks one focused clarifying question per turn until it has enough to commit to an `AuthorIntent`. Then it emits `Cargo.toml` + `src/lib.rs` + `smoke.toml` into `crates/<name>-strategy/`, runs `cargo build`, fetches bars, and runs a smoke backtest. On success the command prints a JSON envelope with the crate path and a next-step hint.
+
+### Invoke with no seed
+
+```bash
+strategy-gpt author
+```
+
+The first dialog turn asks what you want to author. Everything else is the same.
+
+### Edit an existing crate
+
+Re-run `author` against the same name. The dialog detects the name collision, asks `edit` or rename, and on `edit` loads the existing `intent.toml`, `src/lib.rs`, `Cargo.toml`, and `smoke.toml` into context so subsequent emissions are framed as modifications. There is no `--edit` flag.
+
+### Verify against the full walk-forward batch
+
+```bash
+strategy-gpt author "vol-target SPY" --verify=batch
+```
+
+After the smoke run, the engine runs the full batch declared in the emitted `experiment.yaml`. A failed fold pops control back to the dialog; the crate stays on disk for inspection.
+
+### Tune the repair budget
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--k-repair-emit N`  | `2` | Repair attempts the emit/build/smoke stage gets. `k_repair=2` = 3 total attempts. |
+| `--k-repair-build N` | `2` | Repair attempts the build sub-stage gets within an emit attempt. |
+| `--model <name>`     | env-resolved | Override the reasoning model (e.g. `claude-sonnet-4-6`, `o3`). |
+| `--crates-dir PATH`  | `crates` | Workspace crates directory. |
+| `--cache-root PATH`  | `cache/builds` | Build pipeline cache root. |
+
+### Troubleshooting
+
+- **`author run aborted: ... emit stage exhausted repair budget`** — the LLM could not get the crate to compile + smoke-pass within the budget. Re-run with the same name to re-enter the dialog (edit-mode) and adjust the intent: expand the smoke window, swap the mechanism, or drop the offending sub-feature.
+- **`crate <X> is not in the allowed-crate whitelist`** in build feedback — the LLM emitted a dep outside `crates/build-pipeline/whitelist.toml`. The repair loop usually fixes this on the next attempt. If the crate is genuinely needed, an operator adds it to the whitelist (out-of-band) and re-runs author.
+- **`smoke_failed: no_trades`** — the emitted strategy compiled and ran without panic but did not place any simulated trades over the smoke window. The dialog will likely propose loosening an entry filter or extending the window; you can also propose either directly when control returns to the dialog.
+- **`smoke_failed: timeout`** — the smoke backtest exceeded the default 60s budget. The smoke window is probably too large or the strategy is doing per-bar `O(n²)` work; have the LLM emit a tighter window and a more direct implementation.
+
+### See also
+
+- **Tutorial** — [Author a strategy](../tutorials/author-a-strategy.md): end-to-end walkthrough from a NL seed.
+- **How-to** — [Author a strategy](author-a-strategy.md): task-oriented recipe page with deeper coverage of edit-mode and `--verify=batch`.
+
+---
+
 ## Hypothesis loop — propose, test, decide
 
 ### What is the hypothesis loop?
