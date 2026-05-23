@@ -19,13 +19,23 @@ import json
 import re
 import tomllib
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from .author_decisions import (
+    DecisionAmended,
+    DecisionField,
+    DecisionLocked,
+    DecisionRecord,
+    DialogStarted,
+    IntentFinalized,
+    decision_record_path_for,
+)
 from .build_pipeline import BuildFailure, ManifestDep, StrategyManifest, _BuildPipelineLike
 from .markdown_io import ParseError, parse_stage3
 from .repair import RepairConfig, ValidationOutcome, run_stage_with_repair
@@ -140,6 +150,15 @@ class AuthorDeps:
     crates_dir: Path
     repair_config_emit: RepairConfig = field(default_factory=lambda: RepairConfig(k_repair=2))
     repair_config_build: RepairConfig = field(default_factory=lambda: RepairConfig(k_repair=2))
+    decision_record_path: Path | None = None
+    """Path to a :class:`DecisionRecord` for the run, when one is open.
+
+    Set by the CLI after :func:`run_intent_dialog` opens the record so
+    ``author_strategy`` can append events of its own (e.g.,
+    ``repair_budget_exhausted``). Library callers that bypass the dialog
+    can leave this unset; ``author_strategy`` will then not record
+    anything beyond what it already does today.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -159,20 +178,32 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
     *,
     reasoning_client: AuthorReasoningClient,
     crates_dir: Path,
+    model_name: str = "unknown",
+    on_record_ready: Callable[[DecisionRecord], None] | None = None,
     ask_user: Callable[[str], str] = input,
     write_user: Callable[[str], None] = print,
     max_turns: int = 12,
 ) -> AuthorIntent:
     """Drive the clarifying-question dialog until the LLM emits an intent.
 
-    The first turn carries the optional NL seed. The LLM either asks a
-    clarifying question (free-form prose) or commits to the final intent
-    by emitting a ``# AuthorIntent`` YAML section. When edit-mode is
-    detected (the proposed name matches an existing crate), the baseline
-    artifact files are loaded into the next turn's transcript and the
-    LLM is told to frame subsequent emissions as modifications.
+    The first turn carries the optional NL seed. Every LLM turn MUST
+    include a ``# DecisionsSoFar`` block whose YAML body lists the
+    currently-locked decisions; the driver diffs that block against the
+    persisted :class:`DecisionRecord` and appends typed events for any
+    new locks or amendments. When the LLM finally emits an ``# AuthorIntent``
+    block, an :class:`IntentFinalized` event is appended.
+
+    The DecisionRecord cannot be opened until the operator and the LLM
+    agree on a crate name (the file lives under that crate's directory),
+    so any decisions surfaced before the first ``crate_name`` lands are
+    buffered in memory and flushed once the path is known. ``on_record_ready``
+    fires the moment the record is opened so the CLI can pass it to
+    ``author_strategy`` via :class:`AuthorDeps`.
     """
-    from .prompts_author import build_dialog_system_prompt  # noqa: PLC0415 — avoid import cycle
+    from .prompts_author import (  # noqa: PLC0415 — avoid import cycle
+        build_dialog_system_prompt,
+        format_decisions_for_prompt,
+    )
 
     system = build_dialog_system_prompt(crates_dir=crates_dir)
     transcript: list[dict[str, str]] = []
@@ -184,24 +215,170 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
             {"role": "user", "content": "(no seed supplied; ask what I want to author)"}
         )
 
+    record: DecisionRecord | None = None
+    pending: dict[str, Any] = {}  # decisions surfaced before crate_name landed
+
     for _ in range(max_turns):
         response = reasoning_client.dialog_turn(system=system, transcript=transcript)
         transcript.append({"role": "assistant", "content": response})
+
+        record, pending = _ingest_decisions(
+            response=response,
+            record=record,
+            pending=pending,
+            crates_dir=crates_dir,
+            seed=seed_text or None,
+            model_name=model_name,
+            on_record_ready=on_record_ready,
+        )
 
         intent_block = _extract_intent_block(response)
         if intent_block is not None:
             intent = _parse_intent_block(intent_block)
             intent = _maybe_attach_baseline(intent, crates_dir, transcript, ask_user, write_user)
+            if record is not None:
+                record.append(
+                    IntentFinalized(timestamp=_now_iso(), intent=_intent_to_dict(intent))
+                )
             return intent
 
         # Plain conversational turn: surface the assistant text and read
-        # the user's reply.
+        # the user's reply. Inject the current decisions projection so a
+        # compacted chat history does not lose the locked-in state.
         write_user(response)
         reply = ask_user("> ")
-        transcript.append({"role": "user", "content": reply})
+        projection = record.project() if record is not None else dict(pending)
+        decisions_section = format_decisions_for_prompt(projection)
+        next_content = f"{reply}\n\n{decisions_section}" if decisions_section else reply
+        transcript.append({"role": "user", "content": next_content})
 
     msg = f"dialog exceeded {max_turns} turns without producing an AuthorIntent"
     raise DialogError(msg)
+
+
+def _now_iso() -> str:
+    """Return an ISO-8601 UTC timestamp suitable for event records."""
+    return datetime.now(UTC).isoformat()
+
+
+_DECISIONS_HEADER = "# DecisionsSoFar"
+_DECISION_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "crate_name",
+        "universe",
+        "mechanism_summary",
+        "param_sketch",
+        "smoke_spec",
+        "experiment_spec",
+        "edit_mode_target",
+    }
+)
+
+
+def _extract_decisions_block(text: str) -> dict[str, Any] | None:
+    """Parse the YAML body under ``# DecisionsSoFar`` from an LLM response."""
+    if _DECISIONS_HEADER not in text:
+        return None
+    idx = text.index(_DECISIONS_HEADER) + len(_DECISIONS_HEADER)
+    tail = text[idx:]
+    match = _INTENT_FENCE_RE.search(tail)
+    body = match.group(1).strip() if match is not None else tail.strip()
+    try:
+        data = yaml.safe_load(body)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {k: v for k, v in data.items() if k in _DECISION_FIELD_NAMES}
+
+
+def _ingest_decisions(  # noqa: PLR0913 — driver helper takes the driver's surface
+    *,
+    response: str,
+    record: DecisionRecord | None,
+    pending: dict[str, Any],
+    crates_dir: Path,
+    seed: str | None,
+    model_name: str,
+    on_record_ready: Callable[[DecisionRecord], None] | None,
+) -> tuple[DecisionRecord | None, dict[str, Any]]:
+    """Parse ``# DecisionsSoFar`` and append events to the record.
+
+    Returns the (possibly-newly-opened) record and the updated pending
+    dict. Pending decisions are flushed to the record once the first
+    ``crate_name`` lands (the file lives under that crate's directory).
+    """
+    block = _extract_decisions_block(response)
+    if block is None:
+        return record, pending
+
+    if record is None:
+        new_pending = {**pending, **block}
+        if "crate_name" in new_pending:
+            crate_name = new_pending["crate_name"]
+            rec_path = decision_record_path_for(crate_dir_for(crates_dir, crate_name))
+            record = DecisionRecord.open(rec_path)
+            record.append(
+                DialogStarted(timestamp=_now_iso(), seed=seed, model=model_name)
+            )
+            for field_name in _ORDERED_FIELDS:
+                if field_name in new_pending:
+                    record.append(
+                        DecisionLocked(
+                            timestamp=_now_iso(),
+                            field=field_name,
+                            value=new_pending[field_name],
+                        )
+                    )
+            if on_record_ready is not None:
+                on_record_ready(record)
+            return record, {}
+        return record, new_pending
+
+    current = record.project()
+    for raw_field, value in block.items():
+        diff_field = cast(DecisionField, raw_field)  # validated by _extract_decisions_block
+        if diff_field not in current:
+            record.append(
+                DecisionLocked(timestamp=_now_iso(), field=diff_field, value=value)
+            )
+        elif current[diff_field] != value:
+            record.append(
+                DecisionAmended(
+                    timestamp=_now_iso(),
+                    field=diff_field,
+                    old_value=current[diff_field],
+                    new_value=value,
+                )
+            )
+    return record, pending
+
+
+_ORDERED_FIELDS: tuple[DecisionField, ...] = (
+    "crate_name",
+    "edit_mode_target",
+    "universe",
+    "mechanism_summary",
+    "param_sketch",
+    "smoke_spec",
+    "experiment_spec",
+)
+
+
+def _intent_to_dict(intent: AuthorIntent) -> dict[str, Any]:
+    """Render an :class:`AuthorIntent` as a JSON-friendly dict."""
+    data = asdict(intent)
+    smoke = intent.smoke_spec
+    data["smoke_spec"] = {
+        "symbol": smoke.symbol,
+        "resolution": smoke.resolution,
+        "start": smoke.start,
+        "end": smoke.end,
+        "provider": smoke.provider,
+    }
+    if intent.baseline_crate is not None:
+        data["baseline_crate"] = str(intent.baseline_crate)
+    return data
 
 
 _INTENT_FENCE_RE = re.compile(r"```(?:yaml)?\n(.*?)\n```", re.DOTALL)
@@ -262,7 +439,7 @@ def _maybe_attach_baseline(
 ) -> AuthorIntent:
     """Attach the existing crate to the intent if the proposed name collides."""
     crate_path = crate_dir_for(crates_dir, intent.name)
-    if not crate_path.exists():
+    if not _is_baseline_crate(crate_path):
         return intent
 
     write_user(
@@ -447,6 +624,16 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
 def crate_dir_for(crates_dir: Path, name: str) -> Path:
     """Return the conventional crate directory for an intent name."""
     return crates_dir / f"{name}-strategy"
+
+
+def _is_baseline_crate(crate_path: Path) -> bool:
+    """Return True when ``crate_path`` holds a previously-authored crate.
+
+    A bare ``.author/`` directory (created by the in-flight dialog to
+    hold its decision log) is not a baseline; we only treat the path as
+    one when actual crate files are present.
+    """
+    return (crate_path / "Cargo.toml").exists() or (crate_path / "src" / "lib.rs").exists()
 
 
 def _write_files(crate_path: Path, files: dict[str, str]) -> None:

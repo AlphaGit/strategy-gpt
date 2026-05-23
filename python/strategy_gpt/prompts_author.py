@@ -112,6 +112,47 @@ Behavior:
 4. The smoke fixture should be small but non-trivial — a few months of
    daily bars on a liquid instrument is typical.
 
+## DecisionsSoFar block (REQUIRED on every turn)
+
+At the TOP of every reply (clarifying question OR final intent), emit a
+structured `# DecisionsSoFar` block summarizing every decision that is
+currently locked in. This block is the authoritative source of state —
+chat history may be compacted, but this block is replayed back to you on
+every subsequent turn so you can resume reliably.
+
+Format:
+
+    # DecisionsSoFar
+    ```yaml
+    crate_name: <name>            # once proposed and accepted
+    universe: <symbols/scope>     # once committed
+    mechanism_summary: |          # once described
+      ...
+    param_sketch:                 # once sketched
+      params: [...]
+    smoke_spec:                   # once chosen
+      symbol: ...
+      resolution: ...
+      start: ...
+      end: ...
+      provider: ...
+    experiment_spec: ...          # only if --verify=batch was requested
+    edit_mode_target: <path>      # only if editing an existing crate
+    ```
+
+Rules for the block:
+
+- Use EXACTLY these field names: `crate_name`, `universe`, `mechanism_summary`,
+  `param_sketch`, `smoke_spec`, `experiment_spec`, `edit_mode_target`. Do
+  not invent new fields.
+- Only include a field once you and the operator have agreed on its value.
+  Omit fields that are still pending.
+- If the operator revises a previously-locked decision, update the block
+  to reflect the new value. The dialog driver detects amendments by
+  diffing against the prior block.
+- The block goes ABOVE any prose. After the block, write your clarifying
+  question (or the final `# AuthorIntent` block).
+
 Final intent format (single section, fenced YAML):
 
     # AuthorIntent
@@ -165,6 +206,24 @@ def build_dialog_system_prompt(*, crates_dir: Path) -> str:
         _DIALOG_SYSTEM_TEMPLATE.replace("__WHITELIST__", _load_whitelist(crates_dir).rstrip())
         .replace("__EXEMPLARS__", _format_exemplars(_load_exemplars(crates_dir)))
         .replace("__PROMPT_API__", _load_prompt_api(crates_dir).rstrip())
+    )
+
+
+def format_decisions_for_prompt(projection: dict[str, object]) -> str:
+    """Render the current decisions projection as a user-prompt section.
+
+    Used to inject locked-in state into the next dialog turn so that a
+    compacted chat history does not lose the decisions. The LLM is
+    instructed elsewhere that this section is authoritative.
+    """
+    import yaml  # noqa: PLC0415 — local to avoid import-time YAML cost
+
+    if not projection:
+        return ""
+    body = yaml.safe_dump(projection, sort_keys=False, allow_unicode=True).rstrip()
+    return (
+        "## DecisionsSoFar (authoritative; resume from this)\n\n"
+        f"```yaml\n{body}\n```\n"
     )
 
 
@@ -302,4 +361,5 @@ def _render_baseline_section(baseline: Path) -> str:
 __all__ = [
     "build_dialog_system_prompt",
     "build_emit_prompt",
+    "format_decisions_for_prompt",
 ]

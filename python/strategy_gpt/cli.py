@@ -580,16 +580,22 @@ def author(  # noqa: PLR0913 — typer surface
         whitelist_path=crates_dir / "build-pipeline" / "whitelist.toml",
     )
 
+    from .author_decisions import DecisionRecord  # noqa: PLC0415
+
+    opened_record: list[DecisionRecord] = []
     try:
         intent = run_intent_dialog(
             seed=idea,
             reasoning_client=reasoning_client,
             crates_dir=crates_dir,
+            model_name=model or "default",
+            on_record_ready=opened_record.append,
         )
     except DialogError as e:
         typer.echo(f"dialog failed: {e}", err=True)
         raise typer.Exit(code=1) from None
 
+    decision_record_path = opened_record[0].path if opened_record else None
     deps = AuthorDeps(
         reasoning_client=reasoning_client,
         build_pipeline=build_pipeline,
@@ -597,6 +603,7 @@ def author(  # noqa: PLR0913 — typer surface
         crates_dir=crates_dir,
         repair_config_emit=RepairConfig(k_repair=k_repair_emit),
         repair_config_build=RepairConfig(k_repair=k_repair_build),
+        decision_record_path=decision_record_path,
     )
 
     if verify == "batch" and intent.experiment_spec is None:

@@ -17,3 +17,4 @@ node_modules/
 .envrc
 .direnv/
 python/strategy_gpt/_native.*.so
+crates/*-strategy/.author/
