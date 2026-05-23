@@ -13,6 +13,7 @@ site/
 node_modules/
 .DS_Store
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 .envrc
 .direnv/
 python/strategy_gpt/_native.*.so
