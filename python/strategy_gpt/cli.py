@@ -678,11 +678,15 @@ def author(  # noqa: PLR0913 — typer surface
         engine_worker=engine_worker,
         gateway_root=gateway_root,
     )
+    # Resolve to absolute paths: the build pipeline lays the strategy
+    # crate out under work_root, and cargo resolves the `engine-rt` path
+    # dep relative to *that* dir. A relative `engine_rt_path` would point
+    # to a non-existent sibling of the sandbox.
     build_pipeline = BuildPipeline(
-        cache_root=cache_root,
-        work_root=work_root,
-        engine_rt_path=crates_dir / "engine-rt",
-        whitelist_path=crates_dir / "build-pipeline" / "whitelist.toml",
+        cache_root=cache_root.resolve(),
+        work_root=work_root.resolve(),
+        engine_rt_path=(crates_dir / "engine-rt").resolve(),
+        whitelist_path=(crates_dir / "build-pipeline" / "whitelist.toml").resolve(),
     )
 
     from .author_decisions import DecisionRecord  # noqa: PLC0415

@@ -103,8 +103,18 @@ impl BuildProfile {
 
 impl SystemCargo {
     pub fn new(engine_rt_path: impl Into<PathBuf>, profile: BuildProfile) -> Self {
+        // Canonicalize so the rendered `Cargo.toml` carries an absolute
+        // path. The strategy crate is built in a sandboxed
+        // `cache/build-work/<hash>/` directory; cargo resolves path deps
+        // relative to that sandbox, so a relative `engine_rt_path`
+        // (e.g. `crates/engine-rt`) would fail to load. Fall back to
+        // the raw path if canonicalization fails (e.g. tests with a
+        // non-existent path), since the only consumer of the rendered
+        // dep is `cargo build`, which will surface a clear error.
+        let raw = engine_rt_path.into();
+        let engine_rt_path = std::fs::canonicalize(&raw).unwrap_or(raw);
         Self {
-            engine_rt_path: engine_rt_path.into(),
+            engine_rt_path,
             profile,
         }
     }

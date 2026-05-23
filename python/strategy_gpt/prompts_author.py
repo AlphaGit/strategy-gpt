@@ -270,6 +270,11 @@ Hard constraints:
 
 - Only declare dependencies from the allowed-crate whitelist (below).
   Adding any other crate hard-rejects the emission.
+- `engine-rt` MUST be declared as a path dependency:
+  `engine-rt = { path = "../engine-rt" }`. Never use a version string
+  (`engine-rt = "*"` or `engine-rt = "0.1"`); the crate is not
+  published. The build pipeline normalizes this on write, but the
+  LLM should emit it correctly the first time.
 - Implement the sealed `Strategy` trait exactly as declared in the
   engine-rt PROMPT_API.
 - Do NOT emit `unsafe`, `extern`, threads, network code, or filesystem

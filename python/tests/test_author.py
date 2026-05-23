@@ -512,6 +512,35 @@ engine-rt = { path = "../engine-rt" }
 # ---------------------------------------------------------------------------
 
 
+def test_normalize_cargo_rewrites_registry_dep() -> None:
+    """An LLM-emitted ``engine-rt = "*"`` is rewritten to a path dep on disk."""
+    from strategy_gpt.author import _normalize_cargo_toml  # noqa: PLC0415
+
+    raw = '[package]\nname = "x"\n\n[dependencies]\nengine-rt = "*"\nserde = "1"\n'
+    normalized = _normalize_cargo_toml(raw)
+    assert 'engine-rt = { path = "../engine-rt" }' in normalized
+    assert 'engine-rt = "*"' not in normalized
+    # Unrelated deps are preserved.
+    assert 'serde = "1"' in normalized
+
+
+def test_normalize_cargo_preserves_existing_path_dep() -> None:
+    """A correct path dep is left alone (idempotent normalization)."""
+    from strategy_gpt.author import _normalize_cargo_toml  # noqa: PLC0415
+
+    raw = '[package]\nname = "x"\n\n[dependencies]\nengine-rt = { path = "../engine-rt" }\n'
+    assert _normalize_cargo_toml(raw) == raw
+
+
+def test_normalize_cargo_inserts_missing_engine_rt() -> None:
+    """If the LLM forgot the engine-rt dep, we inject it under [dependencies]."""
+    from strategy_gpt.author import _normalize_cargo_toml  # noqa: PLC0415
+
+    raw = '[package]\nname = "x"\n\n[dependencies]\nserde = "1"\n'
+    normalized = _normalize_cargo_toml(raw)
+    assert 'engine-rt = { path = "../engine-rt" }' in normalized
+
+
 def test_intent_round_trip_through_disk(tmp_path: Path) -> None:
     crate_path = tmp_path / "rt-strategy"
     crate_path.mkdir()

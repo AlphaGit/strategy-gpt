@@ -1375,6 +1375,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "weighted_reversal_score"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "engine-rt",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "windows-core"
 version = "0.62.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

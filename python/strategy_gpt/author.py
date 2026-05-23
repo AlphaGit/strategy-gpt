@@ -893,11 +893,43 @@ def _is_baseline_crate(crate_path: Path) -> bool:
 
 
 def _write_files(crate_path: Path, files: dict[str, str]) -> None:
-    """Write all emitted files under ``crate_path`` verbatim."""
+    """Write all emitted files under ``crate_path``.
+
+    The ``Cargo.toml`` body is normalized so the on-disk crate compiles
+    standalone inside the workspace: the LLM occasionally emits
+    ``engine-rt = "*"`` (a registry-style dep) instead of the path dep
+    used in the exemplars, which makes ``cargo check --workspace`` fail
+    even though the build-pipeline sandbox overrides the manifest at
+    build time. Rewriting on the write boundary keeps the crate
+    inspectable and workspace-clean regardless of LLM drift.
+    """
     for rel, body in files.items():
+        normalized = _normalize_cargo_toml(body) if rel == "Cargo.toml" else body
         target = crate_path / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(body, encoding="utf-8")
+        target.write_text(normalized, encoding="utf-8")
+
+
+_CARGO_ENGINE_RT_DEP_RE = re.compile(
+    r'^engine-rt\s*=.*$',
+    re.MULTILINE,
+)
+
+
+def _normalize_cargo_toml(text: str) -> str:
+    """Rewrite an LLM-emitted ``Cargo.toml`` so ``engine-rt`` is a path dep.
+
+    The build pipeline's sandboxed Cargo.toml already injects the path
+    dep correctly. Normalizing the on-disk Cargo.toml ensures the
+    persisted crate also resolves the dep inside the workspace.
+    """
+    replacement = 'engine-rt = { path = "../engine-rt" }'
+    if _CARGO_ENGINE_RT_DEP_RE.search(text):
+        return _CARGO_ENGINE_RT_DEP_RE.sub(replacement, text, count=1)
+    # No engine-rt dep at all — append one under [dependencies].
+    if "[dependencies]" in text:
+        return text.replace("[dependencies]", f"[dependencies]\n{replacement}", 1)
+    return text.rstrip() + f"\n\n[dependencies]\n{replacement}\n"
 
 
 _MANIFEST_DEP_RE = re.compile(
