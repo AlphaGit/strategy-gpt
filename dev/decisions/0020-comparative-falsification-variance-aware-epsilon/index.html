@@ -10,13 +10,11 @@
       
       
       
-        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0006-sealed-strategy-trait/">
+        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0020-comparative-falsification-variance-aware-epsilon/">
       
       
-        <link rel="prev" href="../0005-worker-process-isolation-no-sandbox/">
+        <link rel="prev" href="../0019-multi-stage-llm-emission/">
       
-      
-        <link rel="next" href="../0007-sqlite-parquet-ledger/">
       
       
         
@@ -27,7 +25,7 @@
     
     
       
-        <title>0006 Sealed Strategy trait - strategy-gpt</title>
+        <title>0020 Comparative falsification variance-aware epsilon - strategy-gpt</title>
       
     
     
@@ -78,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#0006-sealed-strategy-trait-no-backwards-compatibility" class="md-skip">
+        <a href="#0020-comparative-falsification-with-a-variance-aware-acceptance-floor" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              0006 Sealed Strategy trait
+              0020 Comparative falsification variance-aware epsilon
             
           </span>
         </div>
@@ -1611,37 +1609,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0006 Sealed Strategy trait
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../0006-sealed-strategy-trait/" class="md-nav__link">
         
   
   
@@ -1657,81 +1628,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternatives Considered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2105,10 +2001,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../0020-comparative-falsification-variance-aware-epsilon/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0020 Comparative falsification variance-aware epsilon
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2124,6 +2047,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-mechanical-gate-variance-aware-deterministic-non-overridable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Mechanical gate (variance-aware, deterministic, non-overridable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-primary-falsification-claim-llm-stated-comparative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Primary falsification claim (LLM-stated, comparative)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-guard-constraints-llm-stated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Guard constraints (LLM-stated)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives Considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2182,6 +2219,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-mechanical-gate-variance-aware-deterministic-non-overridable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Mechanical gate (variance-aware, deterministic, non-overridable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-primary-falsification-claim-llm-stated-comparative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Primary falsification claim (LLM-stated, comparative)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-guard-constraints-llm-stated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Guard constraints (LLM-stated)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2237,25 +2313,143 @@
   
 
 
-<h1 id="0006-sealed-strategy-trait-no-backwards-compatibility">0006 — Sealed <code>Strategy</code> trait, no backwards compatibility<a class="headerlink" href="#0006-sealed-strategy-trait-no-backwards-compatibility" title="Permanent link">&para;</a></h1>
+<h1 id="0020-comparative-falsification-with-a-variance-aware-acceptance-floor">0020 — Comparative falsification with a variance-aware acceptance floor<a class="headerlink" href="#0020-comparative-falsification-with-a-variance-aware-acceptance-floor" title="Permanent link">&para;</a></h1>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The <code>engine_rt::Strategy</code> trait is the ABI surface that every strategy artifact targets. The runner exposes a <code>RunnerVersion</code>; strategies are compiled against it and loaded by the engine worker via <code>libloading</code>. Pre-1.0, the trait is evolving — new lifecycle hooks, capability methods, and metadata fields are added as the research loop matures.</p>
+<p>The hypothesis loop scores each candidate against a baseline-best result and
+asks: did this candidate beat the baseline by enough to matter? The naive
+answer — "candidate aggregate score &gt; baseline aggregate score" — is wrong in
+two directions.</p>
+<p>It is <strong>too permissive</strong> under high per-fold variance: a candidate that beats
+the baseline by 0.05 sharpe when the per-fold standard deviation is 0.20
+sharpe has not measurably beaten the baseline. Accepting at this signal-to-noise
+ratio produces a steady drip of false positives whose effects do not replicate
+on the next dataset.</p>
+<p>It is <strong>too restrictive</strong> for candidates that move metrics the LLM did not
+claim. A candidate that meets its primary claim but blows up a guard metric
+(e.g. wins sharpe, doubles drawdown) is structurally a regression even when
+the score nominally improved. The single "score beats baseline" test cannot
+distinguish <em>which</em> metric the LLM was claiming to move.</p>
+<p>Earlier scaffolding used a fixed-threshold falsification ("metric &gt;=
+threshold") with no per-fold variance check and no guard constraints. That
+shape pre-dates the rewrite that turned the loop into a strategy-logic search;
+it works for single-shot parameter tweaks but is the wrong granularity for
+multi-fold candidate evaluation against a noisy baseline.</p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The <code>Strategy</code> trait is <strong>sealed</strong>: only types in this workspace can implement it (the trait's super-trait carries a hidden marker, and <code>strategy_entry!</code> is the only ABI-registration surface). <code>RunnerVersion</code> is a single integer carried by the runtime. Major-version bumps to <code>RunnerVersion</code> invalidate every existing artifact; there is no multi-version compatibility shim and no migration ABI.</p>
+<p>Adopt <strong>comparative falsification with a variance-aware acceptance floor.</strong>
+The contract has three pieces, evaluated in this order:</p>
+<h3 id="1-mechanical-gate-variance-aware-deterministic-non-overridable">1. Mechanical gate (variance-aware, deterministic, non-overridable)<a class="headerlink" href="#1-mechanical-gate-variance-aware-deterministic-non-overridable" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>σ_combined  = sqrt(σ_candidate² + σ_baseline²)        # population stddev
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>score_floor = (cand_aggregate - base_aggregate) &gt; k · σ_combined
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>fold_cv     = σ_candidate / |cand_aggregate|
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>variance_ok = fold_cv &lt; cv_threshold
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>accept_gate = score_floor AND variance_ok
+</span></code></pre></div>
+<p>Defaults: <code>k = 1.0</code> (≈68% Gaussian confidence), <code>cv_threshold = 0.5</code>. Both
+are configurable. The gate is implemented in
+<code>python/strategy_gpt/mechanical_gate.py</code> and runs after the per-candidate
+mini-optimize.</p>
+<p>The gate is a <strong>hard floor</strong>. No downstream node (including the
+verdict-critique LLM) may reverse a gate rejection. A genuinely strong but
+borderline candidate is allowed to re-emerge in a later iteration with
+cleaner evidence, where it can clear the gate cleanly.</p>
+<h3 id="2-primary-falsification-claim-llm-stated-comparative">2. Primary falsification claim (LLM-stated, comparative)<a class="headerlink" href="#2-primary-falsification-claim-llm-stated-comparative" title="Permanent link">&para;</a></h3>
+<p>The candidate carries a structured claim:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">primary</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;name&gt;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">direction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gt | gte | lt | lte</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">delta_vs_baseline</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;float&gt;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">scope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aggregate | regime:&lt;label&gt; | fold:&lt;idx&gt; | window:&lt;start&gt;:&lt;end&gt;</span>
+</span></code></pre></div>
+<p>Evaluated by <code>tester.attempt_with_optimize</code> against the baseline-best result
+on the same <code>dataset_manifest</code>. Scope-restricted claims are evaluated against
+the baseline on the same scope, so the comparison stays apples-to-apples.</p>
+<h3 id="3-guard-constraints-llm-stated">3. Guard constraints (LLM-stated)<a class="headerlink" href="#3-guard-constraints-llm-stated" title="Permanent link">&para;</a></h3>
+<p>Zero or more constraints the candidate promises NOT to break:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">guard_constraints</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> metric</span><span class="p">:</span><span class="w"> </span><span class="nv">max_drawdown</span><span class="p p-Indicator">,</span><span class="nt"> direction</span><span class="p">:</span><span class="w"> </span><span class="nv">lte</span><span class="p p-Indicator">,</span><span class="nt"> delta_vs_baseline</span><span class="p">:</span><span class="w"> </span><span class="nv">0.05</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> metric</span><span class="p">:</span><span class="w"> </span><span class="nv">trade_count</span><span class="p p-Indicator">,</span><span class="nt">  direction</span><span class="p">:</span><span class="w"> </span><span class="nv">gte</span><span class="p p-Indicator">,</span><span class="nt"> factor</span><span class="p">:</span><span class="w"> </span><span class="nv">0.5</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span></code></pre></div>
+<p>A guard failure classifies the candidate as <strong>regression</strong> regardless of the
+primary-claim outcome.</p>
+<p>The full verdict matrix:</p>
+<table>
+<thead>
+<tr>
+<th>Δ beats σ</th>
+<th>claim met</th>
+<th>guards held</th>
+<th>verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>accepted (subject to verdict-critique)</td>
+</tr>
+<tr>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>regression</td>
+</tr>
+<tr>
+<td>✓</td>
+<td>✗</td>
+<td>any</td>
+<td>falsified — outcome real, prediction wrong</td>
+</tr>
+<tr>
+<td>✗</td>
+<td>any</td>
+<td>any</td>
+<td>noise (reject_noise) — gate rejects regardless of claim</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>falsified</code> vs <code>noise</code> distinction is a learning signal: a falsified
+candidate did something measurable but the LLM read it wrong; a noise
+candidate did not measurably do anything.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Pros</strong></p>
 <ul>
-<li>The team can rename, add, or restructure trait methods freely. There is no need to design every new method to also work for old artifacts.</li>
-<li>LLM-emitted strategies are regenerated from source whenever the runner version bumps. The artifact cache is keyed by <code>(hash(source), RunnerVersion)</code>, so old artifacts simply do not match.</li>
-<li>Human-authored strategies under <code>crates/</code> must be rebuilt on every runner bump too. Acceptable because the workspace contains only two reference strategies, and the build pipeline rebuilds them as part of CI.</li>
-<li>We cannot ship a "library of pre-compiled strategies" without committing to ABI stability — out of scope today.</li>
+<li>Variance-aware floor catches small-delta candidates that win by luck on a
+  noisy fold.</li>
+<li>Guard constraints catch "won sharpe but blew up drawdown" regressions that
+  a single-metric score check would silently accept.</li>
+<li>The four-way verdict matrix gives the next-iteration generate prompt a
+  richer signal than a binary pass/fail.</li>
+<li>The mechanical gate is replay-safe (no LLM involvement); the LLM-stated
+  claims are a separate, auditable layer.</li>
+</ul>
+<p><strong>Cons</strong></p>
+<ul>
+<li>More configuration surface: <code>k</code>, <code>cv_threshold</code>, per-objective overrides.
+  Default values are placeholders; the first VXX run will inform tuning.</li>
+<li>A genuinely strong but high-variance candidate is rejected. Mitigated by
+  the borderline flag (surfaced to verdict-critique) and by the loop's
+  ability to re-emit the same idea in a later iteration with cleaner folds.</li>
+<li>Guard-constraint authoring puts more burden on the LLM prompt. Mitigated
+  by stage-2's prompt requiring a guard for any metric the LLM expects to
+  move significantly.</li>
 </ul>
 <h2 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Stable ABI.</strong> Forecloses simple trait evolution; the per-method cost of maintaining backward compatibility is large and the payoff (cross-version artifact reuse) is unwanted.</li>
-<li><strong>Pluggable trait hierarchy with feature flags.</strong> Adds complexity at the ABI boundary that no current research need justifies.</li>
+<li><strong>Fixed-threshold falsification (legacy).</strong> Rejected as noted in Context:
+  no per-fold variance check, no guards, wrong granularity for the rewrite.</li>
+<li><strong>CSCV / PBO overfit detection inside hypothesize.</strong> Rejected: sample size
+  (K candidates × iterations × folds) is too small for these statistics to
+  be meaningful. Overfit detection remains the job of downstream <code>optimize</code>.</li>
+<li><strong>LLM-only verdict.</strong> Rejected: the variance-aware floor is the only
+  statistically motivated reject in the loop. Letting the LLM override it
+  re-opens the false-positive surface we set out to close.</li>
+<li><strong>Tiered cheap-then-expensive evaluation.</strong> Considered. Rejected: another
+  tuning surface (borderline detector) for unclear benefit while engine
+  throughput is acceptable.</li>
 </ul>
 <h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
-<p>accepted</p>
+<p>Accepted (2026-05-20).</p>
 
 
 

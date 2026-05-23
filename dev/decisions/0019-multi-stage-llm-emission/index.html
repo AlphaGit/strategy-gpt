@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0006-sealed-strategy-trait/">
+        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0019-multi-stage-llm-emission/">
       
       
-        <link rel="prev" href="../0005-worker-process-isolation-no-sandbox/">
+        <link rel="prev" href="../0018-no-versioning-on-hypothesis-records/">
       
       
-        <link rel="next" href="../0007-sqlite-parquet-ledger/">
+        <link rel="next" href="../0020-comparative-falsification-variance-aware-epsilon/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>0006 Sealed Strategy trait - strategy-gpt</title>
+        <title>0019 Multi-stage LLM emission - strategy-gpt</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#0006-sealed-strategy-trait-no-backwards-compatibility" class="md-skip">
+        <a href="#0019-multi-stage-llm-emission-for-hypothesis-candidates" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              0006 Sealed Strategy trait
+              0019 Multi-stage LLM emission
             
           </span>
         </div>
@@ -1611,37 +1611,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0006 Sealed Strategy trait
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../0006-sealed-strategy-trait/" class="md-nav__link">
         
   
   
@@ -1657,81 +1630,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternatives Considered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2077,10 +1975,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../0019-multi-stage-llm-emission/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0019 Multi-stage LLM emission
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2096,6 +2021,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives Considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2237,25 +2237,94 @@
   
 
 
-<h1 id="0006-sealed-strategy-trait-no-backwards-compatibility">0006 — Sealed <code>Strategy</code> trait, no backwards compatibility<a class="headerlink" href="#0006-sealed-strategy-trait-no-backwards-compatibility" title="Permanent link">&para;</a></h1>
+<h1 id="0019-multi-stage-llm-emission-for-hypothesis-candidates">0019 — Multi-stage LLM emission for hypothesis candidates<a class="headerlink" href="#0019-multi-stage-llm-emission-for-hypothesis-candidates" title="Permanent link">&para;</a></h1>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The <code>engine_rt::Strategy</code> trait is the ABI surface that every strategy artifact targets. The runner exposes a <code>RunnerVersion</code>; strategies are compiled against it and loaded by the engine worker via <code>libloading</code>. Pre-1.0, the trait is evolving — new lifecycle hooks, capability methods, and metadata fields are added as the research loop matures.</p>
+<p>The hypothesis loop emits each candidate strategy logic change as a structured
+artifact: an idea + rationale, a falsification claim plus parameter intent,
+and a multi-file Rust source map. Earlier sketches asked the reasoning model
+to emit all three pieces in a single response — a JSON document containing
+multi-line Rust source plus structured fields.</p>
+<p>That omnibus shape is fragile. JSON requires escaping every newline and every
+quote inside the Rust source; LLMs frequently get nested quoting wrong on
+real-world emissions. A single bad escape kills the whole candidate even when
+the idea and falsification claim are well-formed and worth keeping.</p>
+<p>The omnibus shape also forces the model to commit to all three concerns at
+once. A model that gets the idea right but the file map wrong cannot have its
+idea preserved across repair attempts — every retry re-opens every commitment,
+inviting the model to drift on its own falsification claim mid-repair
+("rewrite the criterion to dodge the build error") and erasing the design's
+ability to compare apples-to-apples across retries.</p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The <code>Strategy</code> trait is <strong>sealed</strong>: only types in this workspace can implement it (the trait's super-trait carries a hidden marker, and <code>strategy_entry!</code> is the only ABI-registration surface). <code>RunnerVersion</code> is a single integer carried by the runtime. Major-version bumps to <code>RunnerVersion</code> invalidate every existing artifact; there is no multi-version compatibility shim and no migration ABI.</p>
+<p>Candidates are emitted in <strong>three locked-progression stages</strong>, each in
+markdown form (not JSON):</p>
+<ol>
+<li><strong>Stage 1 — Idea</strong>: <code>candidate_name</code>, <code>rationale</code> (≤500 chars),
+   <code>expected_lift_confidence</code>, <code>expected_side_effects</code>. Single <code># Idea</code> YAML
+   block.</li>
+<li><strong>Stage 2 — Commitments</strong>: <code># Falsification</code> and <code># ParamIntent</code> YAML
+   blocks, encoding the primary claim, guard constraints, scope, and the
+   added / kept / removed parameter sets with bounds.</li>
+<li><strong>Stage 3 — Files</strong>: <code>## &lt;path&gt;</code> H2 headers followed by fenced code blocks
+   for each file; <code>## DELETE: &lt;path&gt;</code> headers for deletions.</li>
+</ol>
+<p>Each stage runs in a separate reasoning call. The output of stage <em>N</em> is
+attached verbatim as locked context to stage <em>N+1</em> and to any subsequent
+repair attempt for stage <em>N+1</em> or <em>N+2</em>. Stages MUST NOT be re-opened by the
+repair loop — once a stage's response parses and validates, that response is
+immutable for the remainder of the candidate's lifecycle.</p>
+<p>A cheap-critique node runs immediately after stage 1, before stages 2 and 3
+are invoked. Idea-level rejections (duplicate of prior reject, contradicts
+diagnosis, violates prior accept) fire here, saving stage 2/3 LLM cost on
+candidates that would die anyway.</p>
+<p>Stage emissions are markdown rather than JSON because LLMs encode code-fenced
+blocks reliably; YAML inside fenced blocks handles structured metadata
+without escape pain. The strict parser (<code>python/strategy_gpt/markdown_io.py</code>)
+identifies the offending section on any malformed emission so the repair
+loop can synthesize targeted feedback.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Pros</strong></p>
 <ul>
-<li>The team can rename, add, or restructure trait methods freely. There is no need to design every new method to also work for old artifacts.</li>
-<li>LLM-emitted strategies are regenerated from source whenever the runner version bumps. The artifact cache is keyed by <code>(hash(source), RunnerVersion)</code>, so old artifacts simply do not match.</li>
-<li>Human-authored strategies under <code>crates/</code> must be rebuilt on every runner bump too. Acceptable because the workspace contains only two reference strategies, and the build pipeline rebuilds them as part of CI.</li>
-<li>We cannot ship a "library of pre-compiled strategies" without committing to ABI stability — out of scope today.</li>
+<li>Per-stage emissions are smaller and more focused; per-call quality is
+  higher than the omnibus form.</li>
+<li>Cheap-critique on the idea alone saves ~2 LLM calls per candidate when an
+  idea is dead on arrival.</li>
+<li>Locked earlier stages preserve apples-to-apples comparison across repair
+  attempts.</li>
+<li>Markdown + YAML avoids the nested-escape failure mode that dominates JSON
+  emissions of multi-line Rust source.</li>
+<li>Decision records carry one response blob per stage, plus repair attempts,
+  giving a full audit trail of how the candidate was built.</li>
+</ul>
+<p><strong>Cons</strong></p>
+<ul>
+<li>Three reasoning calls instead of one. Token cost rises ~2× per emission;
+  this is small compared to the mini-optimize backtest cost that dominates
+  the loop's wall time, so the trade-off favors clearer per-stage signal.</li>
+<li>The parser is the load-bearing piece; a parser bug rejects valid emissions.
+  Mitigated by <code>python/tests/test_markdown_io.py</code> covering round-trip and
+  malformation cases.</li>
+<li>An idea that needs to revise its falsification mid-repair cannot do so;
+  the candidate must be hard-rejected and re-emitted as a new candidate.
+  Considered acceptable: the loop's iteration budget absorbs the cost, and
+  ledger persistence preserves the rejected attempt for next-iteration
+  learning.</li>
 </ul>
 <h2 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Stable ABI.</strong> Forecloses simple trait evolution; the per-method cost of maintaining backward compatibility is large and the payoff (cross-version artifact reuse) is unwanted.</li>
-<li><strong>Pluggable trait hierarchy with feature flags.</strong> Adds complexity at the ABI boundary that no current research need justifies.</li>
+<li><strong>Single omnibus JSON emission.</strong> Rejected on escape fragility (multi-line
+  Rust inside JSON forces quoting that LLMs frequently get wrong) and on the
+  inability to lock earlier commitments across repair attempts.</li>
+<li><strong>Two-stage emission (idea+falsification combined, then files).</strong> Rejected
+  because cheap-critique is most valuable at the idea level; bundling
+  commitments with the idea pays for a stage-2 prompt before any idea-level
+  rejection can fire.</li>
+<li><strong>JSON for metadata + separate markdown for files.</strong> Considered. Rejected:
+  the parser surface grows (two grammars instead of one) without buying
+  signal — YAML inside fenced markdown blocks handles structured metadata
+  cleanly.</li>
 </ul>
 <h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
-<p>accepted</p>
+<p>Accepted (2026-05-20).</p>
 
 
 

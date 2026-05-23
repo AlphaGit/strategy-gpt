@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0006-sealed-strategy-trait/">
+        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0018-no-versioning-on-hypothesis-records/">
       
       
-        <link rel="prev" href="../0005-worker-process-isolation-no-sandbox/">
+        <link rel="prev" href="../0017-per-strategy-storage-layout/">
       
       
-        <link rel="next" href="../0007-sqlite-parquet-ledger/">
+        <link rel="next" href="../0019-multi-stage-llm-emission/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>0006 Sealed Strategy trait - strategy-gpt</title>
+        <title>0018 No versioning on hypothesis records - strategy-gpt</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#0006-sealed-strategy-trait-no-backwards-compatibility" class="md-skip">
+        <a href="#0018-no-runner_version-field-on-hypothesis-records" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              0006 Sealed Strategy trait
+              0018 No versioning on hypothesis records
             
           </span>
         </div>
@@ -1611,37 +1611,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0006 Sealed Strategy trait
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../0006-sealed-strategy-trait/" class="md-nav__link">
         
   
   
@@ -1657,81 +1630,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternatives Considered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2049,10 +1947,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../0018-no-versioning-on-hypothesis-records/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0018 No versioning on hypothesis records
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2068,6 +1993,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives Considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2237,22 +2237,66 @@
   
 
 
-<h1 id="0006-sealed-strategy-trait-no-backwards-compatibility">0006 — Sealed <code>Strategy</code> trait, no backwards compatibility<a class="headerlink" href="#0006-sealed-strategy-trait-no-backwards-compatibility" title="Permanent link">&para;</a></h1>
+<h1 id="0018-no-runner_version-field-on-hypothesis-records">0018 — No <code>runner_version</code> field on hypothesis records<a class="headerlink" href="#0018-no-runner_version-field-on-hypothesis-records" title="Permanent link">&para;</a></h1>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The <code>engine_rt::Strategy</code> trait is the ABI surface that every strategy artifact targets. The runner exposes a <code>RunnerVersion</code>; strategies are compiled against it and loaded by the engine worker via <code>libloading</code>. Pre-1.0, the trait is evolving — new lifecycle hooks, capability methods, and metadata fields are added as the research loop matures.</p>
+<p>The <code>engine-rt</code> crate exposes a <code>RunnerVersion</code>
+that backtest run records pin (see <code>RunRecord</code> in the experiment ledger). Run
+records need this because byte-identical replay of a backtest must execute
+against the same ABI; the engine worker refuses to load a <code>cdylib</code> whose
+declared ABI major mismatches the worker's own.</p>
+<p>The hypothesis loop produces <code>HypothesisRecord</code> rows that describe the
+<em>proposal</em> — a slate of files, a falsification claim, citations, a baseline
+files hash. These records carry the LLM's idea; they don't themselves execute
+anything. The runtime-version question only arises when someone tries to
+<em>replay</em> a recorded hypothesis: rebuild the source set, run mini-optimize,
+compare to stored evidence.</p>
+<p>An earlier sketch of <code>HypothesisRecord</code> carried a <code>runner_version</code> field "so
+replay knows what to do." On inspection: the field is load-bearing only when
+the project commits to multi-version <code>engine-rt</code> support. That commitment has
+significant cost (vendoring older crates, keeping migration paths green, CI
+matrices), and the project does not need it: the strategy artifacts are
+disposable, generated on demand, and rebuilt against current <code>engine-rt</code> if
+replay is required.</p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The <code>Strategy</code> trait is <strong>sealed</strong>: only types in this workspace can implement it (the trait's super-trait carries a hidden marker, and <code>strategy_entry!</code> is the only ABI-registration surface). <code>RunnerVersion</code> is a single integer carried by the runtime. Major-version bumps to <code>RunnerVersion</code> invalidate every existing artifact; there is no multi-version compatibility shim and no migration ABI.</p>
+<p><code>HypothesisRecord</code> does <strong>not</strong> carry a <code>runner_version</code> field. The current
+<code>crates/engine-rt/src/version.rs</code>
+remains the live ABI version for the run side, but hypothesis records simply
+record what the LLM proposed.</p>
+<p>Replay of an archived hypothesis is best-effort against the current
+<code>engine-rt</code>. When the surface evolves in an incompatible way, archived
+records may fail to recompile. That is an accepted limitation; the source
+blobs are preserved in the per-strategy ledger (<a href="../0017-per-strategy-storage-layout/">0017</a>)
+so an operator who needs exact reproduction can check out the matching
+<code>engine-rt</code> commit from git history alongside the source.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The team can rename, add, or restructure trait methods freely. There is no need to design every new method to also work for old artifacts.</li>
-<li>LLM-emitted strategies are regenerated from source whenever the runner version bumps. The artifact cache is keyed by <code>(hash(source), RunnerVersion)</code>, so old artifacts simply do not match.</li>
-<li>Human-authored strategies under <code>crates/</code> must be rebuilt on every runner bump too. Acceptable because the workspace contains only two reference strategies, and the build pipeline rebuilds them as part of CI.</li>
-<li>We cannot ship a "library of pre-compiled strategies" without committing to ABI stability — out of scope today.</li>
+<li>Hypothesis records stay narrow: rationale, claim, files, citations. No
+  ABI metadata bleeds into idea-level records.</li>
+<li>The project does <strong>not</strong> owe multi-version <code>engine-rt</code> replay. The
+  <code>RUNNER_VERSION</code> constant continues to bump on breaking changes; old run
+  records flag mismatch at load time, but old hypothesis records simply
+  rebuild against current.</li>
+<li>Source blobs are still byte-preserved per-decision (see 0017), so an
+  operator who wants strict reproduction can recover the original
+  <code>engine-rt</code> revision from git and rebuild — the project supports that
+  workflow off-band, just not as an automated replay path.</li>
+<li>A future change can introduce versioning if the cost becomes material
+  (e.g. the loop produces records meant to survive years). The field can be
+  added later without retroactively populating archived records.</li>
 </ul>
 <h2 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Stable ABI.</strong> Forecloses simple trait evolution; the per-method cost of maintaining backward compatibility is large and the payoff (cross-version artifact reuse) is unwanted.</li>
-<li><strong>Pluggable trait hierarchy with feature flags.</strong> Adds complexity at the ABI boundary that no current research need justifies.</li>
+<li><strong>Carry <code>runner_version</code> on <code>HypothesisRecord</code> and refuse replay on
+  mismatch.</strong> Rejected — drags the project into multi-version ABI support
+  that is not aligned with the research-platform goal. Easier to rebuild
+  the source set against current.</li>
+<li><strong>Carry <code>runner_version</code> only on the <code>DecisionRecord.evidence</code> payload.</strong>
+  Rejected for the same reason — evidence is opaque JSON today; embedding
+  ABI metadata there invites readers to depend on its presence and recreates
+  the same coupling.</li>
+<li><strong>Pin <code>engine-rt</code> major in the hypothesis record and refuse to update
+  <code>engine-rt</code> while archived hypotheses exist.</strong> Rejected — freezes the
+  whole crate for the lifetime of any archived record.</li>
 </ul>
 <h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
 <p>accepted</p>

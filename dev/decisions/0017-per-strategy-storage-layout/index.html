@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0006-sealed-strategy-trait/">
+        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0017-per-strategy-storage-layout/">
       
       
-        <link rel="prev" href="../0005-worker-process-isolation-no-sandbox/">
+        <link rel="prev" href="../0016-prompt-api-md-authoritative-llm-context/">
       
       
-        <link rel="next" href="../0007-sqlite-parquet-ledger/">
+        <link rel="next" href="../0018-no-versioning-on-hypothesis-records/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>0006 Sealed Strategy trait - strategy-gpt</title>
+        <title>0017 Per-strategy storage layout - strategy-gpt</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#0006-sealed-strategy-trait-no-backwards-compatibility" class="md-skip">
+        <a href="#0017-per-strategy-storage-layout-under-ledgerstrategiesstrategy_name" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              0006 Sealed Strategy trait
+              0017 Per-strategy storage layout
             
           </span>
         </div>
@@ -1611,37 +1611,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0006 Sealed Strategy trait
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../0006-sealed-strategy-trait/" class="md-nav__link">
         
   
   
@@ -1657,81 +1630,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternatives Considered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2021,10 +1919,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../0017-per-strategy-storage-layout/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0017 Per-strategy storage layout
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2040,6 +1965,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives Considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2237,22 +2237,79 @@
   
 
 
-<h1 id="0006-sealed-strategy-trait-no-backwards-compatibility">0006 — Sealed <code>Strategy</code> trait, no backwards compatibility<a class="headerlink" href="#0006-sealed-strategy-trait-no-backwards-compatibility" title="Permanent link">&para;</a></h1>
+<h1 id="0017-per-strategy-storage-layout-under-ledgerstrategiesstrategy_name">0017 — Per-strategy storage layout under <code>ledger/strategies/&lt;strategy_name&gt;/</code><a class="headerlink" href="#0017-per-strategy-storage-layout-under-ledgerstrategiesstrategy_name" title="Permanent link">&para;</a></h1>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The <code>engine_rt::Strategy</code> trait is the ABI surface that every strategy artifact targets. The runner exposes a <code>RunnerVersion</code>; strategies are compiled against it and loaded by the engine worker via <code>libloading</code>. Pre-1.0, the trait is evolving — new lifecycle hooks, capability methods, and metadata fields are added as the research loop matures.</p>
+<p>The hypothesis loop accumulates evidence per strategy: every candidate it
+proposes (accepted or rejected) carries source blobs, LLM response blobs,
+mini-optimize verdicts, and a citation set. The original ledger schema stored
+hypothesis and decision records in a flat SQLite table keyed by hypothesis
+id, with strategy identity implicit in the <code>target_metric</code> payload.</p>
+<p>That worked when the loop was a stub: one strategy, few records, no source
+blobs. As the loop grows into a real logic-search engine, three pressures
+appear:</p>
+<ul>
+<li>Audit workloads are per-strategy: "show me everything we tried on
+  <code>vxx_volatility_range</code>" is the dominant query. A flat table forces every
+  read to scan strategy-by-name.</li>
+<li>Candidate source blobs are large (whole Rust file trees) and content
+  addressable — they want a content-hash directory layout, not a column.</li>
+<li>LLM response blobs are per-decision and only meaningful in context with
+  that decision; they want to live next to it on disk, not in a separate
+  blob store.</li>
+</ul>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The <code>Strategy</code> trait is <strong>sealed</strong>: only types in this workspace can implement it (the trait's super-trait carries a hidden marker, and <code>strategy_entry!</code> is the only ABI-registration surface). <code>RunnerVersion</code> is a single integer carried by the runtime. Major-version bumps to <code>RunnerVersion</code> invalidate every existing artifact; there is no multi-version compatibility shim and no migration ABI.</p>
+<p>Each strategy gets a dedicated folder under <code>ledger/strategies/&lt;strategy_name&gt;/</code>
+containing:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ledger/strategies/&lt;strategy_name&gt;/
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  hypothesis_records.parquet     # all candidates emitted for this strategy
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  decision_records.parquet       # accept/reject decisions paired by hypothesis id
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  baseline/
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    files_manifest.json          # paths + content hashes for baseline source
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    best.json                    # baseline-best result cached for compare
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  sources/
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    &lt;files_set_hash&gt;/{Cargo.toml, src/lib.rs, params_schema.json, ...}
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  responses/
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    &lt;decision_id&gt;/
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>      stage1_idea.md
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>      stage2_commitments.md
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>      stage3_files.md
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>      repair_&lt;n&gt;.md              # one per repair attempt
+</span></code></pre></div>
+<p>Strategy identity is the strategy crate <code>name</code> (already stable repo-wide). The
+flat native <code>runs.db</code> continues to record run-level facts (artifacts, dataset
+manifest hash, parameters, modes); the per-strategy folder layers on top for
+the hypothesis-loop-specific artifacts.</p>
+<p>Cross-strategy queries iterate the directory listing — explicitly accepting
+the O(N strategies) cost because the audit workload is dominated by single-
+strategy reads.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The team can rename, add, or restructure trait methods freely. There is no need to design every new method to also work for old artifacts.</li>
-<li>LLM-emitted strategies are regenerated from source whenever the runner version bumps. The artifact cache is keyed by <code>(hash(source), RunnerVersion)</code>, so old artifacts simply do not match.</li>
-<li>Human-authored strategies under <code>crates/</code> must be rebuilt on every runner bump too. Acceptable because the workspace contains only two reference strategies, and the build pipeline rebuilds them as part of CI.</li>
-<li>We cannot ship a "library of pre-compiled strategies" without committing to ABI stability — out of scope today.</li>
+<li>Audit is <code>ls ledger/strategies/&lt;name&gt;/</code> plus a parquet scan over two small
+  files — trivial in DuckDB, polars, or any tabular tool.</li>
+<li>Source blobs deduplicate naturally via content hash: candidates that share
+  baseline file content (the common case) share blobs.</li>
+<li>Replay is byte-identical: read the <code>files_manifest</code> blob set into a temp
+  dir, hand it to the build pipeline, re-run mini-optimize with the seed
+  recorded on the decision.</li>
+<li>Cross-strategy queries pay an O(N) directory iteration. Acceptable; the
+  use case is rare and N is small (low tens, eventually).</li>
+<li>One-time migration cost from the flat ledger is bounded — the loop has no
+  production consumers today, so the migration is essentially "discard the
+  empty record set" and write fresh into the new layout.</li>
 </ul>
 <h2 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Stable ABI.</strong> Forecloses simple trait evolution; the per-method cost of maintaining backward compatibility is large and the payoff (cross-version artifact reuse) is unwanted.</li>
-<li><strong>Pluggable trait hierarchy with feature flags.</strong> Adds complexity at the ABI boundary that no current research need justifies.</li>
+<li><strong>Flat ledger with <code>strategy</code> column.</strong> Rejected — every per-strategy
+  query becomes a full-table scan with a <code>WHERE strategy = ?</code>. The native
+  SQLite ledger could index that column, but the source/response blob
+  problem remains: blobs want a directory layout, not table rows.</li>
+<li><strong>Per-decision content-addressed blob store (no per-strategy folder).</strong>
+  Rejected — operators routinely need to read several decisions for one
+  strategy together (e.g. "what did the loop try last week on VXX?"). A
+  flat blob CAS forces another index to recover that grouping.</li>
+<li><strong>Bundled per-strategy SQLite database.</strong> Rejected — adds operational
+  friction (a SQLite file per strategy) without solving the source-blob
+  layout. Parquet + directory CAS is more transparent to standard tooling.</li>
 </ul>
 <h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
 <p>accepted</p>

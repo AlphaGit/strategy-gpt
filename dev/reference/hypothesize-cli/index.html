@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0006-sealed-strategy-trait/">
+        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/reference/hypothesize-cli/">
       
       
-        <link rel="prev" href="../0005-worker-process-isolation-no-sandbox/">
+        <link rel="prev" href="../objective-spec/">
       
       
-        <link rel="next" href="../0007-sqlite-parquet-ledger/">
+        <link rel="next" href="../../explanation/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>0006 Sealed Strategy trait - strategy-gpt</title>
+        <title>hypothesize CLI - strategy-gpt</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#0006-sealed-strategy-trait-no-backwards-compatibility" class="md-skip">
+        <a href="#strategy-gpt-hypothesize-reference" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              0006 Sealed Strategy trait
+              hypothesize CLI
             
           </span>
         </div>
@@ -329,11 +329,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../reference/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -373,13 +375,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../decisions/" class="md-tabs__link">
           
   
   
@@ -881,6 +881,8 @@
       
   
   
+    
+  
   
   
     
@@ -902,20 +904,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../reference/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -933,13 +938,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -959,7 +964,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/experiment-spec/" class="md-nav__link">
+      <a href="../experiment-spec/" class="md-nav__link">
         
   
   
@@ -987,7 +992,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/batch-spec/" class="md-nav__link">
+      <a href="../batch-spec/" class="md-nav__link">
         
   
   
@@ -1015,7 +1020,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/objective-spec/" class="md-nav__link">
+      <a href="../objective-spec/" class="md-nav__link">
         
   
   
@@ -1040,10 +1045,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../reference/hypothesize-cli/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hypothesize CLI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1059,6 +1091,187 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-gpt-hypothesize-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        strategy-gpt hypothesize &lt;strategy&gt;
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="strategy-gpt hypothesize &lt;strategy&gt;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-json-to-stdout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output (JSON to stdout)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-gpt-hypothesis-replay-decision_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        strategy-gpt hypothesis replay &lt;decision_id&gt;
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="strategy-gpt hypothesis replay &lt;decision_id&gt;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arguments_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output (JSON)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-gpt-hypothesis-diff-decision_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        strategy-gpt hypothesis diff &lt;decision_id&gt;
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="strategy-gpt hypothesis diff &lt;decision_id&gt;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arguments-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arguments / Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1329,8 +1542,6 @@
       
   
   
-    
-  
   
   
     
@@ -1386,23 +1597,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../decisions/" class="md-nav__link ">
               
   
   
@@ -1420,13 +1628,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1446,7 +1654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0000-adr-template/" class="md-nav__link">
+      <a href="../../decisions/0000-adr-template/" class="md-nav__link">
         
   
   
@@ -1474,7 +1682,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0001-rust-execution-layer/" class="md-nav__link">
+      <a href="../../decisions/0001-rust-execution-layer/" class="md-nav__link">
         
   
   
@@ -1502,7 +1710,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0002-python-orchestration/" class="md-nav__link">
+      <a href="../../decisions/0002-python-orchestration/" class="md-nav__link">
         
   
   
@@ -1530,7 +1738,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0003-pyo3-trusted-crate-boundary/" class="md-nav__link">
+      <a href="../../decisions/0003-pyo3-trusted-crate-boundary/" class="md-nav__link">
         
   
   
@@ -1558,7 +1766,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0004-engine-worker-subprocess-arrow-ipc/" class="md-nav__link">
+      <a href="../../decisions/0004-engine-worker-subprocess-arrow-ipc/" class="md-nav__link">
         
   
   
@@ -1586,7 +1794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0005-worker-process-isolation-no-sandbox/" class="md-nav__link">
+      <a href="../../decisions/0005-worker-process-isolation-no-sandbox/" class="md-nav__link">
         
   
   
@@ -1611,37 +1819,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0006 Sealed Strategy trait
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../decisions/0006-sealed-strategy-trait/" class="md-nav__link">
         
   
   
@@ -1657,81 +1838,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternatives Considered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1744,7 +1850,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0007-sqlite-parquet-ledger/" class="md-nav__link">
+      <a href="../../decisions/0007-sqlite-parquet-ledger/" class="md-nav__link">
         
   
   
@@ -1772,7 +1878,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0008-hybrid-graph-vector-kb/" class="md-nav__link">
+      <a href="../../decisions/0008-hybrid-graph-vector-kb/" class="md-nav__link">
         
   
   
@@ -1800,7 +1906,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0009-year-segmented-content-addressed-cache/" class="md-nav__link">
+      <a href="../../decisions/0009-year-segmented-content-addressed-cache/" class="md-nav__link">
         
   
   
@@ -1828,7 +1934,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0010-abort-on-failure-batch-semantics/" class="md-nav__link">
+      <a href="../../decisions/0010-abort-on-failure-batch-semantics/" class="md-nav__link">
         
   
   
@@ -1856,7 +1962,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0011-pbo-threshold-default-0_5/" class="md-nav__link">
+      <a href="../../decisions/0011-pbo-threshold-default-0_5/" class="md-nav__link">
         
   
   
@@ -1884,7 +1990,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0012-oos-aggregator-mean-only/" class="md-nav__link">
+      <a href="../../decisions/0012-oos-aggregator-mean-only/" class="md-nav__link">
         
   
   
@@ -1912,7 +2018,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0013-rust-toolchain-pin-1-82/" class="md-nav__link">
+      <a href="../../decisions/0013-rust-toolchain-pin-1-82/" class="md-nav__link">
         
   
   
@@ -1940,7 +2046,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0014-lint-stance/" class="md-nav__link">
+      <a href="../../decisions/0014-lint-stance/" class="md-nav__link">
         
   
   
@@ -1968,7 +2074,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0015-docs-platform-mkdocs-mike-pages/" class="md-nav__link">
+      <a href="../../decisions/0015-docs-platform-mkdocs-mike-pages/" class="md-nav__link">
         
   
   
@@ -1996,7 +2102,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0016-prompt-api-md-authoritative-llm-context/" class="md-nav__link">
+      <a href="../../decisions/0016-prompt-api-md-authoritative-llm-context/" class="md-nav__link">
         
   
   
@@ -2024,7 +2130,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0017-per-strategy-storage-layout/" class="md-nav__link">
+      <a href="../../decisions/0017-per-strategy-storage-layout/" class="md-nav__link">
         
   
   
@@ -2052,7 +2158,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0018-no-versioning-on-hypothesis-records/" class="md-nav__link">
+      <a href="../../decisions/0018-no-versioning-on-hypothesis-records/" class="md-nav__link">
         
   
   
@@ -2080,7 +2186,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0019-multi-stage-llm-emission/" class="md-nav__link">
+      <a href="../../decisions/0019-multi-stage-llm-emission/" class="md-nav__link">
         
   
   
@@ -2108,7 +2214,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0020-comparative-falsification-variance-aware-epsilon/" class="md-nav__link">
+      <a href="../../decisions/0020-comparative-falsification-variance-aware-epsilon/" class="md-nav__link">
         
   
   
@@ -2163,54 +2269,160 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#strategy-gpt-hypothesize-strategy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        strategy-gpt hypothesize &lt;strategy&gt;
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="strategy-gpt hypothesize &lt;strategy&gt;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arguments
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision
+        Options
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consequences
+        Exit codes
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#output-json-to-stdout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Alternatives Considered
+        Output (JSON to stdout)
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
+  <a href="#strategy-gpt-hypothesis-replay-decision_id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Status
+        strategy-gpt hypothesis replay &lt;decision_id&gt;
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="strategy-gpt hypothesis replay &lt;decision_id&gt;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arguments_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output (JSON)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-gpt-hypothesis-diff-decision_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        strategy-gpt hypothesis diff &lt;decision_id&gt;
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="strategy-gpt hypothesis diff &lt;decision_id&gt;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arguments-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arguments / Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
       
     </span>
   </a>
@@ -2237,25 +2449,252 @@
   
 
 
-<h1 id="0006-sealed-strategy-trait-no-backwards-compatibility">0006 — Sealed <code>Strategy</code> trait, no backwards compatibility<a class="headerlink" href="#0006-sealed-strategy-trait-no-backwards-compatibility" title="Permanent link">&para;</a></h1>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The <code>engine_rt::Strategy</code> trait is the ABI surface that every strategy artifact targets. The runner exposes a <code>RunnerVersion</code>; strategies are compiled against it and loaded by the engine worker via <code>libloading</code>. Pre-1.0, the trait is evolving — new lifecycle hooks, capability methods, and metadata fields are added as the research loop matures.</p>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The <code>Strategy</code> trait is <strong>sealed</strong>: only types in this workspace can implement it (the trait's super-trait carries a hidden marker, and <code>strategy_entry!</code> is the only ABI-registration surface). <code>RunnerVersion</code> is a single integer carried by the runtime. Major-version bumps to <code>RunnerVersion</code> invalidate every existing artifact; there is no multi-version compatibility shim and no migration ABI.</p>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The team can rename, add, or restructure trait methods freely. There is no need to design every new method to also work for old artifacts.</li>
-<li>LLM-emitted strategies are regenerated from source whenever the runner version bumps. The artifact cache is keyed by <code>(hash(source), RunnerVersion)</code>, so old artifacts simply do not match.</li>
-<li>Human-authored strategies under <code>crates/</code> must be rebuilt on every runner bump too. Acceptable because the workspace contains only two reference strategies, and the build pipeline rebuilds them as part of CI.</li>
-<li>We cannot ship a "library of pre-compiled strategies" without committing to ABI stability — out of scope today.</li>
-</ul>
-<h2 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>Stable ABI.</strong> Forecloses simple trait evolution; the per-method cost of maintaining backward compatibility is large and the payoff (cross-version artifact reuse) is unwanted.</li>
-<li><strong>Pluggable trait hierarchy with feature flags.</strong> Adds complexity at the ABI boundary that no current research need justifies.</li>
-</ul>
-<h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
-<p>accepted</p>
+<h1 id="strategy-gpt-hypothesize-reference"><code>strategy-gpt hypothesize</code> reference<a class="headerlink" href="#strategy-gpt-hypothesize-reference" title="Permanent link">&para;</a></h1>
+<p>Exhaustive CLI surface for the hypothesis-loop entry and its companion
+replay/diff commands.</p>
+<h2 id="strategy-gpt-hypothesize-strategy"><code>strategy-gpt hypothesize &lt;strategy&gt;</code><a class="headerlink" href="#strategy-gpt-hypothesize-strategy" title="Permanent link">&para;</a></h2>
+<p>Drive the multi-stage logic-search loop on a strategy crate.</p>
+<h3 id="arguments">Arguments<a class="headerlink" href="#arguments" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>strategy</code></td>
+<td><code>str</code></td>
+<td>yes</td>
+<td>Strategy crate name (e.g. <code>vxx_volatility_range</code>). Used as the per-strategy ledger subfolder name.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ledger-root</code></td>
+<td><code>Path</code></td>
+<td><code>ledger</code></td>
+<td>Root of the per-strategy ledger. The strategy's history lives under <code>&lt;ledger-root&gt;/strategies/&lt;strategy&gt;/</code>.</td>
+</tr>
+<tr>
+<td><code>--baseline-from</code></td>
+<td><code>str</code></td>
+<td>—</td>
+<td>Optimization run id to load the baseline-best from. Mutually exclusive with <code>--baseline-defaults</code>.</td>
+</tr>
+<tr>
+<td><code>--baseline-defaults</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Use baseline-defaults (no optimize) for the baseline. Mutually exclusive with <code>--baseline-from</code>.</td>
+</tr>
+<tr>
+<td><code>--max-backtests</code></td>
+<td><code>int</code></td>
+<td>—</td>
+<td>Hard ceiling on cumulative backtests across the run. Iterations that would exceed this exit with <code>termination_reason = budget_exhausted</code>.</td>
+</tr>
+<tr>
+<td><code>--quick</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Quick mode: small mini-optimize budget (16 trials per candidate).</td>
+</tr>
+<tr>
+<td><code>--borderline-k</code></td>
+<td><code>float</code></td>
+<td><code>1.0</code></td>
+<td>Mechanical-gate score-floor coefficient (<code>Δ &gt; k · σ_combined</code>).</td>
+</tr>
+<tr>
+<td><code>--k-candidates</code></td>
+<td><code>int</code></td>
+<td><code>3</code></td>
+<td>Target accepted-candidate count per run.</td>
+</tr>
+<tr>
+<td><code>--iteration-budget</code></td>
+<td><code>int</code></td>
+<td><code>4</code></td>
+<td>Inner-loop iteration cap.</td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Validate inputs, print resolved flags as JSON, and exit.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Successful run (terminated for any reason); accepted/rejected lists printed to stdout.</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Bad CLI input (<code>typer.BadParameter</code>): e.g. both <code>--baseline-from</code> and <code>--baseline-defaults</code> supplied.</td>
+</tr>
+<tr>
+<td>nonzero</td>
+<td>Workflow exception (e.g. ledger I/O failure, build-pipeline crash).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="output-json-to-stdout">Output (JSON to stdout)<a class="headerlink" href="#output-json-to-stdout" title="Permanent link">&para;</a></h3>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;termination_reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sufficient_candidates&quot;</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;iterations&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;backtests_consumed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">384</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;n_accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;n_rejected&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">&quot;accepted&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tighten_vol_lo&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rationale&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">},</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;add_treasury_hedge&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rationale&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">},</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;widen_vol_hi&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rationale&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">}</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="nt">&quot;rejected&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rewrite_entry_logic&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;reject_format: ...&quot;</span><span class="p">}</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">  </span><span class="nt">&quot;persisted_decision_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">]</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>termination_reason</code> is one of <code>sufficient_candidates</code>, <code>budget_exhausted</code>,
+<code>similarity_saturation</code>, <code>running</code> (only on early exits).</p>
+<h2 id="strategy-gpt-hypothesis-replay-decision_id"><code>strategy-gpt hypothesis replay &lt;decision_id&gt;</code><a class="headerlink" href="#strategy-gpt-hypothesis-replay-decision_id" title="Permanent link">&para;</a></h2>
+<p>Reconstruct a recorded candidate from the per-strategy ledger.</p>
+<h3 id="arguments_1">Arguments<a class="headerlink" href="#arguments_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>decision_id</code></td>
+<td><code>str</code></td>
+<td>yes</td>
+<td><code>DecisionRecord</code> id to replay.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="options_1">Options<a class="headerlink" href="#options_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ledger-root</code></td>
+<td><code>Path</code></td>
+<td><code>ledger</code></td>
+<td>Per-strategy ledger root.</td>
+</tr>
+<tr>
+<td><code>--strategy</code></td>
+<td><code>str</code></td>
+<td>—</td>
+<td>Restrict the lookup to one strategy. Omit to scan every strategy under <code>&lt;ledger-root&gt;/strategies/</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="output-json">Output (JSON)<a class="headerlink" href="#output-json" title="Permanent link">&para;</a></h3>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;decision_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abcd...&quot;</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;hypothesis_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;efgh...&quot;</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">&quot;candidate_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tighten_vol_lo&quot;</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">&quot;outcome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accepted&quot;</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">&quot;stage&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">&quot;files_set_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blake2:...&quot;</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">&quot;files_in_bundle&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Cargo.toml&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;params_schema.json&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;src/lib.rs&quot;</span><span class="p">],</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">&quot;n_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">&quot;param_intent_added&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;vol_lo&quot;</span><span class="p">],</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">&quot;param_intent_kept&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="nt">&quot;param_intent_removed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">  </span><span class="nt">&quot;falsification_primary&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="nt">&quot;metric&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="nt">&quot;direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gt&quot;</span><span class="p">,</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="nt">&quot;delta_vs_baseline&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="nt">&quot;scope&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aggregate&quot;</span><span class="p">}</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Operators typically pipe this into a Python script that re-runs the
+mini-optimize against the recorded source bundle.</p>
+<h2 id="strategy-gpt-hypothesis-diff-decision_id"><code>strategy-gpt hypothesis diff &lt;decision_id&gt;</code><a class="headerlink" href="#strategy-gpt-hypothesis-diff-decision_id" title="Permanent link">&para;</a></h2>
+<p>Render a unified diff between the candidate source bundle and the
+baseline bundle recorded on the same hypothesis.</p>
+<h3 id="arguments-options">Arguments / Options<a class="headerlink" href="#arguments-options" title="Permanent link">&para;</a></h3>
+<p>Identical to <code>hypothesis replay</code>.</p>
+<h3 id="output">Output<a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
+<p>Unified diff to stdout, one block per file:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a># strategy=vxx_volatility_range decision_id=abcd... candidate=blake2:1234 baseline=blake2:5678
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>--- baseline/src/lib.rs
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>+++ candidate/src/lib.rs
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>@@ -1,4 +1,5 @@
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a> // existing logic
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>+// new hedge leg
+</span></code></pre></div>
+<p>Files present in only one bundle are reported as full-file add/delete diffs.</p>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>Selects an Anthropic reasoning model (Opus → Sonnet ranking).</td>
+</tr>
+<tr>
+<td><code>OPENAI_API_KEY</code></td>
+<td>Selects an OpenAI reasoning model (<code>o3</code> → <code>o1</code>).</td>
+</tr>
+<tr>
+<td><code>RUSTC_WRAPPER</code></td>
+<td>When set to <code>sccache</code>, build-pipeline candidate builds use sccache.</td>
+</tr>
+</tbody>
+</table>
+<p>Without an API key the workflow startup raises
+<code>NoReasoningModelAvailableError</code>; pass an explicit <code>ReasoningModel</code>
+override from the Python entry to bypass.</p>
 
 
 

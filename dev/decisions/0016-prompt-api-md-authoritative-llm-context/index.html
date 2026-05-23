@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0006-sealed-strategy-trait/">
+        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/decisions/0016-prompt-api-md-authoritative-llm-context/">
       
       
-        <link rel="prev" href="../0005-worker-process-isolation-no-sandbox/">
+        <link rel="prev" href="../0015-docs-platform-mkdocs-mike-pages/">
       
       
-        <link rel="next" href="../0007-sqlite-parquet-ledger/">
+        <link rel="next" href="../0017-per-strategy-storage-layout/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>0006 Sealed Strategy trait - strategy-gpt</title>
+        <title>0016 PROMPT_API.md authoritative LLM context - strategy-gpt</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#0006-sealed-strategy-trait-no-backwards-compatibility" class="md-skip">
+        <a href="#0016-engine-rtprompt_apimd-is-the-authoritative-llm-context" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              0006 Sealed Strategy trait
+              0016 PROMPT_API.md authoritative LLM context
             
           </span>
         </div>
@@ -1611,37 +1611,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0006 Sealed Strategy trait
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../0006-sealed-strategy-trait/" class="md-nav__link">
         
   
   
@@ -1657,81 +1630,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternatives Considered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1993,10 +1891,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../0016-prompt-api-md-authoritative-llm-context/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 PROMPT_API.md authoritative LLM context
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2012,6 +1937,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives Considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2237,22 +2237,59 @@
   
 
 
-<h1 id="0006-sealed-strategy-trait-no-backwards-compatibility">0006 — Sealed <code>Strategy</code> trait, no backwards compatibility<a class="headerlink" href="#0006-sealed-strategy-trait-no-backwards-compatibility" title="Permanent link">&para;</a></h1>
+<h1 id="0016-engine-rtprompt_apimd-is-the-authoritative-llm-context">0016 — <code>engine-rt/PROMPT_API.md</code> is the authoritative LLM context<a class="headerlink" href="#0016-engine-rtprompt_apimd-is-the-authoritative-llm-context" title="Permanent link">&para;</a></h1>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The <code>engine_rt::Strategy</code> trait is the ABI surface that every strategy artifact targets. The runner exposes a <code>RunnerVersion</code>; strategies are compiled against it and loaded by the engine worker via <code>libloading</code>. Pre-1.0, the trait is evolving — new lifecycle hooks, capability methods, and metadata fields are added as the research loop matures.</p>
+<p>The hypothesis loop emits Rust strategy crates by asking a reasoning model to
+fill in the <code>Strategy</code> trait against the <code>engine-rt</code> public surface. Earlier
+sketches embedded API documentation in the knowledge base (KB) alongside the
+trading concepts the loop is supposed to reason about. That coupling has two
+costs:</p>
+<ul>
+<li>The KB now carries two unrelated payloads — domain ideas (regimes, hedge
+  ratios, indicators) and a moving target (the strategy ABI) — which corrupts
+  retrieval relevance scores.</li>
+<li>The KB ingestion pipeline becomes the bottleneck for ABI changes; every
+  edit to <code>engine-rt::Context</code> would need a corresponding KB ingest.</li>
+</ul>
+<p><code>cargo doc --output-format json</code> exists but is too verbose for a prompt
+context window, lacks the "how to write a strategy" framing the model needs,
+and includes private items the linter would reject anyway.</p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>The <code>Strategy</code> trait is <strong>sealed</strong>: only types in this workspace can implement it (the trait's super-trait carries a hidden marker, and <code>strategy_entry!</code> is the only ABI-registration surface). <code>RunnerVersion</code> is a single integer carried by the runtime. Major-version bumps to <code>RunnerVersion</code> invalidate every existing artifact; there is no multi-version compatibility shim and no migration ABI.</p>
+<p><code>crates/engine-rt/PROMPT_API.md</code> is a hand-maintained, prompt-shaped document
+that is the <strong>single source of truth</strong> for the Strategy trait, Context handle,
+data types, allowed-crate list, file-layout convention, param-declaration
+convention (see <a href="../0017-per-strategy-storage-layout/">0017</a>), forbidden
+constructs, and a minimal exemplar.</p>
+<p>Every reasoning call in the hypothesis loop that emits strategy code embeds
+the verbatim contents of this file as locked context. The KB no longer carries
+API documentation — it carries techniques and concepts only.</p>
+<p>Maintenance is co-located with <code>engine-rt</code> source: any change to the public
+surface lands in the same commit as the document update.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The team can rename, add, or restructure trait methods freely. There is no need to design every new method to also work for old artifacts.</li>
-<li>LLM-emitted strategies are regenerated from source whenever the runner version bumps. The artifact cache is keyed by <code>(hash(source), RunnerVersion)</code>, so old artifacts simply do not match.</li>
-<li>Human-authored strategies under <code>crates/</code> must be rebuilt on every runner bump too. Acceptable because the workspace contains only two reference strategies, and the build pipeline rebuilds them as part of CI.</li>
-<li>We cannot ship a "library of pre-compiled strategies" without committing to ABI stability — out of scope today.</li>
+<li>The KB stays focused on domain knowledge; retrieval relevance scores stop
+  being polluted by ABI documentation chunks.</li>
+<li>ABI evolution is a one-file edit alongside the source change — the loop
+  picks it up on the next prompt build with no re-ingestion step.</li>
+<li>The maintenance burden is on humans, not tools. Acceptable at the current
+  crate size (low hundreds of LoC of public surface); revisit if the surface
+  grows beyond what a single document can stay current with.</li>
+<li>Prompt size grows by the size of <code>PROMPT_API.md</code>. For typical reasoning
+  models this is a few thousand tokens — small relative to the candidate
+  rationale and code that follow.</li>
 </ul>
 <h2 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Stable ABI.</strong> Forecloses simple trait evolution; the per-method cost of maintaining backward compatibility is large and the payoff (cross-version artifact reuse) is unwanted.</li>
-<li><strong>Pluggable trait hierarchy with feature flags.</strong> Adds complexity at the ABI boundary that no current research need justifies.</li>
+<li><strong>Auto-generate from <code>cargo doc</code> JSON.</strong> Rejected — output is too verbose,
+  lacks framing, and includes items the strategy linter would reject. The
+  signal-to-noise ratio for the model is much worse than a hand-curated
+  document.</li>
+<li><strong>Embed the API in the KB.</strong> Rejected — couples a moving target with the
+  domain corpus and corrupts retrieval. Forces every ABI edit through the
+  ingest pipeline.</li>
+<li><strong>Generate prompt context from <code>engine-rt</code> source via a custom
+  extractor.</strong> Rejected — the maintenance burden of the extractor itself
+  exceeds the burden of keeping a document current at current crate size.</li>
 </ul>
 <h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
 <p>accepted</p>
