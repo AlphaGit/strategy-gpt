@@ -53,12 +53,19 @@ crates/                 Rust workspace
   vxx-strategy/         Reference VXX volatility-range smoke strategy cdylib
   example-strategy/     No-op fixture used by plugin-loader tests
 python/strategy_gpt/    Orchestrator (LangGraph workflows, optimizer, tester,
-                        CLI, smoke run)
+                        author, CLI, smoke run). `author.py` drives the
+                        interactive intent dialog and the emit/build/smoke
+                        loop for the `strategy-gpt author` command.
 kb/                     Curated source list, starter corpus, recorded fixtures
 cache/                  Year-segmented content-addressed parquet (gitignored)
 ledger/                 SQLite ledger + parquet sidecars (gitignored)
 openspec/               Change proposals and capability specs
 ```
+
+`crates/Cargo.toml` declares `members = ["*"]` so any crate dropped into
+`crates/` (including author-emitted strategy crates) is auto-included in
+the workspace. Non-crate subdirs (e.g. `experiment-spec/`, `target/`,
+`.pytest_cache/`) are listed under `[workspace] exclude = [...]`.
 
 ## Domain vocabulary
 
@@ -70,6 +77,7 @@ See [docs/explanation/domain-vocabulary.md](docs/explanation/domain-vocabulary.m
 - **Backtest Engine** — batched, deterministic, abort-on-failure, native stress and sensitivity modes, enriched output schema (trades, signals incl. `suppressed_by`, equity, exec_log, regimes).
 - **Strategy Runtime (`engine-rt`)** — sealed `Strategy` trait, `Context` capability handle, `RunnerVersion`, semver, no backwards compatibility.
 - **Build Pipeline** — lint, allowed-crate whitelist (no version pinning), `cargo build` with sccache, content-addressed artifact cache.
+- **Author** — interactive LLM-driven creation (and editing) of strategy crates. `run_intent_dialog` elicits a structured `AuthorIntent` from the operator, `author_strategy` runs the emit/build/smoke repair loop, and the on-disk crate (with `intent.toml` + `smoke.toml`) is the durable artifact. No ledger row, no verdict — success means the crate compiles and smoke passes.
 - **Hypothesis Loop** — LangGraph workflow (`diagnose`, `kb_query`, `generate`, `critique`, `rank`, `select`) with internal iteration and persisted decision log.
 - **Tester** — translate hypothesis to artifact, run lint + smoke + full batch, report verdict against falsification criterion.
 - **Parameter Optimizer** — in-house per-fold search (grid, random, Sobol, Bayesian/TPE, recursive grid, LHS+Hooke-Jeeves, successive halving, CMA-ES, differential evolution) over the experiment-spec fold scheme, multi-metric objectives, overfitting-aware selection layer, LLM-generated rationale.

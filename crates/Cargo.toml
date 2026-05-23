@@ -1,17 +1,7 @@
 [workspace]
 resolver = "2"
-members = [
-    "engine-rt",
-    "engine",
-    "data-gateway",
-    "ledger",
-    "kb",
-    "build-pipeline",
-    "objectives",
-    "py-bindings",
-    "example-strategy",
-    "vxx-strategy",
-]
+members = ["*"]
+exclude = ["experiment-spec", ".pytest_cache", "target"]
 
 [workspace.package]
 edition = "2021"

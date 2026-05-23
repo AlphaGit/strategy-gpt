@@ -22,7 +22,7 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import typer
 
@@ -37,6 +37,17 @@ from pydantic import TypeAdapter
 
 from . import __version__
 from . import experiment_spec as espec
+from .author import (
+    AuthorBudgetExhaustedError,
+    AuthorDeps,
+    AuthorReasoningClient,
+    DialogError,
+    SmokeRunner,
+    SmokeRunResult,
+    SmokeSpec,
+    author_strategy,
+    run_intent_dialog,
+)
 from .benchmark import format_report, report_json, run_benchmark
 from .engine import Engine
 from .gateway import Gateway
@@ -345,6 +356,279 @@ def hypothesize(  # noqa: PLR0913 — surface mirrors the workflow knobs
         )
     )
     raise typer.Exit(code=0)
+
+
+# ---------------------------------------------------------------------------
+# `author` — interactive strategy creation
+# ---------------------------------------------------------------------------
+
+
+def _default_reasoning_client(model: str | None) -> AuthorReasoningClient:
+    """Construct the default author-stage reasoning client adapter.
+
+    Lazy import of the Anthropic SDK keeps the CLI cold-path light.
+    Tests monkeypatch this factory to inject a stub.
+    """
+    from .reasoning import select_reasoning_model  # noqa: PLC0415
+
+    model_obj = select_reasoning_model(override=None) if model is None else None
+    if model is not None:
+        # Operator-supplied override is treated as opaque; provider is
+        # inferred from the prefix.
+        from .reasoning import ReasoningModel  # noqa: PLC0415
+
+        provider: Literal["anthropic", "openai"] = (
+            "anthropic" if model.startswith("claude") else "openai"
+        )
+        model_obj = ReasoningModel(provider=provider, model_id=model)
+    if model_obj is None:
+        raise RuntimeError("could not resolve reasoning model")
+    return (
+        _AnthropicAuthorAdapter(model_obj.model_id)
+        if model_obj.provider == "anthropic"
+        else (_OpenAIAuthorAdapter(model_obj.model_id))
+    )
+
+
+class _AnthropicAuthorAdapter:
+    """Anthropic Messages adapter exposing the author-stage surface."""
+
+    def __init__(self, model_id: str) -> None:
+        import anthropic  # noqa: PLC0415
+
+        self._model_id = model_id
+        self._client = anthropic.Anthropic()
+
+    def dialog_turn(self, *, system: str, transcript: list[dict[str, str]]) -> str:
+        response = self._client.messages.create(
+            model=self._model_id,
+            max_tokens=4096,
+            system=system,
+            messages=[{"role": m["role"], "content": m["content"]} for m in transcript],  # type: ignore[typeddict-item]
+        )
+        return _extract_anthropic_text(response.content, scope="dialog")
+
+    def emit_files(self, *, system: str, user: str) -> str:
+        response = self._client.messages.create(
+            model=self._model_id,
+            max_tokens=8192,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return _extract_anthropic_text(response.content, scope="emit")
+
+
+def _extract_anthropic_text(blocks: Any, *, scope: str) -> str:  # noqa: ANN401 — Anthropic SDK block union is opaque
+    for block in blocks or []:
+        if getattr(block, "type", None) == "text":
+            return str(getattr(block, "text", ""))
+    msg = f"Anthropic {scope} response had no text block"
+    raise RuntimeError(msg)
+
+
+class _OpenAIAuthorAdapter:
+    """OpenAI Chat-Completions adapter exposing the author-stage surface."""
+
+    def __init__(self, model_id: str) -> None:
+        import openai  # noqa: PLC0415
+
+        self._model_id = model_id
+        self._client = openai.OpenAI()
+
+    def dialog_turn(self, *, system: str, transcript: list[dict[str, str]]) -> str:
+        messages: list[dict[str, str]] = [{"role": "system", "content": system}]
+        messages.extend({"role": m["role"], "content": m["content"]} for m in transcript)
+        response = self._client.chat.completions.create(
+            model=self._model_id,
+            messages=messages,  # type: ignore[arg-type]
+        )
+        return str(response.choices[0].message.content or "")
+
+    def emit_files(self, *, system: str, user: str) -> str:
+        response = self._client.chat.completions.create(
+            model=self._model_id,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        return str(response.choices[0].message.content or "")
+
+
+def _default_smoke_runner(
+    *,
+    engine_worker: Path,
+    gateway_root: Path,
+    seed: int = 0,
+) -> SmokeRunner:
+    """Build a smoke runner that fetches bars and submits a single-run batch.
+
+    The runner mirrors :func:`strategy_gpt.tester.run_smoke`'s contract:
+    success iff the run completes with at least one trade and no sanity
+    trip. Closure captures the gateway + engine wiring so the resulting
+    callable matches the :class:`SmokeRunner` signature.
+    """
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from .tester import run_smoke  # noqa: PLC0415
+
+    def runner(library_path: Path, spec: SmokeSpec) -> SmokeRunResult:
+        gw = Gateway(gateway_root)
+        if spec.provider == "yfinance":
+            gw.register_yfinance_provider(spec.provider)
+        request = BarRequest(
+            provider=spec.provider,
+            symbol=spec.symbol,
+            start=datetime.fromisoformat(spec.start).replace(tzinfo=UTC),
+            end=datetime.fromisoformat(spec.end).replace(tzinfo=UTC),
+            resolution=Resolution(spec.resolution),
+            adjustment=AdjustmentPolicy.BACK_ADJUSTED,
+        )
+        response = gw.fetch(request, "prefer_cache")
+        engine = Engine(engine_worker)
+        outcome = run_smoke(
+            engine,
+            strategy_artifact=str(library_path),
+            dataset_ref=response.manifest_hash,
+            bars=list(response.bars),
+            params={},
+            slice_start=request.start,
+            slice_end=request.end,
+            dataset_manifest=response.manifest_hash,
+            seed=seed,
+        )
+        return SmokeRunResult(
+            ok=outcome.ok,
+            feedback=outcome.rationale,
+            artifact_hash=str(library_path),
+        )
+
+    return runner
+
+
+# Module-level hooks so tests can inject stubs without going through the
+# real LLM / engine surfaces. Override by monkeypatching at the module.
+_author_reasoning_client_factory: Any = _default_reasoning_client
+_author_smoke_runner_factory: Any = _default_smoke_runner
+
+
+@app.command()
+def author(  # noqa: PLR0913 — typer surface
+    idea: Annotated[
+        str | None,
+        typer.Argument(help="Optional natural-language seed for the dialog stage."),
+    ] = None,
+    crates_dir: Annotated[
+        Path,
+        typer.Option(help="Workspace crates directory."),
+    ] = Path("crates"),
+    cache_root: Annotated[
+        Path,
+        typer.Option(help="Build pipeline cache root."),
+    ] = Path("cache/builds"),
+    work_root: Annotated[
+        Path,
+        typer.Option(help="Build pipeline scratch directory."),
+    ] = Path("cache/build-work"),
+    engine_worker: Annotated[
+        Path,
+        typer.Option(help="Path to the engine-worker binary."),
+    ] = Path("crates/target/debug/engine-worker"),
+    gateway_root: Annotated[
+        Path,
+        typer.Option(help="Gateway cache root used for smoke bars."),
+    ] = Path("cache"),
+    verify: Annotated[
+        str | None,
+        typer.Option("--verify", help="Set to `batch` to run the full-batch verification."),
+    ] = None,
+    k_repair_emit: Annotated[
+        int,
+        typer.Option("--k-repair-emit", help="Repair budget for the emit/build/smoke stage."),
+    ] = 2,
+    k_repair_build: Annotated[
+        int,
+        typer.Option("--k-repair-build", help="Repair budget for the build sub-stage."),
+    ] = 2,
+    model: Annotated[
+        str | None,
+        typer.Option("--model", help="Override the reasoning model identifier."),
+    ] = None,
+) -> None:
+    """Author a new strategy crate via interactive LLM dialog.
+
+    Drives :func:`strategy_gpt.author.run_intent_dialog` to elicit a
+    structured intent, then :func:`strategy_gpt.author.author_strategy`
+    to emit, build, and smoke-test the crate. On success the crate path
+    and a next-step hint are printed.
+    """
+    from .build_pipeline import BuildPipeline  # noqa: PLC0415
+    from .repair import RepairConfig  # noqa: PLC0415
+
+    if verify is not None and verify != "batch":
+        raise typer.BadParameter("--verify only accepts the value `batch`")
+
+    reasoning_client = _author_reasoning_client_factory(model)
+    smoke_runner = _author_smoke_runner_factory(
+        engine_worker=engine_worker,
+        gateway_root=gateway_root,
+    )
+    build_pipeline = BuildPipeline(
+        cache_root=cache_root,
+        work_root=work_root,
+        engine_rt_path=crates_dir / "engine-rt",
+        whitelist_path=crates_dir / "build-pipeline" / "whitelist.toml",
+    )
+
+    try:
+        intent = run_intent_dialog(
+            seed=idea,
+            reasoning_client=reasoning_client,
+            crates_dir=crates_dir,
+        )
+    except DialogError as e:
+        typer.echo(f"dialog failed: {e}", err=True)
+        raise typer.Exit(code=1) from None
+
+    deps = AuthorDeps(
+        reasoning_client=reasoning_client,
+        build_pipeline=build_pipeline,
+        smoke_runner=smoke_runner,
+        crates_dir=crates_dir,
+        repair_config_emit=RepairConfig(k_repair=k_repair_emit),
+        repair_config_build=RepairConfig(k_repair=k_repair_build),
+    )
+
+    if verify == "batch" and intent.experiment_spec is None:
+        typer.echo(
+            "--verify=batch requested but the dialog did not produce an experiment_spec; "
+            "re-run the dialog and ask it to populate experiment_spec.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        result = author_strategy(intent, deps=deps)
+    except AuthorBudgetExhaustedError as e:
+        typer.echo(f"author run aborted: {e}", err=True)
+        raise typer.Exit(code=1) from None
+
+    typer.echo(
+        json.dumps(
+            {
+                "name": result.name,
+                "crate_path": str(result.crate_path),
+                "artifact_hash": result.artifact_hash,
+                "next_steps": [
+                    f"strategy-gpt hypothesize {result.name}",
+                    f"strategy-gpt run --spec {result.crate_path}/experiment.yaml"
+                    if intent.experiment_spec is not None
+                    else f"# inspect: bat {result.crate_path}/src/lib.rs",
+                ],
+            },
+            indent=2,
+        )
+    )
 
 
 hypothesis_app = typer.Typer(

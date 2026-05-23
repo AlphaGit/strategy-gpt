@@ -1,0 +1,631 @@
+"""Author command: interactive LLM-driven creation of strategy crates.
+
+The author flow is the root primitive for the research loop. Given a
+human's natural-language seed, the dialog stage produces a structured
+:class:`AuthorIntent`; the emit stage hands that intent to an LLM which
+emits ``src/lib.rs`` + ``Cargo.toml`` + ``smoke.toml`` (and optionally
+``experiment.yaml``) into ``crates/<name>-strategy/``. The crate is
+built package-scoped and smoke-tested; failures feed back through
+:func:`repair.run_stage_with_repair`. On success an ``intent.toml``
+record is persisted alongside the source.
+
+Author has no falsification, no ledger row, no verdict. Success means
+the crate compiles and smoke passes. The crate directory IS the artifact.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import tomllib
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any, Protocol
+
+import yaml
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from .build_pipeline import BuildFailure, ManifestDep, StrategyManifest, _BuildPipelineLike
+from .markdown_io import ParseError, parse_stage3
+from .repair import RepairConfig, ValidationOutcome, run_stage_with_repair
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+
+_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,39}$")
+
+
+class SmokeSpec(BaseModel):
+    """Fixture data spec for the smoke backtest.
+
+    Identifies the bars the smoke run feeds into the freshly-built
+    strategy. ``provider`` defaults to ``yfinance`` since that is the
+    one provider wired into the gateway out of the box.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    symbol: str
+    resolution: str = "1d"
+    start: str
+    end: str
+    provider: str = "yfinance"
+
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def _coerce_date(cls, value: object) -> object:
+        # YAML safe_load auto-parses ISO dates into `datetime.date`. Accept
+        # both shapes so the dialog YAML doesn't have to quote dates.
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return value
+
+
+@dataclass(frozen=True)
+class AuthorIntent:
+    """Frozen, normalized intent produced by the dialog stage.
+
+    Fully describes the strategy the LLM is about to emit. The library
+    seam (:func:`author_strategy`) accepts a fully-formed intent so the
+    hypothesis loop or other programmatic callers can bypass the
+    interactive dialog.
+    """
+
+    name: str
+    description: str
+    mechanism_summary: str
+    param_schema_sketch: dict[str, Any]
+    smoke_spec: SmokeSpec
+    experiment_spec: dict[str, Any] | None = None
+    baseline_crate: Path | None = None
+
+
+@dataclass(frozen=True)
+class AuthoredStrategy:
+    """Successful author-run result."""
+
+    name: str
+    crate_path: Path
+    artifact_hash: str
+    intent: AuthorIntent
+
+
+# ---------------------------------------------------------------------------
+# Dependencies
+# ---------------------------------------------------------------------------
+
+
+class AuthorReasoningClient(Protocol):
+    """Author-stage reasoning client.
+
+    Two surfaces: ``dialog_turn`` returns either a clarifying question
+    or a final ``# AuthorIntent`` YAML payload; ``emit_files`` returns a
+    stage-3-shaped markdown payload describing the files to write.
+    """
+
+    def dialog_turn(self, *, system: str, transcript: list[dict[str, str]]) -> str: ...
+
+    def emit_files(self, *, system: str, user: str) -> str: ...
+
+
+@dataclass(frozen=True)
+class SmokeRunResult:
+    """Outcome of a smoke backtest.
+
+    ``ok`` flips false on panic, sanity-trip, or zero-trade output;
+    ``feedback`` is the LLM-facing diagnostic.
+    """
+
+    ok: bool
+    feedback: str = ""
+    artifact_hash: str = ""
+
+
+SmokeRunner = Callable[[Path, SmokeSpec], SmokeRunResult]
+"""Smoke runner. Takes the build artifact's ``library_path`` and the
+smoke spec; returns a :class:`SmokeRunResult`. Wired to the real engine
+in the CLI; stubbed in tests."""
+
+
+@dataclass(frozen=True)
+class AuthorDeps:
+    """Collaborator handles consumed by :func:`author_strategy`."""
+
+    reasoning_client: AuthorReasoningClient
+    build_pipeline: _BuildPipelineLike
+    smoke_runner: SmokeRunner
+    crates_dir: Path
+    repair_config_emit: RepairConfig = field(default_factory=lambda: RepairConfig(k_repair=2))
+    repair_config_build: RepairConfig = field(default_factory=lambda: RepairConfig(k_repair=2))
+
+
+# ---------------------------------------------------------------------------
+# Dialog driver
+# ---------------------------------------------------------------------------
+
+
+_INTENT_HEADER = "# AuthorIntent"
+
+
+class DialogError(RuntimeError):
+    """Dialog terminated without a usable intent (operator aborted, etc.)."""
+
+
+def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its full collaborator surface
+    seed: str | None,
+    *,
+    reasoning_client: AuthorReasoningClient,
+    crates_dir: Path,
+    ask_user: Callable[[str], str] = input,
+    write_user: Callable[[str], None] = print,
+    max_turns: int = 12,
+) -> AuthorIntent:
+    """Drive the clarifying-question dialog until the LLM emits an intent.
+
+    The first turn carries the optional NL seed. The LLM either asks a
+    clarifying question (free-form prose) or commits to the final intent
+    by emitting a ``# AuthorIntent`` YAML section. When edit-mode is
+    detected (the proposed name matches an existing crate), the baseline
+    artifact files are loaded into the next turn's transcript and the
+    LLM is told to frame subsequent emissions as modifications.
+    """
+    from .prompts_author import build_dialog_system_prompt  # noqa: PLC0415 — avoid import cycle
+
+    system = build_dialog_system_prompt(crates_dir=crates_dir)
+    transcript: list[dict[str, str]] = []
+    seed_text = seed.strip() if seed else ""
+    if seed_text:
+        transcript.append({"role": "user", "content": seed_text})
+    else:
+        transcript.append(
+            {"role": "user", "content": "(no seed supplied; ask what I want to author)"}
+        )
+
+    for _ in range(max_turns):
+        response = reasoning_client.dialog_turn(system=system, transcript=transcript)
+        transcript.append({"role": "assistant", "content": response})
+
+        intent_block = _extract_intent_block(response)
+        if intent_block is not None:
+            intent = _parse_intent_block(intent_block)
+            intent = _maybe_attach_baseline(intent, crates_dir, transcript, ask_user, write_user)
+            return intent
+
+        # Plain conversational turn: surface the assistant text and read
+        # the user's reply.
+        write_user(response)
+        reply = ask_user("> ")
+        transcript.append({"role": "user", "content": reply})
+
+    msg = f"dialog exceeded {max_turns} turns without producing an AuthorIntent"
+    raise DialogError(msg)
+
+
+_INTENT_FENCE_RE = re.compile(r"```(?:yaml)?\n(.*?)\n```", re.DOTALL)
+
+
+def _extract_intent_block(text: str) -> str | None:
+    """Return the YAML body if the assistant emitted a ``# AuthorIntent`` section."""
+    if _INTENT_HEADER not in text:
+        return None
+    idx = text.index(_INTENT_HEADER) + len(_INTENT_HEADER)
+    tail = text[idx:]
+    match = _INTENT_FENCE_RE.search(tail)
+    if match is None:
+        return tail.strip()
+    return match.group(1).strip()
+
+
+def _parse_intent_block(body: str) -> AuthorIntent:
+    """Validate the YAML intent body and freeze it into an :class:`AuthorIntent`."""
+    try:
+        data = yaml.safe_load(body)
+    except yaml.YAMLError as e:
+        msg = f"AuthorIntent YAML parse failure: {e}"
+        raise DialogError(msg) from None
+    if not isinstance(data, dict):
+        raise DialogError("AuthorIntent body must be a YAML mapping")
+
+    name = _require_name(data.get("name"))
+    description = _require_str(data, "description")
+    mechanism = _require_str(data, "mechanism_summary")
+    param_sketch = data.get("param_schema_sketch", {})
+    if not isinstance(param_sketch, dict):
+        raise DialogError("`param_schema_sketch` must be a mapping")
+    smoke_raw = data.get("smoke_spec")
+    if not isinstance(smoke_raw, dict):
+        raise DialogError("`smoke_spec` must be a mapping")
+    smoke = SmokeSpec.model_validate(smoke_raw)
+    experiment = data.get("experiment_spec")
+    if experiment is not None and not isinstance(experiment, dict):
+        raise DialogError("`experiment_spec` must be a mapping or omitted")
+    return AuthorIntent(
+        name=name,
+        description=description.strip(),
+        mechanism_summary=mechanism.strip(),
+        param_schema_sketch=dict(param_sketch),
+        smoke_spec=smoke,
+        experiment_spec=dict(experiment) if isinstance(experiment, dict) else None,
+        baseline_crate=None,
+    )
+
+
+def _maybe_attach_baseline(
+    intent: AuthorIntent,
+    crates_dir: Path,
+    transcript: list[dict[str, str]],
+    ask_user: Callable[[str], str],
+    write_user: Callable[[str], None],
+) -> AuthorIntent:
+    """Attach the existing crate to the intent if the proposed name collides."""
+    crate_path = crate_dir_for(crates_dir, intent.name)
+    if not crate_path.exists():
+        return intent
+
+    write_user(
+        f"Crate `{intent.name}-strategy/` already exists at {crate_path}. "
+        f"Edit existing crate, or pick a different name?"
+    )
+    reply = ask_user("[edit/rename] > ").strip().lower()
+    if reply.startswith("edit") or reply in {"e", "y", "yes"}:
+        return replace(intent, baseline_crate=crate_path)
+    # Caller asked to rename — re-enter dialog with that context.
+    transcript.append(
+        {
+            "role": "user",
+            "content": (
+                f"The proposed name `{intent.name}` collides with an existing crate. "
+                "Pick a different name and re-emit the AuthorIntent block."
+            ),
+        }
+    )
+    raise _RenameRequestedError(intent.name)
+
+
+class _RenameRequestedError(Exception):
+    """Internal signal: dialog must continue with a different name."""
+
+    def __init__(self, conflicting_name: str) -> None:
+        super().__init__(conflicting_name)
+        self.conflicting_name = conflicting_name
+
+
+def _require_name(value: object) -> str:
+    if not isinstance(value, str):
+        raise DialogError("`name` must be a string")
+    name = value.strip()
+    if not _NAME_RE.fullmatch(name):
+        raise DialogError(
+            f"`name` must match `[a-z][a-z0-9_-]{{0,39}}$`; got {name!r}",
+        )
+    return name
+
+
+def _require_str(data: dict[str, Any], key: str) -> str:
+    value = data.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise DialogError(f"`{key}` must be a non-empty string")
+    return value
+
+
+# ---------------------------------------------------------------------------
+# author_strategy
+# ---------------------------------------------------------------------------
+
+
+class AuthorBudgetExhaustedError(RuntimeError):
+    """Repair budget exhausted; control should return to the dialog."""
+
+    def __init__(self, stage: str, attempts: int, last_feedback: str) -> None:
+        super().__init__(
+            f"author {stage} stage exhausted repair budget after {attempts} attempts; "
+            f"last feedback: {last_feedback[:200]}"
+        )
+        self.stage = stage
+        self.attempts = attempts
+        self.last_feedback = last_feedback
+
+
+def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrategy:
+    """Drive the emit / build / smoke loop against ``intent``.
+
+    Library seam: the dialog stage is optional; programmatic callers
+    (e.g. the hypothesis loop's future ``generate`` rewrite) build an
+    :class:`AuthorIntent` directly and call this function.
+    """
+    from .prompts_author import build_emit_prompt  # noqa: PLC0415 — avoid import cycle
+
+    crate_path = crate_dir_for(deps.crates_dir, intent.name)
+    crate_path.mkdir(parents=True, exist_ok=True)
+
+    last_artifact_hash = ""
+
+    def emit(feedback: str) -> str:
+        prompt = build_emit_prompt(intent=intent, feedback=feedback, crates_dir=deps.crates_dir)
+        return deps.reasoning_client.emit_files(system=prompt.system, user=prompt.user)
+
+    def validate(response: str) -> ValidationOutcome:  # noqa: PLR0911 — distinct early-rejects keep the failure taxonomy explicit
+        nonlocal last_artifact_hash
+        try:
+            parsed = parse_stage3(response)
+        except ParseError as e:
+            return ValidationOutcome(ok=False, kind="reject_format", feedback=str(e))
+        files = parsed.files
+        manifest_text = files.get("Cargo.toml")
+        source_text = files.get("src/lib.rs")
+        smoke_text = files.get("smoke.toml")
+        if manifest_text is None or source_text is None or smoke_text is None:
+            missing = [
+                p
+                for p, present in (
+                    ("Cargo.toml", manifest_text is not None),
+                    ("src/lib.rs", source_text is not None),
+                    ("smoke.toml", smoke_text is not None),
+                )
+                if not present
+            ]
+            return ValidationOutcome(
+                ok=False,
+                kind="reject_format",
+                feedback=f"missing required file(s): {missing}",
+            )
+
+        _write_files(crate_path, files)
+
+        try:
+            manifest = _parse_manifest(manifest_text)
+        except ValueError as e:
+            return ValidationOutcome(ok=False, kind="reject_format", feedback=str(e))
+
+        lint = deps.build_pipeline.lint(source_text, manifest)
+        if not lint.ok:
+            return ValidationOutcome(
+                ok=False,
+                kind="reject_lint",
+                feedback=(
+                    f"lint failed; source_violations={lint.source_violations}, "
+                    f"manifest_violations={lint.manifest_violations}"
+                ),
+            )
+
+        try:
+            outcome = deps.build_pipeline.build(source_text, manifest)
+        except BuildFailure as e:
+            return ValidationOutcome(
+                ok=False,
+                kind=f"reject_build:{e.kind.value}",
+                feedback=e.message,
+            )
+
+        try:
+            smoke_spec = _parse_smoke_toml(smoke_text)
+        except ValueError as e:
+            return ValidationOutcome(ok=False, kind="reject_format", feedback=str(e))
+
+        smoke = deps.smoke_runner(Path(outcome.artifact.library_path), smoke_spec)
+        if not smoke.ok:
+            return ValidationOutcome(
+                ok=False,
+                kind="reject_smoke",
+                feedback=smoke.feedback or "smoke failed (no diagnostic)",
+            )
+
+        last_artifact_hash = outcome.artifact.key
+        return ValidationOutcome(ok=True, parsed={"files": files, "smoke_spec": smoke_spec})
+
+    result = run_stage_with_repair(
+        stage=1,
+        emit_fn=emit,
+        validate_fn=validate,
+        config=deps.repair_config_emit,
+    )
+    if not result.accepted:
+        last_feedback = (
+            result.attempts[-1].outcome.feedback if result.attempts else "no attempts recorded"
+        )
+        raise AuthorBudgetExhaustedError("emit", result.attempts_count, last_feedback)
+
+    _persist_intent(crate_path, intent)
+    if intent.experiment_spec is not None:
+        _persist_experiment(crate_path, intent.experiment_spec)
+    return AuthoredStrategy(
+        name=intent.name,
+        crate_path=crate_path,
+        artifact_hash=last_artifact_hash,
+        intent=intent,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def crate_dir_for(crates_dir: Path, name: str) -> Path:
+    """Return the conventional crate directory for an intent name."""
+    return crates_dir / f"{name}-strategy"
+
+
+def _write_files(crate_path: Path, files: dict[str, str]) -> None:
+    """Write all emitted files under ``crate_path`` verbatim."""
+    for rel, body in files.items():
+        target = crate_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+
+
+_MANIFEST_DEP_RE = re.compile(
+    r'^([a-zA-Z0-9_-]+)\s*=\s*(?:"([^"]+)"|\{[^}]*?(?:version\s*=\s*"([^"]+)"|workspace\s*=\s*true)[^}]*?\})\s*$',
+    re.MULTILINE,
+)
+
+
+def _parse_manifest(text: str) -> StrategyManifest:
+    """Lift the LLM-emitted ``Cargo.toml`` into a :class:`StrategyManifest`."""
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as e:
+        msg = f"Cargo.toml is not valid TOML: {e}"
+        raise ValueError(msg) from None
+    pkg = data.get("package")
+    if not isinstance(pkg, dict):
+        raise ValueError("Cargo.toml missing `[package]` table")
+    name = pkg.get("name")
+    version = pkg.get("version", "0.1.0")
+    if not isinstance(name, str) or not name:
+        raise ValueError("Cargo.toml `[package].name` must be a string")
+
+    def _deps(section: dict[str, Any] | None) -> list[ManifestDep]:
+        if not isinstance(section, dict):
+            return []
+        out: list[ManifestDep] = []
+        for dep_name, spec in section.items():
+            if isinstance(spec, str):
+                req = spec
+            elif isinstance(spec, dict):
+                req = spec.get("version", "*")
+            else:
+                req = "*"
+            out.append(ManifestDep(name=str(dep_name), req=str(req)))
+        return out
+
+    return StrategyManifest(
+        name=name,
+        version=str(version),
+        dependencies=_deps(data.get("dependencies")),
+        dev_dependencies=_deps(data.get("dev-dependencies")),
+        build_dependencies=_deps(data.get("build-dependencies")),
+    )
+
+
+def _parse_smoke_toml(text: str) -> SmokeSpec:
+    """Parse ``smoke.toml`` into a frozen :class:`SmokeSpec`."""
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as e:
+        msg = f"smoke.toml is not valid TOML: {e}"
+        raise ValueError(msg) from None
+    return SmokeSpec.model_validate(data)
+
+
+def _persist_intent(crate_path: Path, intent: AuthorIntent) -> None:
+    """Persist the structured intent as TOML alongside the source.
+
+    The file is the authoritative on-disk record. The format is hand-
+    written rather than dumped via a third-party library to keep the
+    dependency surface minimal.
+    """
+    target = crate_path / "intent.toml"
+    target.write_text(_intent_to_toml(intent), encoding="utf-8")
+
+
+def _persist_experiment(crate_path: Path, spec: dict[str, Any]) -> None:
+    """Persist the full-batch experiment spec as ``experiment.yaml``."""
+    target = crate_path / "experiment.yaml"
+    target.write_text(yaml.safe_dump(spec, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+
+def _intent_to_toml(intent: AuthorIntent) -> str:
+    """Hand-roll a TOML emission for an :class:`AuthorIntent`.
+
+    The schema is small (string scalars + two nested tables) so a manual
+    writer is cheaper than pulling in ``tomli_w``. Round-trips through
+    :func:`load_intent_toml` are covered by ``test_author``.
+    """
+    lines: list[str] = []
+    lines.append(f"name = {_toml_str(intent.name)}")
+    lines.append(f"description = {_toml_multi(intent.description)}")
+    lines.append(f"mechanism_summary = {_toml_multi(intent.mechanism_summary)}")
+    if intent.baseline_crate is not None:
+        lines.append(f"baseline_crate = {_toml_str(str(intent.baseline_crate))}")
+    lines.append("")
+    lines.append("[smoke_spec]")
+    smoke = intent.smoke_spec
+    lines.append(f"symbol = {_toml_str(smoke.symbol)}")
+    lines.append(f"resolution = {_toml_str(smoke.resolution)}")
+    lines.append(f"start = {_toml_str(smoke.start)}")
+    lines.append(f"end = {_toml_str(smoke.end)}")
+    lines.append(f"provider = {_toml_str(smoke.provider)}")
+    lines.append("")
+    lines.append("[param_schema_sketch]")
+    lines.append(f"_json = {_toml_literal(json.dumps(intent.param_schema_sketch, sort_keys=True))}")
+    if intent.experiment_spec is not None:
+        lines.append("")
+        lines.append("[experiment_spec]")
+        lines.append(
+            f"_yaml = {_toml_literal(yaml.safe_dump(intent.experiment_spec, sort_keys=False))}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def load_intent_toml(crate_path: Path) -> AuthorIntent:
+    """Round-trip helper: load a persisted ``intent.toml``."""
+    text = (crate_path / "intent.toml").read_text(encoding="utf-8")
+    data = tomllib.loads(text)
+    smoke = SmokeSpec.model_validate(data["smoke_spec"])
+    raw_schema = data.get("param_schema_sketch", {})
+    param_schema_sketch = (
+        json.loads(raw_schema["_json"])
+        if isinstance(raw_schema, dict) and "_json" in raw_schema
+        else dict(raw_schema)
+    )
+    experiment_raw = data.get("experiment_spec")
+    experiment_spec: dict[str, Any] | None = None
+    if isinstance(experiment_raw, dict) and "_yaml" in experiment_raw:
+        loaded = yaml.safe_load(experiment_raw["_yaml"])
+        experiment_spec = loaded if isinstance(loaded, dict) else None
+    baseline = data.get("baseline_crate")
+    return AuthorIntent(
+        name=str(data["name"]),
+        description=str(data["description"]),
+        mechanism_summary=str(data["mechanism_summary"]),
+        param_schema_sketch=param_schema_sketch,
+        smoke_spec=smoke,
+        experiment_spec=experiment_spec,
+        baseline_crate=Path(str(baseline)) if isinstance(baseline, str) else None,
+    )
+
+
+def _toml_str(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _toml_multi(value: str) -> str:
+    # Multi-line content uses TOML's triple-double-quoted form. TOML
+    # trims the opening newline, so a trailing newline appears in the
+    # decoded value only when the source carries one.
+    if "\n" not in value:
+        return _toml_str(value)
+    escaped = value.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
+    return f'"""\n{escaped}"""'
+
+
+def _toml_literal(value: str) -> str:
+    # TOML literal triple-quoted strings preserve content verbatim with
+    # no escape processing — ideal for embedded JSON or YAML payloads.
+    # Triple-single-quote sequences in the value are illegal in this
+    # form; fall back to the escaped basic-string in that rare case.
+    if "'''" in value:
+        return _toml_multi(value)
+    return f"'''\n{value}'''"
+
+
+__all__ = [
+    "AuthorBudgetExhaustedError",
+    "AuthorDeps",
+    "AuthorIntent",
+    "AuthorReasoningClient",
+    "AuthoredStrategy",
+    "DialogError",
+    "SmokeRunResult",
+    "SmokeRunner",
+    "SmokeSpec",
+    "author_strategy",
+    "crate_dir_for",
+    "load_intent_toml",
+    "run_intent_dialog",
+]
