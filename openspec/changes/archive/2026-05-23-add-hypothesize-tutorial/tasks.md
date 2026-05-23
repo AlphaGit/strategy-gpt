@@ -27,4 +27,4 @@
 - [x] 4.1 Run `make lint` to confirm `mkdocs build --strict` passes with the new page.
 - [x] 4.2 Run `openspec validate add-hypothesize-tutorial --strict` and resolve any spec-format issues.
 - [x] 4.3 Manually walk the tutorial from a clean checkout (or scratch worktree) without setting `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to verify the no-keys scenario in the spec.
-- [ ] 4.4 Open the PR; once merged, run `openspec archive add-hypothesize-tutorial` so the `documentation` spec absorbs the MODIFIED + ADDED requirements.
+- [x] 4.4 Open the PR; once merged, run `openspec archive add-hypothesize-tutorial` so the `documentation` spec absorbs the MODIFIED + ADDED requirements.
