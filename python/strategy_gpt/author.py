@@ -286,13 +286,52 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
             panel = render_decisions_panel(projection)
             if panel:
                 write_user(panel)
-        reply = ask_user("> ")
+        reply = read_multiline_reply(ask_user=ask_user, write_user=write_user)
         decisions_section = format_decisions_for_prompt(projection)
         next_content = f"{reply}\n\n{decisions_section}" if decisions_section else reply
         transcript.append({"role": "user", "content": next_content})
 
     msg = f"dialog exceeded {max_turns} turns without producing an AuthorIntent"
     raise DialogError(msg)
+
+
+_MULTILINE_OPEN = "<<<"
+_MULTILINE_CLOSE = ">>>"
+
+
+def read_multiline_reply(
+    *,
+    ask_user: Callable[[str], str],
+    write_user: Callable[[str], None],
+) -> str:
+    """Read one operator reply, optionally as a multi-line block.
+
+    Default behavior is single-line — the operator types text, presses
+    Enter, the line is returned. To submit a multi-line answer (a
+    pasted snippet, a multi-paragraph explanation, a YAML block), the
+    operator types ``<<<`` on its own line; subsequent lines are
+    collected until ``>>>`` on its own line, at which point the joined
+    body (with internal newlines preserved) is returned. The opening
+    and closing markers themselves are stripped.
+
+    The CLI surface uses this for every operator turn in the author
+    dialog; the rename prompt in ``_maybe_attach_baseline`` stays
+    single-line because the answer is always a short token.
+    """
+    first = ask_user("> ")
+    if first.strip() != _MULTILINE_OPEN:
+        return first
+    write_user(
+        f"(multi-line mode — end with `{_MULTILINE_CLOSE}` on its own line; "
+        "lines preserved verbatim)"
+    )
+    lines: list[str] = []
+    while True:
+        line = ask_user("... ")
+        if line.strip() == _MULTILINE_CLOSE:
+            break
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def _now_iso() -> str:
@@ -1157,6 +1196,7 @@ __all__ = [
     "author_strategy",
     "crate_dir_for",
     "load_intent_toml",
+    "read_multiline_reply",
     "run_author_session",
     "run_intent_dialog",
 ]

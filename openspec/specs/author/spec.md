@@ -20,6 +20,25 @@ The Author SHALL accept an optional natural-language seed and drive an interacti
 - **WHEN** the operator runs `strategy-gpt author` with no positional argument
 - **THEN** the dialog opens cold and the first LLM turn asks the operator what they want to author before any other clarification
 
+### Requirement: Operator input supports multi-line answers
+
+The author dialog SHALL accept multi-line operator answers through two mechanisms: (1) a typed sentinel mode in which a line containing only `<<<` opens a multi-line block and a line containing only `>>>` closes it, with all intervening lines preserved verbatim (joined by `\n`); and (2) a paste mode in which the CLI's `input` wrapper probes stdin for buffered lines after each line read and concatenates them with `\n` so a multi-line paste arrives as a single reply. Single-line typing MUST remain the default — neither mode requires the operator to opt in for short answers. The same input surface SHALL be used for both clarifying-question turns in the dialog and for free-form guidance prompts in the repair-exhaustion menu.
+
+#### Scenario: Sentinel-mode multi-line typing
+
+- **WHEN** the operator types `<<<` on its own line, then several lines of content, then `>>>` on its own line
+- **THEN** the dialog accepts the joined content (with internal newlines preserved) as one operator answer; the `<<<` and `>>>` markers are stripped
+
+#### Scenario: Paste-mode multi-line input
+
+- **WHEN** the operator pastes a multi-line block into the terminal and presses Enter once
+- **THEN** the CLI input wrapper consumes the first line, probes stdin within a short window for additional buffered lines, and returns the concatenated block as a single reply
+
+#### Scenario: Single-line input is unchanged
+
+- **WHEN** the operator types a short single-line answer and presses Enter
+- **THEN** the dialog returns that line verbatim with no probing prompt and no paste-join behavior
+
 ### Requirement: Edit-mode auto-detection
 
 When the dialog proposes a crate name that collides with an existing `crates/<name>-strategy/`, the Author SHALL inform the operator and ask whether to edit the existing crate or pick a different name. If the operator chooses to edit, the Author MUST load the existing `intent.toml`, `src/lib.rs`, `Cargo.toml`, and `smoke.toml` into the LLM context and frame subsequent emissions as modifications.

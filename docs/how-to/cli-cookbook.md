@@ -246,6 +246,24 @@ After the smoke run, the engine runs the full batch declared in the emitted `exp
 | `--quiet`            | off | Suppress the locked-in decisions panel and collapse progress lines. |
 | `--verbose`          | off | Stream per-line cargo / rustc output during build. |
 
+### Give the dialog a multi-line answer
+
+Short single-line answers work as you'd expect — type, press Enter. For
+longer answers (a pasted YAML snippet, a multi-paragraph explanation,
+a copied block of code) you have two options:
+
+- **Paste it.** The CLI's input wrapper probes stdin after each line read
+  and slurps any buffered lines that arrive together — so a multi-line
+  paste lands as a single dialog turn. Just paste and press Enter once.
+- **Type it with sentinels.** Type `<<<` on its own line to enter
+  multi-line mode, then your content (any number of lines, blank lines
+  preserved), then `>>>` on its own line to submit. The continuation
+  prompt switches to `... ` while you're inside the block.
+
+Both modes apply to the dialog turns and to the free-form guidance
+prompts in the repair-exhaustion menu (option 1 "suggest an alternative
+approach" and option 3 "edit a specific decision").
+
 ### Read the locked-in decisions panel
 
 Between every dialog turn the CLI prints a banner-style panel showing

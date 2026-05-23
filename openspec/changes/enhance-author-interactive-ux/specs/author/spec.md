@@ -76,6 +76,25 @@ Every repair attempt's prompt SHALL contain BOTH the validator's failure diagnos
 - **WHEN** the first emission declares a non-whitelisted crate and the build pipeline rejects it
 - **THEN** the next attempt's prompt names the offending crate and the whitelist rule in the feedback section, the previous emission is rendered verbatim above it, and the LLM is expected to drop or substitute the dependency rather than re-derive the whole crate
 
+### Requirement: Operator input supports multi-line answers
+
+The author dialog SHALL accept multi-line operator answers through two mechanisms: (1) a typed sentinel mode in which a line containing only `<<<` opens a multi-line block and a line containing only `>>>` closes it, with all intervening lines preserved verbatim (joined by `\n`); and (2) a paste mode in which the CLI's `input` wrapper probes stdin for buffered lines after each line read and concatenates them with `\n` so a multi-line paste arrives as a single reply. Single-line typing MUST remain the default — neither mode requires the operator to opt in for short answers. The same input surface SHALL be used for both clarifying-question turns in the dialog and for free-form guidance prompts in the repair-exhaustion menu.
+
+#### Scenario: Sentinel-mode multi-line typing
+
+- **WHEN** the operator types `<<<` on its own line, then several lines of content, then `>>>` on its own line
+- **THEN** the dialog accepts the joined content (with internal newlines preserved) as one operator answer; the `<<<` and `>>>` markers are stripped
+
+#### Scenario: Paste-mode multi-line input
+
+- **WHEN** the operator pastes a multi-line block into the terminal and presses Enter once
+- **THEN** the CLI input wrapper consumes the first line, probes stdin within a short window for additional buffered lines, and returns the concatenated block as a single reply
+
+#### Scenario: Single-line input is unchanged
+
+- **WHEN** the operator types a short single-line answer and presses Enter
+- **THEN** the dialog returns that line verbatim with no probing prompt and no paste-join behavior
+
 ### Requirement: Cargo build progress ticks during long builds
 
 While `cargo build` is in flight, the Author SHALL emit `CargoBuildProgress` events to the event sink at regular intervals (default: every 2 seconds) so the CLI can surface in-flight progress to the operator. Each tick carries the elapsed seconds since the build started. The watcher MUST stop the moment the build returns (success or failure), so a fast or stubbed build emits no ticks. Tick emission MUST run concurrently with the build (e.g. on a daemon thread); it MUST NOT block on the build.

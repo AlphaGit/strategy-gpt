@@ -513,13 +513,53 @@ _author_reasoning_client_factory: Any = _default_reasoning_client
 _author_smoke_runner_factory: Any = _default_smoke_runner
 
 
+_PASTE_BUFFER_PROBE_SECONDS = 0.05
+
+
+def paste_aware_input(prompt: str) -> str:
+    """``input()`` wrapper that concatenates pasted multi-line blocks.
+
+    Terminals feed pasted text into stdin line-buffered: ``input(prompt)``
+    consumes the first line and leaves the rest in the buffer. We probe
+    stdin with a short ``select`` timeout after the initial read; any
+    buffered lines arriving within the window are appended (joined by
+    ``\\n``) and returned as a single multi-line string.
+
+    This gives operators a "paste a block, press Enter once" UX without
+    requiring them to type a sentinel like ``<<<`` first. The explicit
+    sentinel mode in :func:`strategy_gpt.author.read_multiline_reply`
+    remains available for *typing* multi-line input (where the operator
+    can't rely on a paste burst to fire the probe).
+
+    When stdin is not a TTY (CI, piped input, tests), the probe is
+    skipped so behavior matches plain ``input()``.
+    """
+    import select  # noqa: PLC0415 — only used here
+    import sys  # noqa: PLC0415 — local
+
+    line = input(prompt)
+    if not sys.stdin.isatty():
+        return line
+    extra: list[str] = []
+    while select.select([sys.stdin], [], [], _PASTE_BUFFER_PROBE_SECONDS)[0]:
+        nxt = sys.stdin.readline()
+        if not nxt:
+            break
+        extra.append(nxt.rstrip("\n"))
+    return "\n".join([line, *extra]) if extra else line
+
+
 def _cli_repair_menu(exc: AuthorBudgetExhaustedError) -> RepairMenuChoice:
     """Interactive prompt for the four repair-exhaustion options.
 
-    Always reads from stdin via ``typer.prompt`` so the CLI integrates
-    naturally with the rest of the author session. Tests inject a
-    different ``repair_menu`` callable directly into ``run_author_session``.
+    Reads from stdin via ``typer.prompt`` for short answers and via
+    :func:`strategy_gpt.author.read_multiline_reply` for free-form
+    guidance (operator can type ``<<<`` to enter multi-line mode).
+    Tests inject a different ``repair_menu`` callable directly into
+    ``run_author_session``.
     """
+    from .author import read_multiline_reply  # noqa: PLC0415
+
     del exc
     typer.echo("")
     typer.echo("Repair budget exhausted. Choose how to proceed:")
@@ -529,7 +569,11 @@ def _cli_repair_menu(exc: AuthorBudgetExhaustedError) -> RepairMenuChoice:
     typer.echo("  4) Abort")
     choice = typer.prompt("Choice [1-4]", default="4").strip()
     if choice == "1":
-        guidance = typer.prompt("Describe the alternative approach")
+        typer.echo(
+            "Describe the alternative approach (single line, paste a block, "
+            "or `<<<` for multi-line typing):"
+        )
+        guidance = read_multiline_reply(ask_user=paste_aware_input, write_user=typer.echo)
         return RepairMenuChoice(kind="suggest_alternative", payload={"guidance": guidance})
     if choice == "2":
         new_k_emit = int(typer.prompt("New k_repair_emit", default="4"))
@@ -542,7 +586,10 @@ def _cli_repair_menu(exc: AuthorBudgetExhaustedError) -> RepairMenuChoice:
         field_name = typer.prompt(
             "Field to revise [mechanism_summary | param_sketch | smoke_spec | universe]"
         )
-        guidance = typer.prompt("How should it change?")
+        typer.echo(
+            "How should it change? (single line, paste a block, or `<<<` for multi-line typing):"
+        )
+        guidance = read_multiline_reply(ask_user=paste_aware_input, write_user=typer.echo)
         return RepairMenuChoice(
             kind="edit_decision", payload={"field": field_name, "guidance": guidance}
         )
@@ -712,6 +759,7 @@ def author(  # noqa: PLR0913 — typer surface
             model_name=model or "default",
             on_record_ready=opened_record.append,
             quiet=quiet,
+            ask_user=paste_aware_input,
         )
     except DialogError as e:
         typer.echo(f"dialog failed: {e}", err=True)

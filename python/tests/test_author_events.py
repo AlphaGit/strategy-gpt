@@ -193,8 +193,8 @@ def test_smoke_run_completed_carries_trade_count(crates_dir: Path) -> None:
 
 def test_long_build_emits_progress_ticks(crates_dir: Path) -> None:
     """A slow build pipeline yields ``CargoBuildProgress`` ticks between start and end."""
-    import time as _time
-    from unittest.mock import patch
+    import time as _time  # noqa: PLC0415 — local to the only test that needs it
+    from unittest.mock import patch  # noqa: PLC0415
 
     class _SlowBuildPipeline(_StubBuildPipeline):
         def build(self, source: str, manifest: StrategyManifest) -> BuildOutcome:
@@ -218,7 +218,9 @@ def test_long_build_emits_progress_ticks(crates_dir: Path) -> None:
     progress_events = [e for e in events if isinstance(e, CargoBuildProgress)]
     assert progress_events, "expected at least one CargoBuildProgress tick"
     # Each tick carries a strictly-increasing elapsed time.
-    for prev, nxt in zip(progress_events, progress_events[1:], strict=False):
+    from itertools import pairwise  # noqa: PLC0415
+
+    for prev, nxt in pairwise(progress_events):
         assert nxt.elapsed_seconds > prev.elapsed_seconds
 
 
