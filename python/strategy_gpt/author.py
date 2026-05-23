@@ -22,7 +22,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -34,7 +34,23 @@ from .author_decisions import (
     DecisionRecord,
     DialogStarted,
     IntentFinalized,
+    RepairBudgetExhausted,
     decision_record_path_for,
+)
+from .author_events import (
+    AuthorEventSink,
+    CargoBuildCompleted,
+    CargoBuildStarted,
+    FileWritten,
+    LintCompleted,
+    LintStarted,
+    RepairAttemptCompleted,
+    RepairAttemptStarted,
+    SmokeFetchCompleted,
+    SmokeFetchStarted,
+    SmokeRunCompleted,
+    SmokeRunStarted,
+    noop_sink,
 )
 from .build_pipeline import BuildFailure, ManifestDep, StrategyManifest, _BuildPipelineLike
 from .markdown_io import ParseError, parse_stage3
@@ -159,6 +175,13 @@ class AuthorDeps:
     can leave this unset; ``author_strategy`` will then not record
     anything beyond what it already does today.
     """
+    event_sink: AuthorEventSink = noop_sink
+    """Callable that receives :class:`AuthorEvent` instances during the loop.
+
+    Defaults to a no-op so programmatic callers do not need to know
+    about the event stream. The CLI installs a sink that renders events
+    as human-readable progress lines.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +205,7 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
     on_record_ready: Callable[[DecisionRecord], None] | None = None,
     ask_user: Callable[[str], str] = input,
     write_user: Callable[[str], None] = print,
+    quiet: bool = False,
     max_turns: int = 12,
 ) -> AuthorIntent:
     """Drive the clarifying-question dialog until the LLM emits an intent.
@@ -200,6 +224,7 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
     fires the moment the record is opened so the CLI can pass it to
     ``author_strategy`` via :class:`AuthorDeps`.
     """
+    from .author_ui import render_decisions_panel  # noqa: PLC0415 — avoid import cycle
     from .prompts_author import (  # noqa: PLC0415 — avoid import cycle
         build_dialog_system_prompt,
         format_decisions_for_prompt,
@@ -222,6 +247,7 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
         response = reasoning_client.dialog_turn(system=system, transcript=transcript)
         transcript.append({"role": "assistant", "content": response})
 
+        prior_projection = record.project() if record is not None else dict(pending)
         record, pending = _ingest_decisions(
             response=response,
             record=record,
@@ -242,12 +268,17 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
                 )
             return intent
 
-        # Plain conversational turn: surface the assistant text and read
-        # the user's reply. Inject the current decisions projection so a
+        # Plain conversational turn: surface the assistant text, render
+        # the locked-in panel if any decision moved, then read the
+        # operator's reply. Inject the current decisions projection so a
         # compacted chat history does not lose the locked-in state.
         write_user(response)
-        reply = ask_user("> ")
         projection = record.project() if record is not None else dict(pending)
+        if not quiet and projection and projection != prior_projection:
+            panel = render_decisions_panel(projection)
+            if panel:
+                write_user(panel)
+        reply = ask_user("> ")
         decisions_section = format_decisions_for_prompt(projection)
         next_content = f"{reply}\n\n{decisions_section}" if decisions_section else reply
         transcript.append({"role": "user", "content": next_content})
@@ -496,7 +527,9 @@ def _require_str(data: dict[str, Any], key: str) -> str:
 class AuthorBudgetExhaustedError(RuntimeError):
     """Repair budget exhausted; control should return to the dialog."""
 
-    def __init__(self, stage: str, attempts: int, last_feedback: str) -> None:
+    def __init__(
+        self, stage: str, attempts: int, last_feedback: str, attempts_trail: list[str] | None = None
+    ) -> None:
         super().__init__(
             f"author {stage} stage exhausted repair budget after {attempts} attempts; "
             f"last feedback: {last_feedback[:200]}"
@@ -504,32 +537,61 @@ class AuthorBudgetExhaustedError(RuntimeError):
         self.stage = stage
         self.attempts = attempts
         self.last_feedback = last_feedback
+        self.attempts_trail = list(attempts_trail or [])
 
 
-def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrategy:
+@dataclass(frozen=True)
+class RepairMenuChoice:
+    """Operator's response to the repair-exhaustion menu."""
+
+    kind: Literal["suggest_alternative", "extend_budget", "edit_decision", "abort"]
+    payload: dict[str, Any]
+
+
+RepairMenuPrompt = Callable[[AuthorBudgetExhaustedError], RepairMenuChoice]
+"""Callable that asks the operator how to proceed after exhaustion.
+
+Returns a :class:`RepairMenuChoice`. The dialog orchestrator inspects
+``kind`` and applies the corresponding amendment or termination.
+"""
+
+
+def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrategy:  # noqa: PLR0915 — emit/build/smoke validation has many discrete substep events
     """Drive the emit / build / smoke loop against ``intent``.
 
     Library seam: the dialog stage is optional; programmatic callers
     (e.g. the hypothesis loop's future ``generate`` rewrite) build an
     :class:`AuthorIntent` directly and call this function.
     """
+    import time  # noqa: PLC0415 — used only for build-step timing
+
     from .prompts_author import build_emit_prompt  # noqa: PLC0415 — avoid import cycle
 
     crate_path = crate_dir_for(deps.crates_dir, intent.name)
     crate_path.mkdir(parents=True, exist_ok=True)
 
+    sink = deps.event_sink
     last_artifact_hash = ""
+    attempt_idx = -1
+    budget = deps.repair_config_emit.k_repair
 
     def emit(feedback: str) -> str:
+        nonlocal attempt_idx
+        attempt_idx += 1
+        sink(RepairAttemptStarted(attempt=attempt_idx, budget=budget))
         prompt = build_emit_prompt(intent=intent, feedback=feedback, crates_dir=deps.crates_dir)
         return deps.reasoning_client.emit_files(system=prompt.system, user=prompt.user)
+
+    def _complete(outcome: ValidationOutcome) -> ValidationOutcome:
+        sink(RepairAttemptCompleted(attempt=attempt_idx, outcome=outcome.kind or "ok"))
+        return outcome
 
     def validate(response: str) -> ValidationOutcome:  # noqa: PLR0911 — distinct early-rejects keep the failure taxonomy explicit
         nonlocal last_artifact_hash
         try:
             parsed = parse_stage3(response)
         except ParseError as e:
-            return ValidationOutcome(ok=False, kind="reject_format", feedback=str(e))
+            return _complete(ValidationOutcome(ok=False, kind="reject_format", feedback=str(e)))
         files = parsed.files
         manifest_text = files.get("Cargo.toml")
         source_text = files.get("src/lib.rs")
@@ -544,54 +606,95 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
                 )
                 if not present
             ]
-            return ValidationOutcome(
-                ok=False,
-                kind="reject_format",
-                feedback=f"missing required file(s): {missing}",
+            return _complete(
+                ValidationOutcome(
+                    ok=False,
+                    kind="reject_format",
+                    feedback=f"missing required file(s): {missing}",
+                )
             )
 
         _write_files(crate_path, files)
+        for rel in files:
+            sink(FileWritten(path=rel))
 
         try:
             manifest = _parse_manifest(manifest_text)
         except ValueError as e:
-            return ValidationOutcome(ok=False, kind="reject_format", feedback=str(e))
+            return _complete(ValidationOutcome(ok=False, kind="reject_format", feedback=str(e)))
 
+        sink(LintStarted())
         lint = deps.build_pipeline.lint(source_text, manifest)
+        sink(LintCompleted(ok=lint.ok))
         if not lint.ok:
-            return ValidationOutcome(
-                ok=False,
-                kind="reject_lint",
-                feedback=(
-                    f"lint failed; source_violations={lint.source_violations}, "
-                    f"manifest_violations={lint.manifest_violations}"
-                ),
+            return _complete(
+                ValidationOutcome(
+                    ok=False,
+                    kind="reject_lint",
+                    feedback=(
+                        f"lint failed; source_violations={lint.source_violations}, "
+                        f"manifest_violations={lint.manifest_violations}"
+                    ),
+                )
             )
 
+        build_args = ("cargo", "build", "-p", f"{intent.name}-strategy")
+        sink(CargoBuildStarted(args=build_args))
+        build_start = time.monotonic()
         try:
             outcome = deps.build_pipeline.build(source_text, manifest)
         except BuildFailure as e:
-            return ValidationOutcome(
-                ok=False,
-                kind=f"reject_build:{e.kind.value}",
-                feedback=e.message,
+            sink(
+                CargoBuildCompleted(
+                    returncode=1, duration_seconds=time.monotonic() - build_start
+                )
             )
+            return _complete(
+                ValidationOutcome(
+                    ok=False, kind=f"reject_build:{e.kind.value}", feedback=e.message
+                )
+            )
+        sink(
+            CargoBuildCompleted(
+                returncode=0, duration_seconds=time.monotonic() - build_start
+            )
+        )
 
         try:
             smoke_spec = _parse_smoke_toml(smoke_text)
         except ValueError as e:
-            return ValidationOutcome(ok=False, kind="reject_format", feedback=str(e))
+            return _complete(ValidationOutcome(ok=False, kind="reject_format", feedback=str(e)))
 
+        sink(
+            SmokeFetchStarted(
+                symbol=smoke_spec.symbol,
+                start=smoke_spec.start,
+                end=smoke_spec.end,
+            )
+        )
+        sink(SmokeFetchCompleted(symbol=smoke_spec.symbol))
+        sink(SmokeRunStarted())
         smoke = deps.smoke_runner(Path(outcome.artifact.library_path), smoke_spec)
+        sink(
+            SmokeRunCompleted(
+                ok=smoke.ok,
+                trade_count=_trade_count_from_feedback(smoke),
+                sanity_trips=_sanity_trips_from_feedback(smoke),
+            )
+        )
         if not smoke.ok:
-            return ValidationOutcome(
-                ok=False,
-                kind="reject_smoke",
-                feedback=smoke.feedback or "smoke failed (no diagnostic)",
+            return _complete(
+                ValidationOutcome(
+                    ok=False,
+                    kind="reject_smoke",
+                    feedback=smoke.feedback or "smoke failed (no diagnostic)",
+                )
             )
 
         last_artifact_hash = outcome.artifact.key
-        return ValidationOutcome(ok=True, parsed={"files": files, "smoke_spec": smoke_spec})
+        return _complete(
+            ValidationOutcome(ok=True, parsed={"files": files, "smoke_spec": smoke_spec})
+        )
 
     result = run_stage_with_repair(
         stage=1,
@@ -603,7 +706,10 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
         last_feedback = (
             result.attempts[-1].outcome.feedback if result.attempts else "no attempts recorded"
         )
-        raise AuthorBudgetExhaustedError("emit", result.attempts_count, last_feedback)
+        attempts_trail = [a.outcome.feedback for a in result.attempts]
+        raise AuthorBudgetExhaustedError(
+            "emit", result.attempts_count, last_feedback, attempts_trail
+        )
 
     _persist_intent(crate_path, intent)
     if intent.experiment_spec is not None:
@@ -616,14 +722,164 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
     )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def amend_intent_via_llm(
+    *,
+    intent: AuthorIntent,
+    guidance: str,
+    failure_trail: str,
+    reasoning_client: AuthorReasoningClient,
+    scope_field: str | None = None,
+) -> AuthorIntent:
+    """Ask the LLM to revise ``intent`` per operator guidance.
+
+    Used by :func:`run_author_session` after a repair-budget exhaustion
+    when the operator chose option 1 ("suggest alternative approach") or
+    option 3 ("edit a specific decision"). The LLM is given the previous
+    intent, the failure trail, and the operator's guidance; it returns
+    a single ``# AuthorIntent`` block which is parsed back into a frozen
+    :class:`AuthorIntent`.
+    """
+    from .prompts_author import (  # noqa: PLC0415 — avoid import cycle
+        build_amend_intent_prompt,
+    )
+
+    previous_yaml = _intent_yaml_for_amend(intent)
+    system = build_amend_intent_prompt(
+        previous_intent_yaml=previous_yaml,
+        failure_trail=failure_trail,
+        guidance=guidance,
+        scope_field=scope_field,
+    )
+    response = reasoning_client.dialog_turn(
+        system=system,
+        transcript=[{"role": "user", "content": "Emit the revised AuthorIntent."}],
+    )
+    block = _extract_intent_block(response)
+    if block is None:
+        msg = "amendment LLM turn did not emit a `# AuthorIntent` block"
+        raise DialogError(msg)
+    new_intent = _parse_intent_block(block)
+    # Preserve baseline_crate (edit-mode is a property of the run, not the LLM emission)
+    return replace(new_intent, baseline_crate=intent.baseline_crate)
+
+
+def _intent_yaml_for_amend(intent: AuthorIntent) -> str:
+    """Serialize ``intent`` as YAML for the amendment prompt."""
+    smoke = intent.smoke_spec
+    body: dict[str, Any] = {
+        "name": intent.name,
+        "description": intent.description,
+        "mechanism_summary": intent.mechanism_summary,
+        "param_schema_sketch": intent.param_schema_sketch,
+        "smoke_spec": {
+            "symbol": smoke.symbol,
+            "resolution": smoke.resolution,
+            "start": smoke.start,
+            "end": smoke.end,
+            "provider": smoke.provider,
+        },
+    }
+    if intent.experiment_spec is not None:
+        body["experiment_spec"] = intent.experiment_spec
+    return str(yaml.safe_dump(body, sort_keys=False, allow_unicode=True))
+
+
+def run_author_session(
+    intent: AuthorIntent,
+    *,
+    deps: AuthorDeps,
+    reasoning_client: AuthorReasoningClient,
+    repair_menu: RepairMenuPrompt,
+    write_user: Callable[[str], None] = print,
+) -> AuthoredStrategy:
+    """Run ``author_strategy`` with repair-budget recovery loop.
+
+    On :class:`AuthorBudgetExhaustedError`, append a ``RepairBudgetExhausted``
+    event to the DecisionRecord (if one is open), then present the
+    operator menu via ``repair_menu``. The menu's response selects one
+    of four paths: amend the intent in NL, extend the repair budget,
+    edit a specific decision field, or abort. The crate files on disk
+    are left in place across retries so the operator can inspect them.
+    """
+    current_intent = intent
+    current_deps = deps
+    while True:
+        try:
+            return author_strategy(current_intent, deps=current_deps)
+        except AuthorBudgetExhaustedError as exc:
+            if current_deps.decision_record_path is not None:
+                rec = DecisionRecord.open(current_deps.decision_record_path)
+                rec.append(
+                    RepairBudgetExhausted(
+                        timestamp=_now_iso(),
+                        stage=exc.stage,
+                        attempts=exc.attempts,
+                        last_feedback=exc.last_feedback,
+                    )
+                )
+            write_user(
+                f"Repair budget exhausted after {exc.attempts} attempts on stage "
+                f"`{exc.stage}`. Last feedback:\n{exc.last_feedback}"
+            )
+            choice = repair_menu(exc)
+            if choice.kind == "abort":
+                raise
+            if choice.kind == "extend_budget":
+                new_k_emit = int(
+                    choice.payload.get("k_repair_emit", deps.repair_config_emit.k_repair)
+                )
+                new_k_build = int(
+                    choice.payload.get("k_repair_build", deps.repair_config_build.k_repair)
+                )
+                current_deps = replace(
+                    current_deps,
+                    repair_config_emit=RepairConfig(k_repair=new_k_emit),
+                    repair_config_build=RepairConfig(k_repair=new_k_build),
+                )
+                continue
+            if choice.kind == "suggest_alternative":
+                guidance = str(choice.payload.get("guidance", ""))
+                current_intent = amend_intent_via_llm(
+                    intent=current_intent,
+                    guidance=guidance,
+                    failure_trail="\n---\n".join(exc.attempts_trail),
+                    reasoning_client=reasoning_client,
+                )
+                continue
+            if choice.kind == "edit_decision":
+                field_name = str(choice.payload.get("field", ""))
+                guidance = str(choice.payload.get("guidance", ""))
+                current_intent = amend_intent_via_llm(
+                    intent=current_intent,
+                    guidance=guidance,
+                    failure_trail="\n---\n".join(exc.attempts_trail),
+                    reasoning_client=reasoning_client,
+                    scope_field=field_name,
+                )
+                continue
+            msg = f"unknown repair-menu choice: {choice.kind!r}"
+            raise RuntimeError(msg) from None
 
 
 def crate_dir_for(crates_dir: Path, name: str) -> Path:
     """Return the conventional crate directory for an intent name."""
     return crates_dir / f"{name}-strategy"
+
+
+def _trade_count_from_feedback(smoke: SmokeRunResult) -> int:
+    """Best-effort extraction of trade count from a :class:`SmokeRunResult`."""
+    return _int_field_from_feedback(smoke.feedback, "trades")
+
+
+def _sanity_trips_from_feedback(smoke: SmokeRunResult) -> int:
+    """Best-effort extraction of sanity-trip count from a :class:`SmokeRunResult`."""
+    return _int_field_from_feedback(smoke.feedback, "sanity_trips")
+
+
+def _int_field_from_feedback(feedback: str, field_name: str) -> int:
+    """Pull ``<field_name>=<int>`` from a smoke feedback string if present."""
+    match = re.search(rf"{re.escape(field_name)}\s*=\s*(\d+)", feedback)
+    return int(match.group(1)) if match else 0
 
 
 def _is_baseline_crate(crate_path: Path) -> bool:
@@ -808,11 +1064,15 @@ __all__ = [
     "AuthorReasoningClient",
     "AuthoredStrategy",
     "DialogError",
+    "RepairMenuChoice",
+    "RepairMenuPrompt",
     "SmokeRunResult",
     "SmokeRunner",
     "SmokeSpec",
+    "amend_intent_via_llm",
     "author_strategy",
     "crate_dir_for",
     "load_intent_toml",
+    "run_author_session",
     "run_intent_dialog",
 ]

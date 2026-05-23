@@ -165,6 +165,7 @@ def test_author_happy_path_prints_next_steps(
             str(crates_dir.parent / "cache" / "builds"),
             "--work-root",
             str(crates_dir.parent / "cache" / "build-work"),
+            "--quiet",
         ],
     )
     assert result.exit_code == 0, result.stdout + result.stderr

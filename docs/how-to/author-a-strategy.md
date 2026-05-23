@@ -67,6 +67,17 @@ strategy-gpt author "..." --k-repair-emit=2 --k-repair-build=2
 
 `k_repair=2` means three total attempts per stage (1 initial + 2 repairs). When a budget is exhausted, control returns to the dialog; you can expand the smoke window, swap mechanism, or accept the failure.
 
+## When the repair loop fails
+
+After the emit/build/smoke loop exhausts its budget, the CLI prints the failure trail and asks how to proceed. Pick one:
+
+1. **Suggest an alternative approach.** Type a natural-language amendment ("use a Bollinger breakout instead of ATR stops"). The LLM revises the intent — only the affected fields, the rest stay locked — and the loop restarts with a fresh budget. The amendment lands as `DecisionAmended` events in `crates/<name>-strategy/.author/decisions.jsonl`.
+2. **Retry with an extended budget.** Supply new `k_repair_emit` / `k_repair_build` values. Same intent, more attempts. The prior failure trail is fed back into the LLM so it does not repeat the same mistake.
+3. **Edit a specific decision.** Name the field you want to revise (`mechanism_summary`, `param_sketch`, `smoke_spec`, `universe`). The LLM rewrites only that field; the rest of the intent is preserved verbatim.
+4. **Abort.** The command exits non-zero. The crate files (including the partial `src/lib.rs` and the `decisions.jsonl` log) stay on disk so you can read what the LLM tried.
+
+Whichever option you pick, a `repair_budget_exhausted` event is appended to the decision log so the full session — including the failure trail — is preserved for replay.
+
 ## Follow-up commands
 
 ```bash

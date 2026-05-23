@@ -243,6 +243,37 @@ After the smoke run, the engine runs the full batch declared in the emitted `exp
 | `--model <name>`     | env-resolved | Override the reasoning model (e.g. `claude-sonnet-4-6`, `o3`). |
 | `--crates-dir PATH`  | `crates` | Workspace crates directory. |
 | `--cache-root PATH`  | `cache/builds` | Build pipeline cache root. |
+| `--quiet`            | off | Suppress the locked-in decisions panel and collapse progress lines. |
+| `--verbose`          | off | Stream per-line cargo / rustc output during build. |
+
+### Read the locked-in decisions panel
+
+Between every dialog turn the CLI prints a banner-style panel showing
+every clarification that has been locked in so far (crate name, universe,
+mechanism summary, parameter sketch, smoke spec, …). The panel is
+projected from `crates/<name>-strategy/.author/decisions.jsonl`, which is
+the *authoritative* dialog state — the LLM's free-form chat history is
+non-load-bearing, so even if the model compacts its working context the
+panel keeps showing the truth. Pass `--quiet` to hide it.
+
+### Watch progress events during emit/build/smoke
+
+Default verbosity surfaces transitions only: `cargo build … done in 4.2s`,
+`running smoke … ok (trades=3, sanity_trips=0)`, etc. Add `--verbose` to
+get the underlying cargo argv and per-attempt result kinds. `--quiet`
+collapses to the minimum (just the start-of-attempt and final result).
+
+### When the repair loop gives up
+
+When the emit/build/smoke loop burns through its repair budget, control
+returns to the operator with a four-option menu:
+
+| # | Option                          | Effect                                                                                          |
+|---|---------------------------------|-------------------------------------------------------------------------------------------------|
+| 1 | Suggest an alternative approach | Type a natural-language amendment. The LLM revises the intent and the loop restarts with fresh budget. |
+| 2 | Retry with an extended budget   | Provide new `k_repair_emit` / `k_repair_build` values. Loop restarts with the same intent.        |
+| 3 | Edit a specific decision        | Name a field (`mechanism_summary`, `param_sketch`, `smoke_spec`, `universe`) and the amendment. The LLM revises only that field. |
+| 4 | Abort                           | Exit non-zero. The crate files and `.author/decisions.jsonl` stay on disk for inspection.        |
 
 ### Troubleshooting
 

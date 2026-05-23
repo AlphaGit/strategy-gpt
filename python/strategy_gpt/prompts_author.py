@@ -358,7 +358,67 @@ def _render_baseline_section(baseline: Path) -> str:
     return "\n".join(lines)
 
 
+_AMEND_INTENT_TEMPLATE = """\
+You are revising a previously-accepted `AuthorIntent` because the
+emit/build/smoke loop hit its repair budget and control was returned to
+the operator. The operator has provided guidance below; produce a new
+`# AuthorIntent` block that incorporates it.
+
+Constraints:
+
+- Keep the same `name` unless the operator's guidance explicitly asks for
+  a rename. The on-disk crate directory will not change.
+- Preserve unrelated fields verbatim. Only revise what the guidance
+  implies needs to change.
+- Output a single `# AuthorIntent` block. No prose around it. No
+  DecisionsSoFar block, no preamble. Just the fenced YAML payload.
+
+## Previous intent
+
+```yaml
+__PREV_INTENT__
+```
+
+## Repair failure trail
+
+__FAILURE_TRAIL__
+
+## Operator guidance
+
+__GUIDANCE__
+
+__SCOPE_HINT__
+"""
+
+
+def build_amend_intent_prompt(
+    *,
+    previous_intent_yaml: str,
+    failure_trail: str,
+    guidance: str,
+    scope_field: str | None,
+) -> str:
+    """Build the system prompt for an intent-amendment LLM turn.
+
+    ``scope_field`` constrains the revision to a single field of the
+    intent (e.g. ``param_sketch``). When ``None``, the LLM may rewrite
+    any field that the guidance affects.
+    """
+    scope_hint = (
+        f"## Scope\n\nRevise ONLY the `{scope_field}` field; leave all other fields verbatim.\n"
+        if scope_field is not None
+        else ""
+    )
+    return (
+        _AMEND_INTENT_TEMPLATE.replace("__PREV_INTENT__", previous_intent_yaml.rstrip())
+        .replace("__FAILURE_TRAIL__", failure_trail.rstrip() or "(no trail recorded)")
+        .replace("__GUIDANCE__", guidance.rstrip())
+        .replace("__SCOPE_HINT__", scope_hint.rstrip())
+    )
+
+
 __all__ = [
+    "build_amend_intent_prompt",
     "build_dialog_system_prompt",
     "build_emit_prompt",
     "format_decisions_for_prompt",

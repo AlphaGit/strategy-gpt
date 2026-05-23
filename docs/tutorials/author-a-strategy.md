@@ -55,6 +55,20 @@ Any guardrails I should respect (max position, no-shorts, etc.)?
 
 Once the LLM has answered the basics it emits a `# AuthorIntent` section and the command proceeds to the emit / build / smoke stage automatically.
 
+> **Look for the locked-in decisions panel.** After every operator answer you should see a banner like:
+>
+> ```
+> ────────────────────────────────────────────────────────────────
+> Decisions locked in so far
+> ────────────────────────────────────────────────────────────────
+>   name      spy-sma-crossover
+>   universe  SPY
+>   smoke     symbol=SPY, start=2022-01-01, end=2023-06-01
+> ────────────────────────────────────────────────────────────────
+> ```
+>
+> The panel is the authoritative state of the dialog — it is projected from `crates/<name>-strategy/.author/decisions.jsonl`, not from the LLM's chat history. So even if the conversation gets long enough that the model has to compact its context, the panel keeps showing the same facts. The LLM's exact wording for clarifying questions will vary across runs; the load-bearing outcome is the *contents* of this panel and the on-disk crate at the end. Pass `--quiet` to hide the panel if you don't want to see it.
+
 ### 3. Watch the emit / build / smoke loop run
 
 The command writes the proposed files into `crates/spy-sma-crossover-strategy/` on every attempt, runs the build pipeline (lint + `cargo build`), and on a successful build runs a smoke backtest. The terminal output reads roughly like:

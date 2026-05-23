@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
@@ -42,10 +43,10 @@ from .author import (
     AuthorDeps,
     AuthorReasoningClient,
     DialogError,
+    RepairMenuChoice,
     SmokeRunner,
     SmokeRunResult,
     SmokeSpec,
-    author_strategy,
     run_intent_dialog,
 )
 from .benchmark import format_report, report_json, run_benchmark
@@ -512,6 +513,102 @@ _author_reasoning_client_factory: Any = _default_reasoning_client
 _author_smoke_runner_factory: Any = _default_smoke_runner
 
 
+def _cli_repair_menu(exc: AuthorBudgetExhaustedError) -> RepairMenuChoice:
+    """Interactive prompt for the four repair-exhaustion options.
+
+    Always reads from stdin via ``typer.prompt`` so the CLI integrates
+    naturally with the rest of the author session. Tests inject a
+    different ``repair_menu`` callable directly into ``run_author_session``.
+    """
+    del exc
+    typer.echo("")
+    typer.echo("Repair budget exhausted. Choose how to proceed:")
+    typer.echo("  1) Suggest an alternative approach in natural language")
+    typer.echo("  2) Retry with an extended repair budget")
+    typer.echo("  3) Edit a specific decision (mechanism, params, smoke, …)")
+    typer.echo("  4) Abort")
+    choice = typer.prompt("Choice [1-4]", default="4").strip()
+    if choice == "1":
+        guidance = typer.prompt("Describe the alternative approach")
+        return RepairMenuChoice(kind="suggest_alternative", payload={"guidance": guidance})
+    if choice == "2":
+        new_k_emit = int(typer.prompt("New k_repair_emit", default="4"))
+        new_k_build = int(typer.prompt("New k_repair_build", default="4"))
+        return RepairMenuChoice(
+            kind="extend_budget",
+            payload={"k_repair_emit": new_k_emit, "k_repair_build": new_k_build},
+        )
+    if choice == "3":
+        field_name = typer.prompt(
+            "Field to revise [mechanism_summary | param_sketch | smoke_spec | universe]"
+        )
+        guidance = typer.prompt("How should it change?")
+        return RepairMenuChoice(
+            kind="edit_decision", payload={"field": field_name, "guidance": guidance}
+        )
+    return RepairMenuChoice(kind="abort", payload={})
+
+
+def _cli_event_renderer(*, verbose: bool) -> Callable[[Any], None]:
+    """Build an event-sink that prints human-readable progress lines.
+
+    Default verbosity surfaces transition pairs as a single line (e.g.
+    ``cargo build … done in 4.2s``). ``verbose=True`` adds the raw
+    cargo argv before the result so operators can copy/paste it. The
+    BuildPipeline itself does not stream per-line stdout today, so
+    ``--verbose`` is a forward-looking switch that we wire in here and
+    pass through to the underlying subprocess later.
+    """
+    from .author_events import (  # noqa: PLC0415
+        AuthorEvent,
+        CargoBuildCompleted,
+        CargoBuildStarted,
+        FileWritten,
+        LintCompleted,
+        LintStarted,
+        RepairAttemptCompleted,
+        RepairAttemptStarted,
+        SmokeFetchStarted,
+        SmokeRunCompleted,
+        SmokeRunStarted,
+    )
+
+    def render(event: AuthorEvent) -> None:  # noqa: PLR0912 — one branch per event type
+        match event:
+            case RepairAttemptStarted(attempt=a, budget=b):
+                typer.echo(f"[attempt {a + 1}/{b + 1}] starting emit/build/smoke")
+            case RepairAttemptCompleted(attempt=a, outcome=o):
+                typer.echo(f"[attempt {a + 1}] result: {o}")
+            case FileWritten(path=p):
+                if verbose:
+                    typer.echo(f"  wrote {p}")
+            case LintStarted():
+                typer.echo("  lint …", nl=False)
+            case LintCompleted(ok=ok):
+                typer.echo(" ok" if ok else " rejected")
+            case CargoBuildStarted(args=args):
+                if verbose:
+                    typer.echo(f"  cargo build (argv={args!r}) …")
+                else:
+                    typer.echo("  cargo build …", nl=False)
+            case CargoBuildCompleted(returncode=rc, duration_seconds=d):
+                if verbose:
+                    typer.echo(f"  cargo build returncode={rc} in {d:.2f}s")
+                else:
+                    typer.echo(f" {'done' if rc == 0 else 'failed'} in {d:.2f}s")
+            case SmokeFetchStarted(symbol=sym, start=start, end=end):
+                typer.echo(f"  fetching {sym} bars {start}..{end} …")
+            case SmokeRunStarted():
+                typer.echo("  running smoke …", nl=False)
+            case SmokeRunCompleted(ok=ok, trade_count=tc, sanity_trips=st):
+                summary = f"trades={tc}, sanity_trips={st}"
+                typer.echo(f" {'ok' if ok else 'failed'} ({summary})")
+            case _:
+                pass
+
+    return render
+
+
 @app.command()
 def author(  # noqa: PLR0913 — typer surface
     idea: Annotated[
@@ -554,6 +651,14 @@ def author(  # noqa: PLR0913 — typer surface
         str | None,
         typer.Option("--model", help="Override the reasoning model identifier."),
     ] = None,
+    quiet: Annotated[
+        bool,
+        typer.Option("--quiet", help="Suppress the locked-in decisions panel between turns."),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", help="Stream per-line cargo / rustc output during build."),
+    ] = False,
 ) -> None:
     """Author a new strategy crate via interactive LLM dialog.
 
@@ -581,7 +686,11 @@ def author(  # noqa: PLR0913 — typer surface
     )
 
     from .author_decisions import DecisionRecord  # noqa: PLC0415
+    from .author_events import noop_sink  # noqa: PLC0415
 
+    event_sink = (
+        noop_sink if quiet else _cli_event_renderer(verbose=verbose)
+    )
     opened_record: list[DecisionRecord] = []
     try:
         intent = run_intent_dialog(
@@ -590,6 +699,7 @@ def author(  # noqa: PLR0913 — typer surface
             crates_dir=crates_dir,
             model_name=model or "default",
             on_record_ready=opened_record.append,
+            quiet=quiet,
         )
     except DialogError as e:
         typer.echo(f"dialog failed: {e}", err=True)
@@ -604,6 +714,7 @@ def author(  # noqa: PLR0913 — typer surface
         repair_config_emit=RepairConfig(k_repair=k_repair_emit),
         repair_config_build=RepairConfig(k_repair=k_repair_build),
         decision_record_path=decision_record_path,
+        event_sink=event_sink,
     )
 
     if verify == "batch" and intent.experiment_spec is None:
@@ -614,8 +725,16 @@ def author(  # noqa: PLR0913 — typer surface
         )
         raise typer.Exit(code=1)
 
+    from .author import run_author_session  # noqa: PLC0415
+
     try:
-        result = author_strategy(intent, deps=deps)
+        result = run_author_session(
+            intent,
+            deps=deps,
+            reasoning_client=reasoning_client,
+            repair_menu=_cli_repair_menu,
+            write_user=typer.echo,
+        )
     except AuthorBudgetExhaustedError as e:
         typer.echo(f"author run aborted: {e}", err=True)
         raise typer.Exit(code=1) from None

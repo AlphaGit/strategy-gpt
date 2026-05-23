@@ -239,6 +239,64 @@ def test_dialog_without_decisions_block_still_works(tmp_path: Path) -> None:
     assert not (crates_dir / "spy-atr-strategy" / ".author").exists()
 
 
+def test_panel_rendered_between_turns(tmp_path: Path) -> None:
+    """When a turn locks a new decision, the panel banner appears in write_user."""
+    crates_dir = tmp_path / "crates"
+    crates_dir.mkdir()
+
+    responses = iter(
+        [
+            _turn_with_decisions("crate_name: spy-atr"),
+            _FINAL_INTENT,
+        ]
+    )
+    client = _ScriptedClient(responses)
+    written: list[str] = []
+    replies = iter(["go ahead"])
+
+    run_intent_dialog(
+        seed="trend SPY",
+        reasoning_client=client,
+        crates_dir=crates_dir,
+        ask_user=lambda _: next(replies),
+        write_user=written.append,
+    )
+
+    joined = "\n".join(written)
+    assert "Decisions locked in so far" in joined
+    assert "spy-atr" in joined
+
+
+def test_panel_suppressed_under_quiet(tmp_path: Path) -> None:
+    """``quiet=True`` skips the panel render but still persists the record."""
+    crates_dir = tmp_path / "crates"
+    crates_dir.mkdir()
+
+    responses = iter(
+        [
+            _turn_with_decisions("crate_name: spy-atr"),
+            _FINAL_INTENT,
+        ]
+    )
+    client = _ScriptedClient(responses)
+    written: list[str] = []
+    replies = iter(["go ahead"])
+
+    run_intent_dialog(
+        seed="trend SPY",
+        reasoning_client=client,
+        crates_dir=crates_dir,
+        ask_user=lambda _: next(replies),
+        write_user=written.append,
+        quiet=True,
+    )
+
+    joined = "\n".join(written)
+    assert "Decisions locked in so far" not in joined
+    record_path = decision_record_path_for(crates_dir / "spy-atr-strategy")
+    assert record_path.exists()
+
+
 def test_max_turns_exceeded_raises(tmp_path: Path) -> None:
     """The dialog still bounces off ``max_turns`` when the LLM never finalizes."""
     crates_dir = tmp_path / "crates"
