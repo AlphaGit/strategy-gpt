@@ -299,11 +299,21 @@ __PROMPT_API__
 """
 
 
-def build_emit_prompt(*, intent: AuthorIntent, feedback: str, crates_dir: Path) -> StagePrompt:
+def build_emit_prompt(
+    *,
+    intent: AuthorIntent,
+    feedback: str,
+    crates_dir: Path,
+    previous_emission: str = "",
+) -> StagePrompt:
     """Build the emit-stage prompt for a frozen intent.
 
     ``feedback`` is the empty string on the initial attempt and the
-    synthesized repair feedback on subsequent attempts.
+    synthesized repair feedback on subsequent attempts. ``previous_emission``
+    is the raw text of the last failed attempt; including it gives the
+    LLM a stable baseline to diff against the failure feedback rather
+    than re-deriving the whole crate from scratch. Both are empty on
+    the first attempt.
     """
     system = (
         _EMIT_SYSTEM_TEMPLATE.replace("__WHITELIST__", _load_whitelist(crates_dir).rstrip())
@@ -316,8 +326,19 @@ def build_emit_prompt(*, intent: AuthorIntent, feedback: str, crates_dir: Path) 
     ]
     if intent.baseline_crate is not None:
         user_sections.append(_render_baseline_section(intent.baseline_crate))
+    if previous_emission:
+        user_sections.append(
+            "## Your previous attempt (revise this; do not start from scratch)\n\n"
+            f"{previous_emission.rstrip()}\n"
+        )
     if feedback:
-        user_sections.append(f"## Previous-attempt feedback\n\n{feedback.rstrip()}\n")
+        user_sections.append(
+            "## Why the previous attempt was rejected\n\n"
+            f"{feedback.rstrip()}\n\n"
+            "Focus your changes on what the feedback above identifies. Preserve "
+            "everything else from your previous attempt verbatim unless the "
+            "feedback requires changing it.\n"
+        )
     user_sections.append("---\n\nEmit the file payload now.")
     return StagePrompt(system=system, user="\n".join(user_sections))
 

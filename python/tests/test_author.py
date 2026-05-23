@@ -402,7 +402,12 @@ def test_author_strategy_happy_path(crates_dir: Path) -> None:
 
 
 def test_author_strategy_non_whitelisted_recovers(crates_dir: Path) -> None:
-    """First emission declares reqwest → build rejects → repair fixes it."""
+    """First emission declares reqwest → build rejects → repair fixes it.
+
+    Also asserts the repair-attempt user prompt carries (a) the rustc/whitelist
+    feedback and (b) the LLM's previous emission so it can revise instead of
+    re-deriving from scratch.
+    """
     client = _ScriptedDialogClient(
         dialog_turns=[],
         emissions=[_emit_payload_non_whitelisted(), _emit_payload()],
@@ -415,9 +420,14 @@ def test_author_strategy_non_whitelisted_recovers(crates_dir: Path) -> None:
     )
     result = author_strategy(_example_intent(), deps=_deps(client, crates_dir, build_pipeline=bp))
     assert result.name == "test_strat"
-    # Two emit attempts were issued; the second received the rejection feedback.
-    assert len(client.emit_calls) == 2
-    assert "reqwest" in client.emit_calls[1][1]
+    # Two emit attempts were issued; the second carries feedback + previous emission.
+    expected_attempts = 2
+    assert len(client.emit_calls) == expected_attempts
+    second_user_prompt = client.emit_calls[1][1]
+    assert "reqwest" in second_user_prompt
+    assert "Your previous attempt" in second_user_prompt
+    # The first emission body shows up verbatim in the second prompt's previous-attempt section.
+    assert _emit_payload_non_whitelisted().strip() in second_user_prompt
 
 
 def test_author_strategy_budget_exhausted_raises(crates_dir: Path) -> None:

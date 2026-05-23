@@ -574,13 +574,21 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
     last_artifact_hash = ""
     attempt_idx = -1
     budget = deps.repair_config_emit.k_repair
+    previous_emission = ""
 
     def emit(feedback: str) -> str:
-        nonlocal attempt_idx
+        nonlocal attempt_idx, previous_emission
         attempt_idx += 1
         sink(RepairAttemptStarted(attempt=attempt_idx, budget=budget))
-        prompt = build_emit_prompt(intent=intent, feedback=feedback, crates_dir=deps.crates_dir)
-        return deps.reasoning_client.emit_files(system=prompt.system, user=prompt.user)
+        prompt = build_emit_prompt(
+            intent=intent,
+            feedback=feedback,
+            crates_dir=deps.crates_dir,
+            previous_emission=previous_emission,
+        )
+        response = deps.reasoning_client.emit_files(system=prompt.system, user=prompt.user)
+        previous_emission = response
+        return response
 
     def _complete(outcome: ValidationOutcome) -> ValidationOutcome:
         sink(RepairAttemptCompleted(attempt=attempt_idx, outcome=outcome.kind or "ok"))
