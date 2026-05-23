@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/how-to/run-hypothesize/">
+        <link rel="canonical" href="https://alphagit.github.io/strategy-gpt/dev/how-to/author-a-strategy/">
       
       
-        <link rel="prev" href="../interpret-pbo-rejection/">
+        <link rel="prev" href="../cli-cookbook/">
       
       
-        <link rel="next" href="../../reference/">
+        <link rel="next" href="../interpret-pbo-rejection/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Run the hypothesize loop - strategy-gpt</title>
+        <title>Author a strategy - strategy-gpt</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#run-the-hypothesize-loop" class="md-skip">
+        <a href="#author-a-strategy" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Run the hypothesize loop
+              Author a strategy
             
           </span>
         </div>
@@ -825,10 +825,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../author-a-strategy/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Author a strategy
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -844,6 +871,147 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-use-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use this
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invoke-author-with-a-seed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invoke author with a seed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invoke-author-with-no-seed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invoke author with no seed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-lands-on-disk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What lands on disk
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#edit-an-existing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edit an existing strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-against-the-full-walk-forward-batch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify against the full walk-forward batch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repair-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repair budget
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-the-repair-loop-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the repair loop fails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#follow-up-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Follow-up commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -881,37 +1049,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Run the hypothesize loop
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../run-hypothesize/" class="md-nav__link">
         
   
   
@@ -927,92 +1068,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cli-surface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CLI surface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#python-entry-full-wiring" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Python entry (full wiring)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-lands-on-disk" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What lands on disk
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reading-the-result" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reading the result
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2234,6 +2289,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#when-to-use-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use this
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2245,10 +2311,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cli-surface" class="md-nav__link">
+  <a href="#invoke-author-with-a-seed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CLI surface
+        Invoke author with a seed
       
     </span>
   </a>
@@ -2256,10 +2322,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#python-entry-full-wiring" class="md-nav__link">
+  <a href="#invoke-author-with-no-seed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Python entry (full wiring)
+        Invoke author with no seed
       
     </span>
   </a>
@@ -2278,10 +2344,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reading-the-result" class="md-nav__link">
+  <a href="#edit-an-existing-strategy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reading the result
+        Edit an existing strategy
       
     </span>
   </a>
@@ -2289,10 +2355,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
+  <a href="#verify-against-the-full-walk-forward-batch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Troubleshooting
+        Verify against the full walk-forward batch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repair-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repair budget
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-the-repair-loop-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the repair loop fails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#follow-up-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Follow-up commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
       
     </span>
   </a>
@@ -2319,153 +2429,65 @@
   
 
 
-<h1 id="run-the-hypothesize-loop">Run the hypothesize loop<a class="headerlink" href="#run-the-hypothesize-loop" title="Permanent link">&para;</a></h1>
-<p>Task-oriented recipe for invoking the strategy-logic search loop on a strategy crate.</p>
+<h1 id="author-a-strategy">Author a strategy<a class="headerlink" href="#author-a-strategy" title="Permanent link">&para;</a></h1>
+<p><code>strategy-gpt author</code> is the platform's root primitive for creating a new strategy crate. It drives an interactive LLM dialog to elicit your intent, then emits a working strategy crate that compiles and passes a smoke backtest.</p>
+<h2 id="when-to-use-this">When to use this<a class="headerlink" href="#when-to-use-this" title="Permanent link">&para;</a></h2>
+<ul>
+<li>You have an idea ("trend-follow SPY with ATR stops, daily bars") and want a working strategy crate on disk in minutes.</li>
+<li>You want to iterate on an existing strategy without hand-editing source.</li>
+<li>You want to feed a strategy into the hypothesize → optimize loop without first hand-writing one.</li>
+</ul>
+<p>If you want the longer hand-authored path that exercises the trait surface directly, see <a href="../../explanation/hand-authoring-a-strategy/">Hand-authoring a strategy</a>.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A strategy crate that compiles under the build-pipeline whitelist (the reference
-  is <code>crates/vxx-strategy/</code>).</li>
-<li>A baseline <code>BacktestResult</code> for that strategy. Most operators get this from the
-  most recent <code>optimize</code> run; callers driving the Python API supply it directly.</li>
-<li>A per-strategy ledger root (defaults to <code>./ledger</code>). First-time runs create
-  <code>ledger/strategies/&lt;strategy&gt;/</code> on demand.</li>
-<li><code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> set in the environment — the workflow
-  resolves the most capable reasoning model at startup.</li>
+<li><code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> in the environment.</li>
+<li>The workspace built once (<code>cd crates &amp;&amp; cargo check --workspace</code>).</li>
+<li>A Python install with the orchestrator (<code>cd python &amp;&amp; pip install -e '.[dev]' &amp;&amp; maturin develop -m ../crates/py-bindings/Cargo.toml</code>).</li>
 </ul>
-<h2 id="cli-surface">CLI surface<a class="headerlink" href="#cli-surface" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>strategy-gpt<span class="w"> </span>hypothesize<span class="w"> </span>&lt;strategy&gt;<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>--ledger-root<span class="w"> </span>ledger<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--max-backtests<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span>--k-candidates<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span>--iteration-budget<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="o">[</span>--baseline-from<span class="w"> </span>&lt;opt_run_id&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--baseline-defaults<span class="o">]</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="o">[</span>--quick<span class="o">]</span><span class="w"> </span><span class="o">[</span>--borderline-k<span class="w"> </span><span class="m">1</span>.0<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dry-run<span class="o">]</span>
+<h2 id="invoke-author-with-a-seed">Invoke author with a seed<a class="headerlink" href="#invoke-author-with-a-seed" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>strategy-gpt<span class="w"> </span>author<span class="w"> </span><span class="s2">&quot;trend-follow SPY with ATR stops, daily bars&quot;</span>
 </span></code></pre></div>
-<p>The command parses inputs, prints a resolved-flags JSON summary, and (unless
-<code>--dry-run</code>) prepares the orchestrator wiring. The operator-specific
-collaborators (KB, build-pipeline, engine evaluator) are constructed by the
-CLI; in the current build the CLI stops short of invoking the full workflow
-and prints a <code>wiring_incomplete</code> status. The Python entry below is fully
-wired.</p>
-<p>Flags:</p>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Effect</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--max-backtests N</code></td>
-<td>Hard ceiling on cumulative backtests. Rejects an iteration whose mini-optimize would exceed the budget.</td>
-</tr>
-<tr>
-<td><code>--quick</code></td>
-<td>Use a small mini-optimize budget (16 trials) — useful for early iteration on a new strategy.</td>
-</tr>
-<tr>
-<td><code>--borderline-k &lt;float&gt;</code></td>
-<td>Mechanical-gate <code>k</code> coefficient. Default <code>1.0</code> (~68% Gaussian confidence).</td>
-</tr>
-<tr>
-<td><code>--k-candidates N</code></td>
-<td>Target accepted-candidate count per run (default <code>3</code>).</td>
-</tr>
-<tr>
-<td><code>--iteration-budget N</code></td>
-<td>Inner-loop iteration cap (default <code>4</code>).</td>
-</tr>
-<tr>
-<td><code>--baseline-from &lt;id&gt;</code></td>
-<td>Load the baseline-best from a recorded optimize run id.</td>
-</tr>
-<tr>
-<td><code>--baseline-defaults</code></td>
-<td>Use baseline-defaults (no optimize). Mutually exclusive with <code>--baseline-from</code>.</td>
-</tr>
-<tr>
-<td><code>--dry-run</code></td>
-<td>Validate inputs, print resolved flags, exit without invoking the workflow.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="python-entry-full-wiring">Python entry (full wiring)<a class="headerlink" href="#python-entry-full-wiring" title="Permanent link">&para;</a></h2>
-<p>The orchestrator entry runs the full workflow end-to-end with caller-supplied
-collaborators:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.hypothesize</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesizeDeps</span><span class="p">,</span> <span class="n">hypothesize</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.per_strategy_ledger</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerStrategyLedger</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.reasoning</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesisLoopConfig</span><span class="p">,</span> <span class="n">ReasoningModel</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">ledger</span> <span class="o">=</span> <span class="n">PerStrategyLedger</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;ledger&quot;</span><span class="p">),</span> <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">)</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">deps</span> <span class="o">=</span> <span class="n">HypothesizeDeps</span><span class="p">(</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">kb</span><span class="o">=</span><span class="n">my_kb_client</span><span class="p">,</span>                         <span class="c1"># implements `KbClient`</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">stage_client</span><span class="o">=</span><span class="n">my_stage_client</span><span class="p">,</span>            <span class="c1"># implements `StageReasoningClient`</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">build_pipeline</span><span class="o">=</span><span class="n">my_build_pipeline</span><span class="p">,</span>        <span class="c1"># implements the trusted build surface</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">evaluate_fold</span><span class="o">=</span><span class="n">my_engine_evaluator</span><span class="p">,</span>       <span class="c1"># (params, fold_idx) -&gt; BacktestMetrics</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">prompt_api</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;crates/engine-rt/PROMPT_API.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">allowed_metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span> <span class="s2">&quot;sortino&quot;</span><span class="p">,</span> <span class="s2">&quot;max_drawdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">baseline_result</span><span class="o">=</span><span class="n">baseline_backtest_result</span><span class="p">,</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">baseline_files</span><span class="o">=</span><span class="n">baseline_source_bundle</span><span class="p">,</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">baseline_params_schema</span><span class="o">=</span><span class="n">baseline_params</span><span class="p">,</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">baseline_per_fold_scores</span><span class="o">=</span><span class="p">[</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">1.05</span><span class="p">,</span> <span class="mf">1.10</span><span class="p">],</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">baseline_metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_drawdown&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">baseline_aggregate_score</span><span class="o">=</span><span class="mf">1.03</span><span class="p">,</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">objective_metric</span><span class="o">=</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">dataset_manifest_hash</span><span class="o">=</span><span class="n">manifest_hash</span><span class="p">,</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="p">)</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">result</span> <span class="o">=</span> <span class="n">hypothesize</span><span class="p">(</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">,</span>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="n">ledger</span><span class="o">=</span><span class="n">ledger</span><span class="p">,</span>
-</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="n">deps</span><span class="o">=</span><span class="n">deps</span><span class="p">,</span>
-</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="n">config</span><span class="o">=</span><span class="n">HypothesisLoopConfig</span><span class="o">.</span><span class="n">with_defaults</span><span class="p">(</span>
-</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="n">target_candidates</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>        <span class="n">iteration_budget</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="p">),</span>
-</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    <span class="n">persist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="n">max_backtests</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
-</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="p">)</span>
-</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">termination_reason</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">accepted</span><span class="p">))</span>
+<p>The LLM opens with the seed and asks one clarifying question at a time. Typical questions: instrument scope, holding-period range, stop construction details, smoke fixture window. When the LLM has enough information it commits to an intent by emitting a <code># AuthorIntent</code> YAML block.</p>
+<h2 id="invoke-author-with-no-seed">Invoke author with no seed<a class="headerlink" href="#invoke-author-with-no-seed" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>strategy-gpt<span class="w"> </span>author
 </span></code></pre></div>
+<p>The first dialog turn asks what you want to author. The rest of the flow is identical.</p>
 <h2 id="what-lands-on-disk">What lands on disk<a class="headerlink" href="#what-lands-on-disk" title="Permanent link">&para;</a></h2>
-<p>For each accepted/rejected candidate the orchestrator writes:</p>
-<ul>
-<li>A row in <code>ledger/strategies/&lt;strategy&gt;/hypothesis_records.parquet</code></li>
-<li>A row in <code>ledger/strategies/&lt;strategy&gt;/decision_records.parquet</code></li>
-<li>A content-addressed source bundle under <code>sources/&lt;files_set_hash&gt;/</code></li>
-<li>Stage-1/2/3 markdown blobs under <code>responses/&lt;decision_id&gt;/</code></li>
-</ul>
-<p>Replay and diff commands consume these:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>strategy-gpt<span class="w"> </span>hypothesis<span class="w"> </span>replay<span class="w"> </span>&lt;decision_id&gt;<span class="w"> </span>--ledger-root<span class="w"> </span>ledger
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>strategy-gpt<span class="w"> </span>hypothesis<span class="w"> </span>diff<span class="w">   </span>&lt;decision_id&gt;<span class="w"> </span>--ledger-root<span class="w"> </span>ledger
+<p>A successful run produces, in <code>crates/&lt;name&gt;-strategy/</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>src/lib.rs       # strategy source implementing the sealed Strategy trait
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Cargo.toml       # manifest (deps within the build-pipeline whitelist)
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>smoke.toml       # the fixture (symbol, resolution, range, provider)
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>intent.toml      # round-trip-serializable AuthorIntent record
 </span></code></pre></div>
-<h2 id="reading-the-result">Reading the result<a class="headerlink" href="#reading-the-result" title="Permanent link">&para;</a></h2>
-<p>A typical accepted candidate carries:</p>
+<p>When invoked with <code>--verify=batch</code>, a <code>experiment.yaml</code> is also persisted.</p>
+<h2 id="edit-an-existing-strategy">Edit an existing strategy<a class="headerlink" href="#edit-an-existing-strategy" title="Permanent link">&para;</a></h2>
+<p>Plain <code>author</code> is the entry point — there is no <code>--edit</code> flag. When the dialog proposes a name that collides with an existing crate, the LLM asks whether you want to edit it or pick a different name. On <code>edit</code>, the existing <code>intent.toml</code>, <code>src/lib.rs</code>, <code>Cargo.toml</code>, and <code>smoke.toml</code> are loaded into context and subsequent emissions are framed as modifications.</p>
+<h2 id="verify-against-the-full-walk-forward-batch">Verify against the full walk-forward batch<a class="headerlink" href="#verify-against-the-full-walk-forward-batch" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>strategy-gpt<span class="w"> </span>author<span class="w"> </span><span class="s2">&quot;vol-target SPY&quot;</span><span class="w"> </span>--verify<span class="o">=</span>batch
+</span></code></pre></div>
+<p>After the smoke run, the engine runs the full batch declared in the emitted <code>experiment.yaml</code>. A failed fold pops control back to the dialog; the crate stays on disk for inspection.</p>
+<h2 id="repair-budget">Repair budget<a class="headerlink" href="#repair-budget" title="Permanent link">&para;</a></h2>
+<p>Two budgets govern the emit / build / smoke loop:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>strategy-gpt<span class="w"> </span>author<span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span>--k-repair-emit<span class="o">=</span><span class="m">2</span><span class="w"> </span>--k-repair-build<span class="o">=</span><span class="m">2</span>
+</span></code></pre></div>
+<p><code>k_repair=2</code> means three total attempts per stage (1 initial + 2 repairs). When a budget is exhausted, control returns to the dialog; you can expand the smoke window, swap mechanism, or accept the failure.</p>
+<h2 id="when-the-repair-loop-fails">When the repair loop fails<a class="headerlink" href="#when-the-repair-loop-fails" title="Permanent link">&para;</a></h2>
+<p>After the emit/build/smoke loop exhausts its budget, the CLI prints the failure trail and asks how to proceed. Pick one:</p>
+<ol>
+<li><strong>Suggest an alternative approach.</strong> Type a natural-language amendment ("use a Bollinger breakout instead of ATR stops"). The LLM revises the intent — only the affected fields, the rest stay locked — and the loop restarts with a fresh budget. The amendment lands as <code>DecisionAmended</code> events in <code>crates/&lt;name&gt;-strategy/.author/decisions.jsonl</code>.</li>
+<li><strong>Retry with an extended budget.</strong> Supply new <code>k_repair_emit</code> / <code>k_repair_build</code> values. Same intent, more attempts. The prior failure trail is fed back into the LLM so it does not repeat the same mistake.</li>
+<li><strong>Edit a specific decision.</strong> Name the field you want to revise (<code>mechanism_summary</code>, <code>param_sketch</code>, <code>smoke_spec</code>, <code>universe</code>). The LLM rewrites only that field; the rest of the intent is preserved verbatim.</li>
+<li><strong>Abort.</strong> The command exits non-zero. The crate files (including the partial <code>src/lib.rs</code> and the <code>decisions.jsonl</code> log) stay on disk so you can read what the LLM tried.</li>
+</ol>
+<p>Whichever option you pick, a <code>repair_budget_exhausted</code> event is appended to the decision log so the full session — including the failure trail — is preserved for replay.</p>
+<h2 id="follow-up-commands">Follow-up commands<a class="headerlink" href="#follow-up-commands" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>strategy-gpt<span class="w"> </span>hypothesize<span class="w"> </span>&lt;name&gt;<span class="w">   </span><span class="c1"># run the hypothesis loop on the authored strategy</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>strategy-gpt<span class="w"> </span>optimize<span class="w"> </span>--spec<span class="w"> </span>&lt;path-to-experiment.yaml&gt;<span class="w">  </span><span class="c1"># tune params</span>
+</span></code></pre></div>
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>aggregate_score</code> and <code>per_fold_best_scores</code> from the mini-optimize pass</li>
-<li><code>falsification_check.classification</code> — one of <code>accepted</code> / <code>falsified</code> /
-  <code>regression</code> (mechanical-gate noise/variance rejections appear under
-  <code>rejected</code> instead)</li>
-<li><code>side_effect_flags</code> — metric deltas vs baseline that crossed a tolerance band</li>
-</ul>
-<p>A <code>regression</code> classification means the primary claim was met but a guard
-constraint was broken (e.g. drawdown rose past the stated envelope); these are
-rejected regardless of primary outcome.</p>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong><code>reject_format</code> / <code>reject_lint</code> storms</strong> — the LLM is emitting malformed
-  stage-3 files. Inspect <code>responses/&lt;decision_id&gt;/stage3_files.md</code>; the strict
-  parser's section identifier appears in the rejection rationale.</li>
-<li><strong><code>reject_deps</code></strong> — the candidate's Cargo.toml declared a crate outside the
-  allowed-crate whitelist. Repair attempts re-prompt with a "remove this dep"
-  message; if repeated, widen the whitelist in <code>build-pipeline</code> (intentional
-  change) or improve the stage-1/2 prompts.</li>
-<li><strong><code>reject_noise</code></strong> — candidate beats the baseline but not by <code>k · σ_combined</code>.
-  Either tune <code>--borderline-k</code> lower (less stringent) or accept that the
-  candidate failed the variance-aware floor.</li>
-<li><strong>Budget exhausted</strong> — increase <code>--max-backtests</code>, lower mini-optimize trials
-  via <code>--quick</code>, or reduce <code>--k-candidates</code>.</li>
+<li>Author has no falsification, no ledger row, no verdict. Success means "the crate compiles and smoke passes." For stronger bars use <code>--verify=batch</code> or follow with <code>hypothesize</code>.</li>
+<li>Crates outside the build-pipeline whitelist are rejected hard. If a genuinely-needed crate is missing, an operator adds it to <code>crates/build-pipeline/whitelist.toml</code> out-of-band before re-running author.</li>
 </ul>
 
 
