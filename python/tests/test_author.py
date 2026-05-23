@@ -522,6 +522,90 @@ engine-rt = { path = "../engine-rt" }
 # ---------------------------------------------------------------------------
 
 
+def test_smoke_runner_exception_triggers_repair_not_abort(crates_dir: Path) -> None:
+    """A smoke runner that raises is converted to a reject_smoke outcome; repair retries."""
+
+    call_count = {"n": 0}
+
+    def first_raises_then_ok(_lib: Path, _spec: SmokeSpec) -> SmokeRunResult:
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            msg = "engine subprocess crashed: SIGSEGV in libstrategy.dylib"
+            raise RuntimeError(msg)
+        return SmokeRunResult(ok=True, feedback="trades=1")
+
+    client = _ScriptedDialogClient(
+        dialog_turns=[],
+        emissions=[_emit_payload(), _emit_payload()],
+    )
+    bp = _StubBuildPipeline(
+        build_outcomes=[_default_build_outcome(), _default_build_outcome()],
+    )
+    deps = AuthorDeps(
+        reasoning_client=client,
+        build_pipeline=bp,
+        smoke_runner=first_raises_then_ok,
+        crates_dir=crates_dir,
+        repair_config_emit=RepairConfig(k_repair=1),
+    )
+    result = author_strategy(_example_intent(), deps=deps)
+    expected_attempts = 2
+    assert result.name == "test_strat"
+    assert call_count["n"] == expected_attempts
+    # Second attempt's prompt carries the exception detail as feedback.
+    second_prompt = client.emit_calls[1][1]
+    assert "SIGSEGV" in second_prompt
+    assert "smoke / build step raised an unhandled exception" in second_prompt
+
+
+def test_smoke_runner_persistent_exception_consumes_budget(crates_dir: Path) -> None:
+    """A smoke runner that always raises exhausts the repair budget cleanly (no escape)."""
+
+    def always_raises(_lib: Path, _spec: SmokeSpec) -> SmokeRunResult:
+        msg = "panic at line 42"
+        raise RuntimeError(msg)
+
+    client = _ScriptedDialogClient(
+        dialog_turns=[],
+        emissions=[_emit_payload(), _emit_payload()],
+    )
+    bp = _StubBuildPipeline(
+        build_outcomes=[_default_build_outcome(), _default_build_outcome()],
+    )
+    deps = AuthorDeps(
+        reasoning_client=client,
+        build_pipeline=bp,
+        smoke_runner=always_raises,
+        crates_dir=crates_dir,
+        repair_config_emit=RepairConfig(k_repair=1),
+    )
+    with pytest.raises(AuthorBudgetExhaustedError) as exc_info:
+        author_strategy(_example_intent(), deps=deps)
+    assert "panic at line 42" in exc_info.value.last_feedback
+
+
+def test_build_pipeline_non_buildfailure_exception_contained(crates_dir: Path) -> None:
+    """A non-BuildFailure exception from build_pipeline.build is contained too."""
+
+    class _CrashingPipeline(_StubBuildPipeline):
+        def build(self, source: str, manifest: StrategyManifest) -> BuildOutcome:
+            del source, manifest
+            msg = "native bindings panicked: invalid UTF-8 in artifact path"
+            raise RuntimeError(msg)
+
+    client = _ScriptedDialogClient(dialog_turns=[], emissions=[_emit_payload()])
+    deps = AuthorDeps(
+        reasoning_client=client,
+        build_pipeline=_CrashingPipeline(),
+        smoke_runner=_passing_smoke,
+        crates_dir=crates_dir,
+        repair_config_emit=RepairConfig(k_repair=0),
+    )
+    with pytest.raises(AuthorBudgetExhaustedError) as exc_info:
+        author_strategy(_example_intent(), deps=deps)
+    assert "invalid UTF-8" in exc_info.value.last_feedback
+
+
 def test_normalize_cargo_rewrites_registry_dep() -> None:
     """An LLM-emitted ``engine-rt = "*"`` is rewritten to a path dep on disk."""
     from strategy_gpt.author import _normalize_cargo_toml  # noqa: PLC0415

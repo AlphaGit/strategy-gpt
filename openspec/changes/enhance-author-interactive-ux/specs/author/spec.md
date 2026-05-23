@@ -62,6 +62,25 @@ The Author SHALL emit structured progress events to a `event_sink` callable for 
 - **WHEN** a programmatic caller invokes `author_strategy(intent, deps=deps)` without overriding `event_sink`
 - **THEN** the call runs the full emit/build/smoke loop without writing any feedback to stdout or stderr
 
+### Requirement: Smoke and build exceptions are contained, not fatal
+
+Any unhandled exception escaping `deps.smoke_runner(...)` or `deps.build_pipeline.build(...)` (engine subprocess crash, panic inside the LLM-emitted cdylib that bubbles past `run_smoke`, gateway fetch failure, OS-level error in the build pipeline, native bindings crash, …) MUST be converted into a `reject_smoke:exception` or `reject_build:exception` `ValidationOutcome` so the repair loop receives feedback and retries. The author command MUST NOT propagate the exception out of `author_strategy`; that would lose the dialog state and force the operator to re-author from scratch. The feedback string SHALL include the exception type, message, and a hint about likely causes (panic in `on_bar`, unbounded buffer access, etc.) so the LLM can target the fix.
+
+#### Scenario: Smoke runner raises, repair loop receives the exception detail
+
+- **WHEN** the smoke runner raises an unhandled exception (e.g. the engine subprocess SIGSEGVs while running the LLM-emitted cdylib)
+- **THEN** validate returns a `reject_smoke:exception` outcome, the repair loop dispatches a next attempt, and the next prompt carries the exception type, message, and a defensive-coding hint in the feedback section
+
+#### Scenario: Persistent smoke exception exhausts the budget without killing the session
+
+- **WHEN** every emit/build/smoke attempt raises an exception (e.g. the LLM keeps emitting strategies that panic on the first bar)
+- **THEN** the repair loop consumes its budget and the author session transfers control to the repair-exhaustion menu rather than letting the exception terminate the CLI
+
+#### Scenario: Build pipeline non-BuildFailure exception is contained
+
+- **WHEN** `build_pipeline.build` raises an exception that is not a `BuildFailure` (e.g. native bindings crash, OS-level error)
+- **THEN** validate returns a `reject_build:exception` outcome with the exception detail in the feedback, and the repair loop receives it the same way it receives a `BuildFailure`
+
 ### Requirement: Repair prompt carries diagnostic AND previous emission
 
 Every repair attempt's prompt SHALL contain BOTH the validator's failure diagnostic (rustc stderr, lint rejection summary, whitelist offender, smoke panic message, or zero-trade signal) AND the verbatim text of the LLM's previous failed emission, rendered under a "Your previous attempt (revise this; do not start from scratch)" section. The prompt MUST instruct the LLM to preserve unaffected parts of the previous emission and target the change to what the diagnostic identifies. The `emit_files` API surface is single-turn (no conversation continuity), so the previous emission must be re-supplied in-prompt; relying on chat history is not acceptable.

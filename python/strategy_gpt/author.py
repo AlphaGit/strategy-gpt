@@ -707,6 +707,19 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
                     ok=False, kind=f"reject_build:{e.kind.value}", feedback=e.message
                 )
             )
+        except Exception as e:
+            sink(
+                CargoBuildCompleted(
+                    returncode=1, duration_seconds=time.monotonic() - build_start
+                )
+            )
+            return _complete(
+                ValidationOutcome(
+                    ok=False,
+                    kind="reject_build:exception",
+                    feedback=_format_smoke_exception(e),
+                )
+            )
         sink(
             CargoBuildCompleted(
                 returncode=0, duration_seconds=time.monotonic() - build_start
@@ -727,7 +740,24 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
         )
         sink(SmokeFetchCompleted(symbol=smoke_spec.symbol))
         sink(SmokeRunStarted())
-        smoke = deps.smoke_runner(Path(outcome.artifact.library_path), smoke_spec)
+        # Containment: any exception escaping the smoke runner (engine
+        # subprocess crash, gateway fetch failure, panic in the LLM-emitted
+        # strategy's cdylib that bubbles past run_smoke, OS-level errors)
+        # MUST be converted into a `reject_smoke` outcome so the repair
+        # loop kicks in. Without this guard, a single bad emission can
+        # terminate the entire author session and lose the operator's
+        # dialog state.
+        try:
+            smoke = deps.smoke_runner(Path(outcome.artifact.library_path), smoke_spec)
+        except Exception as e:
+            sink(SmokeRunCompleted(ok=False, trade_count=0, sanity_trips=0))
+            return _complete(
+                ValidationOutcome(
+                    ok=False,
+                    kind="reject_smoke:exception",
+                    feedback=_format_smoke_exception(e),
+                )
+            )
         sink(
             SmokeRunCompleted(
                 ok=smoke.ok,
@@ -955,6 +985,33 @@ def _build_with_progress(
     finally:
         done.set()
         watcher.join(timeout=1.0)
+
+
+_EXCEPTION_FEEDBACK_LIMIT = 2000
+
+
+def _format_smoke_exception(exc: BaseException) -> str:
+    """Format an escaped runner / build exception as LLM-facing feedback.
+
+    Keeps the traceback bounded so the LLM doesn't blow its context on
+    a megabyte of Python frames. The exception type and message are the
+    load-bearing parts — the trace is supplementary context.
+    """
+    import traceback  # noqa: PLC0415 — only used on the failure path
+
+    tb = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+    detail = str(exc).strip()
+    body = f"{tb}\n\n{detail}" if detail and detail not in tb else tb
+    if len(body) > _EXCEPTION_FEEDBACK_LIMIT:
+        body = body[:_EXCEPTION_FEEDBACK_LIMIT] + "\n… (truncated)"
+    return (
+        "the smoke / build step raised an unhandled exception. This usually "
+        "means the strategy's cdylib panicked, the engine subprocess crashed, "
+        "or the data fetch failed. Adjust the strategy to be more defensive "
+        "(bounds-check buffers, handle empty windows, avoid panics in `on_bar`) "
+        "or pick a different smoke window if the fixture is the problem. "
+        f"Exception detail:\n\n{body}"
+    )
 
 
 def _trade_count_from_feedback(smoke: SmokeRunResult) -> int:
