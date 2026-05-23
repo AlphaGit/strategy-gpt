@@ -71,22 +71,55 @@ The Author SHALL reject any LLM emission whose `Cargo.toml` declares a dependenc
 
 ### Requirement: Emit / build / smoke repair loop
 
-The Author SHALL drive emission, build, and smoke through a repair loop with configurable per-stage budgets (default `k_repair=2`). The loop MUST: write the LLM-emitted files to `crates/<name>-strategy/` on every attempt; run `BuildPipeline.lint()` and package-scoped `cargo build -p <name>-strategy`; on successful build, run a smoke backtest using the fixture declared in `smoke.toml`. Build failures, lint rejections, smoke panics, and smoke sanity-trip cascades MUST each produce a feedback string the next LLM attempt receives.
+The Author SHALL drive emission, build, and smoke through a repair loop with configurable per-stage budgets (default `k_repair=2`). The loop MUST: write the LLM-emitted files to `crates/<name>-strategy/` on every attempt; run `BuildPipeline.lint()` and package-scoped `cargo build -p <name>-strategy`; on successful build, run a smoke backtest using the fixture declared in `smoke.toml`. Build failures, lint rejections, smoke panics, and smoke sanity-trip cascades MUST each produce a feedback string the next LLM attempt receives. The Author MUST emit structured progress events to the `event_sink` for every substep so the CLI can surface in-flight feedback (see *Structured operation-feedback event stream during emit/build/smoke*).
 
-#### Scenario: Build fails, repair fixes it
+#### Scenario: Loop runs the canonical substep sequence per attempt
 
-- **WHEN** the first emission fails `cargo build` with a borrow-checker error
-- **THEN** the repair loop synthesizes the rustc diagnostic into LLM feedback and the next attempt is given that feedback verbatim per `synthesize_repair_feedback`
+- **WHEN** an emit/build/smoke attempt is dispatched
+- **THEN** the Author writes the emitted files under `crates/<name>-strategy/`, runs `BuildPipeline.lint()`, runs package-scoped `cargo build -p <name>-strategy`, and on successful build runs the smoke backtest against the fixture declared in `smoke.toml`, in that order
+
+#### Scenario: Repair-loop default budgets
+
+- **WHEN** the Author is invoked without explicit `--k-repair-emit` / `--k-repair-build` flags
+- **THEN** each stage runs with `k_repair=2`, yielding three total attempts per stage (one initial plus two repairs)
+
+### Requirement: Repair prompt carries diagnostic AND previous emission
+
+Every repair attempt's prompt SHALL contain BOTH the validator's failure diagnostic (rustc stderr, lint rejection summary, whitelist offender, smoke panic message, or zero-trade signal) AND the verbatim text of the LLM's previous failed emission, rendered under a "Your previous attempt (revise this; do not start from scratch)" section. The prompt MUST instruct the LLM to preserve unaffected parts of the previous emission and target the change to what the diagnostic identifies. The `emit_files` API surface is single-turn (no conversation continuity), so the previous emission must be re-supplied in-prompt; relying on chat history is not acceptable.
+
+#### Scenario: Build fails, repair prompt includes diagnostic and previous emission
+
+- **WHEN** the first emission fails `cargo build` with a borrow-checker error and the repair loop dispatches a second attempt
+- **THEN** the second emit-stage user prompt contains the rustc diagnostic under a "Why the previous attempt was rejected" section AND the full text of the first emission under "Your previous attempt (revise this; do not start from scratch)"
 
 #### Scenario: Smoke panics, repair loop runs
 
 - **WHEN** the strategy compiles but panics on the first bar of the smoke fixture
-- **THEN** the panic message is surfaced into the next LLM attempt's feedback and the repair counter increments
+- **THEN** the panic message is surfaced into the next LLM attempt's feedback section, the previous emission is included verbatim above it, and the repair counter increments
+
+#### Scenario: Non-whitelisted dep surfaces in repair prompt
+
+- **WHEN** the first emission declares a non-whitelisted crate and the build pipeline rejects it
+- **THEN** the next attempt's prompt names the offending crate and the whitelist rule in the feedback section, the previous emission is rendered verbatim above it, and the LLM is expected to drop or substitute the dependency rather than re-derive the whole crate
 
 #### Scenario: Repair budget exhausted
 
 - **WHEN** the emit-build-smoke stage exhausts its `k_repair` budget without a passing attempt
 - **THEN** control returns to the interactive dialog, the LLM summarizes the failed attempts, and the operator can adjust the intent (e.g. expand smoke window, swap mechanism) before retrying
+
+### Requirement: Cargo build progress ticks during long builds
+
+While `cargo build` is in flight, the Author SHALL emit `CargoBuildProgress` events to the event sink at regular intervals (default: every 2 seconds) so the CLI can surface in-flight progress to the operator. Each tick carries the elapsed seconds since the build started. The watcher MUST stop the moment the build returns (success or failure), so a fast or stubbed build emits no ticks. Tick emission MUST run concurrently with the build (e.g. on a daemon thread); it MUST NOT block on the build.
+
+#### Scenario: Long build emits intermediate progress events
+
+- **WHEN** the build pipeline blocks for several seconds before returning (typical for a real `cargo build`)
+- **THEN** the event sink receives one or more `CargoBuildProgress` events between `CargoBuildStarted` and `CargoBuildCompleted`, each carrying a strictly-increasing `elapsed_seconds`
+
+#### Scenario: Instant build emits no progress ticks
+
+- **WHEN** the build pipeline returns immediately (e.g. test stub, cache hit)
+- **THEN** the event sink receives `CargoBuildStarted` followed by `CargoBuildCompleted` with no intervening `CargoBuildProgress` event
 
 ### Requirement: Smoke passes is the success bar
 

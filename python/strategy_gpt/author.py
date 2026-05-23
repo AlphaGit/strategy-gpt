@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import tomllib
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
@@ -40,6 +41,7 @@ from .author_decisions import (
 from .author_events import (
     AuthorEventSink,
     CargoBuildCompleted,
+    CargoBuildProgress,
     CargoBuildStarted,
     FileWritten,
     LintCompleted,
@@ -52,7 +54,13 @@ from .author_events import (
     SmokeRunStarted,
     noop_sink,
 )
-from .build_pipeline import BuildFailure, ManifestDep, StrategyManifest, _BuildPipelineLike
+from .build_pipeline import (
+    BuildFailure,
+    BuildOutcome,
+    ManifestDep,
+    StrategyManifest,
+    _BuildPipelineLike,
+)
 from .markdown_io import ParseError, parse_stage3
 from .repair import RepairConfig, ValidationOutcome, run_stage_with_repair
 
@@ -563,8 +571,6 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
     (e.g. the hypothesis loop's future ``generate`` rewrite) build an
     :class:`AuthorIntent` directly and call this function.
     """
-    import time  # noqa: PLC0415 — used only for build-step timing
-
     from .prompts_author import build_emit_prompt  # noqa: PLC0415 — avoid import cycle
 
     crate_path = crate_dir_for(deps.crates_dir, intent.name)
@@ -650,7 +656,7 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
         sink(CargoBuildStarted(args=build_args))
         build_start = time.monotonic()
         try:
-            outcome = deps.build_pipeline.build(source_text, manifest)
+            outcome = _build_with_progress(deps.build_pipeline, source_text, manifest, sink)
         except BuildFailure as e:
             sink(
                 CargoBuildCompleted(
@@ -872,6 +878,44 @@ def run_author_session(
 def crate_dir_for(crates_dir: Path, name: str) -> Path:
     """Return the conventional crate directory for an intent name."""
     return crates_dir / f"{name}-strategy"
+
+
+_BUILD_PROGRESS_INTERVAL_SECONDS = 2.0
+
+
+def _build_with_progress(
+    pipeline: _BuildPipelineLike,
+    source: str,
+    manifest: StrategyManifest,
+    sink: AuthorEventSink,
+) -> BuildOutcome:
+    """Invoke ``pipeline.build`` while emitting periodic progress ticks.
+
+    The native build pipeline shells out to ``cargo`` and blocks until
+    the subprocess returns, so a long compile would otherwise look like
+    a hung CLI to the operator. A daemon watcher thread emits
+    :class:`CargoBuildProgress` every ``_BUILD_PROGRESS_INTERVAL_SECONDS``
+    while the build is in flight; the CLI renderer turns these into
+    "still compiling … 4s" ticks. The watcher stops the moment the
+    build returns (success or failure), so unit tests with an
+    instantaneous stub never see a tick.
+    """
+    import threading  # noqa: PLC0415 — local to the only call site
+
+    done = threading.Event()
+    started_at = time.monotonic()
+
+    def _tick() -> None:
+        while not done.wait(_BUILD_PROGRESS_INTERVAL_SECONDS):
+            sink(CargoBuildProgress(elapsed_seconds=time.monotonic() - started_at))
+
+    watcher = threading.Thread(target=_tick, daemon=True)
+    watcher.start()
+    try:
+        return pipeline.build(source, manifest)
+    finally:
+        done.set()
+        watcher.join(timeout=1.0)
 
 
 def _trade_count_from_feedback(smoke: SmokeRunResult) -> int:

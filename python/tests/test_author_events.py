@@ -16,6 +16,7 @@ from strategy_gpt.author import (
 from strategy_gpt.author_events import (
     AuthorEvent,
     CargoBuildCompleted,
+    CargoBuildProgress,
     CargoBuildStarted,
     FileWritten,
     LintCompleted,
@@ -188,6 +189,37 @@ def test_smoke_run_completed_carries_trade_count(crates_dir: Path) -> None:
     expected_sanity = 2
     assert completed.trade_count == expected_trades
     assert completed.sanity_trips == expected_sanity
+
+
+def test_long_build_emits_progress_ticks(crates_dir: Path) -> None:
+    """A slow build pipeline yields ``CargoBuildProgress`` ticks between start and end."""
+    import time as _time
+    from unittest.mock import patch
+
+    class _SlowBuildPipeline(_StubBuildPipeline):
+        def build(self, source: str, manifest: StrategyManifest) -> BuildOutcome:
+            _time.sleep(0.25)
+            return super().build(source, manifest)
+
+    events, sink = collecting_sink()
+    deps = AuthorDeps(
+        reasoning_client=_OneShotClient(_emission()),
+        build_pipeline=_SlowBuildPipeline(),
+        smoke_runner=_passing_smoke,
+        crates_dir=crates_dir,
+        repair_config_emit=RepairConfig(k_repair=0),
+        event_sink=sink,
+    )
+
+    # Speed up the watcher so the test runs in <1s.
+    with patch("strategy_gpt.author._BUILD_PROGRESS_INTERVAL_SECONDS", 0.05):
+        author_strategy(_intent(), deps=deps)
+
+    progress_events = [e for e in events if isinstance(e, CargoBuildProgress)]
+    assert progress_events, "expected at least one CargoBuildProgress tick"
+    # Each tick carries a strictly-increasing elapsed time.
+    for prev, nxt in zip(progress_events, progress_events[1:], strict=False):
+        assert nxt.elapsed_seconds > prev.elapsed_seconds
 
 
 def test_default_sink_writes_nothing_to_stdout(

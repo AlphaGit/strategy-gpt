@@ -67,6 +67,21 @@ class CargoBuildStarted:
 
 
 @dataclass(frozen=True)
+class CargoBuildProgress:
+    """Heartbeat emitted at regular intervals while ``cargo build`` is in flight.
+
+    The native BuildPipeline shells out to cargo via a blocking call,
+    so the orchestrator spawns a watcher thread that emits this event
+    every few seconds. The CLI renderer turns these into a "still
+    building" tick so the operator can see progress is happening even
+    when the build takes 30s+.
+    """
+
+    elapsed_seconds: float
+    event_type: Literal["cargo_build_progress"] = "cargo_build_progress"
+
+
+@dataclass(frozen=True)
 class CargoBuildCompleted:
     """The cargo build finished with ``returncode`` in ``duration`` seconds."""
 
@@ -117,6 +132,7 @@ AuthorEvent = (
     | LintStarted
     | LintCompleted
     | CargoBuildStarted
+    | CargoBuildProgress
     | CargoBuildCompleted
     | SmokeFetchStarted
     | SmokeFetchCompleted
@@ -151,6 +167,7 @@ __all__: Sequence[str] = (
     "AuthorEvent",
     "AuthorEventSink",
     "CargoBuildCompleted",
+    "CargoBuildProgress",
     "CargoBuildStarted",
     "FileWritten",
     "LintCompleted",

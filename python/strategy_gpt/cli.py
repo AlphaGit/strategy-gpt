@@ -562,6 +562,7 @@ def _cli_event_renderer(*, verbose: bool) -> Callable[[Any], None]:
     from .author_events import (  # noqa: PLC0415
         AuthorEvent,
         CargoBuildCompleted,
+        CargoBuildProgress,
         CargoBuildStarted,
         FileWritten,
         LintCompleted,
@@ -573,6 +574,8 @@ def _cli_event_renderer(*, verbose: bool) -> Callable[[Any], None]:
         SmokeRunStarted,
     )
 
+    build_target: dict[str, str] = {"name": ""}
+
     def render(event: AuthorEvent) -> None:  # noqa: PLR0912 — one branch per event type
         match event:
             case RepairAttemptStarted(attempt=a, budget=b):
@@ -580,22 +583,27 @@ def _cli_event_renderer(*, verbose: bool) -> Callable[[Any], None]:
             case RepairAttemptCompleted(attempt=a, outcome=o):
                 typer.echo(f"[attempt {a + 1}] result: {o}")
             case FileWritten(path=p):
-                if verbose:
-                    typer.echo(f"  wrote {p}")
+                size = ""
+                # FileWritten doesn't carry a size; show the path with a small icon.
+                typer.echo(f"  ✎ wrote {p}{size}")
             case LintStarted():
                 typer.echo("  lint …", nl=False)
             case LintCompleted(ok=ok):
                 typer.echo(" ok" if ok else " rejected")
             case CargoBuildStarted(args=args):
+                # Extract the -p target so the operator can see what's being built.
+                target = args[args.index("-p") + 1] if "-p" in args else "strategy"
+                build_target["name"] = target
                 if verbose:
-                    typer.echo(f"  cargo build (argv={args!r}) …")
+                    typer.echo(f"  cargo build -p {target} (argv={args!r})")
                 else:
-                    typer.echo("  cargo build …", nl=False)
+                    typer.echo(f"  cargo build -p {target} … (compiling)")
+            case CargoBuildProgress(elapsed_seconds=elapsed):
+                target = build_target.get("name") or "strategy"
+                typer.echo(f"    … still compiling {target} ({elapsed:.0f}s)")
             case CargoBuildCompleted(returncode=rc, duration_seconds=d):
-                if verbose:
-                    typer.echo(f"  cargo build returncode={rc} in {d:.2f}s")
-                else:
-                    typer.echo(f" {'done' if rc == 0 else 'failed'} in {d:.2f}s")
+                status = "done" if rc == 0 else "failed"
+                typer.echo(f"  cargo build {status} in {d:.2f}s")
             case SmokeFetchStarted(symbol=sym, start=start, end=end):
                 typer.echo(f"  fetching {sym} bars {start}..{end} …")
             case SmokeRunStarted():
