@@ -58,5 +58,5 @@
 
 - [x] 7.1 `make lint` is clean (ruff, ruff format, mypy --strict on `python/strategy_gpt/`)
 - [x] 7.2 `make test` is clean; the new tests under `python/tests/` are included
-- [ ] 7.3 Manual smoke: run `strategy-gpt author "trend-follow SPY"` end-to-end against a real LLM; verify the panel renders, progress events surface, and the on-disk crate is byte-identical to a baseline run made with `--quiet` (i.e. the new UX is additive, not perturbing)
-- [ ] 7.4 Manual smoke: force a repair-exhaustion by setting `--k-repair-emit=0`; verify each of the four menu options behaves per spec
+- [x] 7.3 Manual smoke: run `strategy-gpt author "trend-follow SPY"` end-to-end against a real LLM; verify the panel renders, progress events surface, and the on-disk crate is byte-identical to a baseline run made with `--quiet` (i.e. the new UX is additive, not perturbing)
+- [x] 7.4 Manual smoke: force a repair-exhaustion by setting `--k-repair-emit=0`; verify each of the four menu options behaves per spec
