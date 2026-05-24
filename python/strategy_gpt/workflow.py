@@ -32,6 +32,7 @@ network.
 from __future__ import annotations
 
 import dataclasses
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -89,6 +90,10 @@ from .verdict_critique import (
     verdict_critique_node,
 )
 
+_STAGE_BUILD_LABEL = 3
+"""Sentinel: only stage 3 actually runs cargo build inside its validator."""
+
+
 # ---------------------------------------------------------------------------
 # Dependency injection bag
 # ---------------------------------------------------------------------------
@@ -119,6 +124,13 @@ class NodeClients:
     objective_metric: str
     kept_bounds: Mapping[str, Any]
     repair_config: RepairConfig = field(default_factory=RepairConfig)
+    progress_sink: Callable[[str], None] | None = None
+    """Optional per-attempt heartbeat for long-running stage operations.
+
+    Invoked before/after each LLM emission and before/after each
+    validator call (which for stage-3 runs ``cargo build`` and may
+    take minutes). Callers wire it to a stderr printer so the operator
+    sees a heartbeat instead of a silent stall."""
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +216,7 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
     client: StageReasoningClient,
     model: Any,  # noqa: ANN401 — ReasoningModel value-object; protocol-typed at call site
     repair_config: RepairConfig,
+    progress_sink: Callable[[str], None] | None = None,
 ) -> tuple[Any, str, RejectKind, str]:
     """Run a stage through the repair loop.
 
@@ -215,8 +228,18 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
     instead of a generic placeholder.
     """
     prompt = build_prompt()
+    attempt_state = {"n": 0}
+    total_attempts = repair_config.k_repair + 1
+
+    def _emit_sink(msg: str) -> None:
+        if progress_sink is not None:
+            progress_sink(msg)
 
     def emit(feedback: str) -> str:
+        attempt_state["n"] += 1
+        idx = attempt_state["n"]
+        tag = "initial" if idx == 1 else f"repair {idx - 1}/{repair_config.k_repair}"
+        _emit_sink(f"stage{stage}: requesting LLM ({tag}, attempt {idx}/{total_attempts})")
         # On a retry, append the validator's feedback (which now carries
         # the previous attempt's verbatim emission, see
         # synthesize_repair_feedback) to the user payload so the LLM
@@ -229,12 +252,31 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
             )
         else:
             retry_prompt = prompt
-        return client.emit_stage(prompt=retry_prompt, stage=stage, model=model)
+        t0 = time.monotonic()
+        response = client.emit_stage(prompt=retry_prompt, stage=stage, model=model)
+        elapsed = time.monotonic() - t0
+        _emit_sink(
+            f"stage{stage}: LLM emission received ({len(response)} chars in {elapsed:.1f}s)"
+        )
+        return response
+
+    def validate_with_sink(text: str) -> Any:  # noqa: ANN401 — validator return is stage-specific
+        # Stage 3's validator runs `cargo build`; for stages 1/2 it's
+        # essentially instant. The "compiling..." label is honest only
+        # for stage 3 — stages 1/2 just say "validating".
+        label = "compiling + linting" if stage == _STAGE_BUILD_LABEL else "validating"
+        _emit_sink(f"stage{stage}: {label} emission...")
+        t0 = time.monotonic()
+        outcome = validate(text)
+        elapsed = time.monotonic() - t0
+        verdict = "ok" if getattr(outcome, "ok", False) else getattr(outcome, "kind", "rejected")
+        _emit_sink(f"stage{stage}: {label} done in {elapsed:.1f}s ({verdict})")
+        return outcome
 
     outcome = run_stage_with_repair(
         stage=stage,
         emit_fn=emit,
-        validate_fn=validate,
+        validate_fn=validate_with_sink,
         config=repair_config,
     )
     if not outcome.accepted:
@@ -268,6 +310,7 @@ def generate_stage1_step(state: HypothesizeState, clients: NodeClients) -> Hypot
         client=clients.stage_client,
         model=cfg.reasoning_model,
         repair_config=clients.repair_config,
+        progress_sink=clients.progress_sink,
     )
     if kind is not RejectKind.OK:
         detail = feedback or "stage-1 emission failed validation"
@@ -323,6 +366,7 @@ def generate_stage2_step(state: HypothesizeState, clients: NodeClients) -> Hypot
         client=clients.stage_client,
         model=cfg.reasoning_model,
         repair_config=clients.repair_config,
+        progress_sink=clients.progress_sink,
     )
     if kind is not RejectKind.OK:
         return {
@@ -363,6 +407,7 @@ def generate_stage3_step(state: HypothesizeState, clients: NodeClients) -> Hypot
         client=clients.stage_client,
         model=cfg.reasoning_model,
         repair_config=clients.repair_config,
+        progress_sink=clients.progress_sink,
     )
     if kind is not RejectKind.OK:
         return {

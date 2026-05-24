@@ -233,6 +233,40 @@ def test_emit_with_repair_forwards_feedback_and_prev_emission_to_retry() -> None
     assert "PREVIOUS_EMISSION" in retry_user
 
 
+def test_emit_with_repair_fires_progress_sink_around_emit_and_validate() -> None:
+    """Operator must see a heartbeat around each LLM call and each
+    validate (which for stage 3 runs cargo build and may take minutes).
+    """
+    from strategy_gpt.prompts import StagePrompt  # noqa: PLC0415
+    from strategy_gpt.repair import RepairConfig, ValidationOutcome  # noqa: PLC0415
+    from strategy_gpt.workflow import _emit_with_repair  # noqa: PLC0415
+
+    events: list[str] = []
+
+    class _Client:
+        def emit_stage(self, *, prompt: Any, stage: int, model: Any, **_: Any) -> str:
+            del prompt, stage, model
+            return "emitted"
+
+    def validate(_text: str) -> ValidationOutcome:
+        return ValidationOutcome(ok=True, parsed={"files": {}})
+
+    _emit_with_repair(
+        stage=3,
+        build_prompt=lambda: StagePrompt(system="sys", user="usr"),
+        validate=validate,
+        client=_Client(),
+        model=_model(),
+        repair_config=RepairConfig(k_repair=0),
+        progress_sink=events.append,
+    )
+    # Expect at least: request → response → compile-start → compile-done.
+    assert any("requesting LLM" in e for e in events)
+    assert any("LLM emission received" in e for e in events)
+    assert any("compiling + linting emission" in e for e in events)
+    assert any("compiling + linting done" in e for e in events)
+
+
 def test_emit_with_repair_surfaces_last_feedback_on_exhaustion() -> None:
     """When repair exhausts, the validator's final feedback (rustc error,
     lint reason, etc.) MUST be returned so the orchestrator can stamp it

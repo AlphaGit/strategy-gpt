@@ -359,6 +359,7 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
     max_backtests: int | None = None,
     prior_decision_limit: int = 50,
     progress: ProgressCallback | None = None,
+    attempt_sink: Callable[[str], None] | None = None,
 ) -> HypothesizeResult:
     """Drive the hypothesis loop end-to-end.
 
@@ -397,6 +398,7 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
         baseline_aggregate_score=deps.baseline_aggregate_score,
         objective_metric=deps.objective_metric,
         kept_bounds=deps.kept_bounds,
+        progress_sink=attempt_sink,
     )
 
     initial: HypothesizeState = {

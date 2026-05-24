@@ -654,6 +654,7 @@ def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the constructio
     progress = None if quiet else _hypothesize_progress_renderer(
         iteration_budget=iteration_budget
     )
+    attempt_sink = None if quiet else _hypothesize_attempt_sink()
 
     result = hypothesize(
         strategy,
@@ -663,6 +664,7 @@ def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the constructio
         persist=True,
         max_backtests=max_backtests,
         progress=progress,
+        attempt_sink=attempt_sink,
     )
 
     if not quiet:
@@ -678,6 +680,23 @@ def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the constructio
     payload = json.loads(hypothesize_result_to_json(result))
     payload["baseline_source"] = baseline.source
     typer.echo(json.dumps(payload, indent=2, default=str))
+
+
+def _hypothesize_attempt_sink() -> Callable[[str], None]:
+    """Return a stderr printer for per-attempt LLM + build heartbeats.
+
+    Stage-3 in particular runs ``cargo build`` inside the validator, so
+    a single attempt can take minutes. Without this sink the operator
+    sees nothing between the stage-3 "starting" line and the final
+    accept/reject — and on repair retries it looks like the loop has
+    stalled. The sink prints each phase transition (request,
+    response, compile-start, compile-done) with elapsed timing.
+    """
+
+    def render(msg: str) -> None:
+        typer.echo(f"    > {msg}", err=True)
+
+    return render
 
 
 def _hypothesize_progress_renderer(  # noqa: PLR0915 — one branch per workflow node
