@@ -365,11 +365,9 @@ Hard constraints:
 
 - Only declare dependencies from the allowed-crate whitelist (see
   PROMPT_API §6). Adding any other crate hard-rejects the candidate.
-- Implement the sealed `Strategy` trait exactly as declared in the
-  `engine-rt source` section of the user message. That section is the
-  authoritative reference: every method name, arity, parameter type,
-  and return type the strategy calls MUST appear there. Do NOT invent
-  methods or types.
+- Implement the sealed `Strategy` trait exactly as declared in PROMPT_API.
+  Every method name, arity, parameter type, and return type the strategy
+  calls MUST appear there. Do NOT invent methods or types.
 - Emit a `params_schema.json` whose schema matches the locked stage-2
   `ParamIntent`.
 - Do NOT emit `unsafe`, `extern`, threads, network code, or filesystem
@@ -404,31 +402,6 @@ def _format_baseline_files(files: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def _load_engine_rt_surface(src_dir: Path) -> str:
-    """Concatenate every ``.rs`` file under ``src_dir`` into a single block.
-
-    Returned format is one ``### <filename>`` H3 header per file followed
-    by a fenced Rust block carrying the verbatim contents. The caller
-    embeds the block into the stage-3 prompt so the LLM sees the
-    authoritative trait + supporting-type surface. Reading from disk per
-    call means trait edits propagate automatically; the prompt has no
-    second source of truth to drift from.
-    """
-    if not src_dir.is_dir():
-        return f"(engine-rt source dir not found at {src_dir})"
-    parts: list[str] = []
-    for path in sorted(src_dir.glob("*.rs")):
-        try:
-            body = path.read_text(encoding="utf-8")
-        except OSError as e:
-            parts.append(f"### {path.name}\n\n(unreadable: {e})\n")
-            continue
-        parts.append(f"### {path.name}\n\n```rust\n{body.rstrip()}\n```\n")
-    if not parts:
-        return f"(no .rs files under {src_dir})"
-    return "\n".join(parts)
-
-
 def build_stage3_prompt(  # noqa: PLR0913
     *,
     strategy_name: str,
@@ -437,7 +410,6 @@ def build_stage3_prompt(  # noqa: PLR0913
     stage2_parsed: Stage2Commitments,
     prompt_api: str,
     baseline_files: dict[str, str],
-    engine_rt_src_dir: Path | None = None,
 ) -> StagePrompt:
     """Build the stage-3 (files) prompt.
 
@@ -447,26 +419,12 @@ def build_stage3_prompt(  # noqa: PLR0913
       previous-stage emissions, both locked into context.
     - ``stage2_parsed`` — surfaced so the model has a clean view of the
       param intent and falsification claim it must implement.
-    - ``prompt_api`` — verbatim PROMPT_API.md.
+    - ``prompt_api`` — verbatim PROMPT_API.md content. This is the
+      authoritative trait + supporting-type surface; the LLM is
+      instructed to consult it and never invent methods or types.
     - ``baseline_files`` — the baseline strategy crate's source map
       (path → content). Files larger than 8 KiB are truncated.
-    - ``engine_rt_src_dir`` — when set, every ``.rs`` file under that
-      directory is concatenated into the prompt as the authoritative
-      trait surface. Reading from disk means trait changes (e.g. a new
-      ``Context`` method) flow into the next LLM call automatically.
     """
-    surface_block = ""
-    if engine_rt_src_dir is not None:
-        surface_block = (
-            f"## engine-rt source (authoritative trait surface)\n\n"
-            f"This is the verbatim contents of every `.rs` file under "
-            f"`engine-rt/src/`. The `Context` trait, `Strategy` trait, "
-            f"and supporting types (`Side`, `OrderId`, `Position`, `Bar`, "
-            f"`Result`, …) are defined here. Method names, arities, and "
-            f"return types listed here are authoritative — do NOT invent "
-            f"any other method, type, or signature.\n\n"
-            f"{_load_engine_rt_surface(engine_rt_src_dir)}\n\n"
-        )
     user = (
         f"## Strategy under hypothesis\n\n"
         f"`{strategy_name}`\n\n"
@@ -480,8 +438,7 @@ def build_stage3_prompt(  # noqa: PLR0913
         f"```json\n{json.dumps(stage2_parsed.param_intent, indent=2)}\n```\n\n"
         f"## Baseline strategy crate (files)\n\n"
         f"{_format_baseline_files(baseline_files)}\n\n"
-        f"{surface_block}"
-        f"## engine-rt PROMPT_API (locked reference)\n\n"
+        f"## engine-rt PROMPT_API (authoritative trait surface)\n\n"
         f"```markdown\n{prompt_api.rstrip()}\n```\n\n"
         f"---\n\n"
         f"Emit one `## <path>` section per file per the system contract. Begin with `Cargo.toml`."

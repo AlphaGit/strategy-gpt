@@ -25,7 +25,6 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from .build_pipeline import _BuildPipelineLike
@@ -88,12 +87,6 @@ class HypothesizeDeps:
     dataset_manifest_hash: str
     kept_bounds: Mapping[str, Any] = field(default_factory=dict)
     verdict_critic: VerdictCritiqueClient | None = None
-    engine_rt_src_dir: Path | None = None
-    """Path to ``crates/engine-rt/src/``.
-
-    Forwarded to :class:`workflow.NodeClients` so the stage-3 prompt
-    can embed the authoritative trait surface. Optional; when
-    ``None``, the stage-3 prompt falls back to PROMPT_API alone."""
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +398,6 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
         baseline_aggregate_score=deps.baseline_aggregate_score,
         objective_metric=deps.objective_metric,
         kept_bounds=deps.kept_bounds,
-        engine_rt_src_dir=deps.engine_rt_src_dir,
         progress_sink=attempt_sink,
     )
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 
@@ -240,43 +239,23 @@ def test_stage3_prompt_truncates_large_baseline_files() -> None:
     assert len(prompt.user) < 20000
 
 
-def test_stage3_prompt_embeds_engine_rt_source_when_dir_supplied(tmp_path: Path) -> None:
-    """Stage-3 prompt MUST include verbatim contents of every ``.rs``
-    file under the supplied ``engine_rt_src_dir`` so the LLM cannot
-    hallucinate methods that do not exist on the ``Context`` trait.
+def test_stage3_prompt_embeds_prompt_api_verbatim() -> None:
+    """Stage-3 prompt MUST carry the PROMPT_API.md contents verbatim so
+    the LLM has the authoritative trait surface. Without it, the model
+    hallucinates Context methods (the failure mode that motivated this
+    test).
     """
-    src = tmp_path / "engine-rt-src"
-    src.mkdir()
-    (src / "context.rs").write_text(
-        "pub trait Context {\n    fn submit_order(&mut self, side: Side, size: f64);\n}\n"
-    )
-    (src / "strategy.rs").write_text("pub trait Strategy {}\n")
-
+    api_text = "# engine-rt PROMPT_API\n\nfn submit_order(...) -> Result<OrderId>\n"
     prompt = build_stage3_prompt(
         strategy_name="s",
         stage1_response="",
         stage2_response="",
         stage2_parsed=Stage2Commitments(falsification={}, param_intent={}),
-        prompt_api="API",
+        prompt_api=api_text,
         baseline_files={},
-        engine_rt_src_dir=src,
     )
-    assert "engine-rt source" in prompt.user
-    assert "context.rs" in prompt.user
+    assert "engine-rt PROMPT_API" in prompt.user
     assert "submit_order" in prompt.user
-    assert "strategy.rs" in prompt.user
-
-
-def test_stage3_prompt_omits_engine_rt_section_when_dir_unset() -> None:
-    prompt = build_stage3_prompt(
-        strategy_name="s",
-        stage1_response="",
-        stage2_response="",
-        stage2_parsed=Stage2Commitments(falsification={}, param_intent={}),
-        prompt_api="API",
-        baseline_files={},
-    )
-    assert "engine-rt source" not in prompt.user
 
 
 def test_stage3_prompt_handles_empty_baseline() -> None:

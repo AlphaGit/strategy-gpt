@@ -428,7 +428,7 @@ def hypothesize(  # noqa: PLR0913 — CLI surface mirrors the workflow knobs
     )
 
 
-def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the construction surface
+def _run_hypothesize(  # noqa: PLR0912, PLR0913, PLR0915 — orchestrates the construction surface
     *,
     strategy: str,
     ledger_root: Path,
@@ -607,12 +607,22 @@ def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the constructio
             err=True,
         )
 
+    prompt_api_path = (crates_dir / "engine-rt" / "PROMPT_API.md").resolve()
+    try:
+        prompt_api_text = prompt_api_path.read_text(encoding="utf-8")
+    except OSError as e:
+        typer.echo(
+            f"PROMPT_API.md unreadable at {prompt_api_path}: {e}",
+            err=True,
+        )
+        raise typer.Exit(code=2) from None
+
     deps = HypothesizeDeps(
         kb=cast("Any", kb_client),
         stage_client=stage_client,
         build_pipeline=build_pipeline,
         evaluate_fold=evaluate_fold,
-        prompt_api=strategy,
+        prompt_api=prompt_api_text,
         allowed_metrics=[
             "sharpe",
             "sortino",
@@ -633,7 +643,6 @@ def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the constructio
         dataset_manifest_hash=dataset_manifest,
         kept_bounds=kept_bounds,
         verdict_critic=verdict_critic,
-        engine_rt_src_dir=(crates_dir / "engine-rt" / "src").resolve(),
     )
 
     # borderline_k is a forward-looking knob on the workflow; the

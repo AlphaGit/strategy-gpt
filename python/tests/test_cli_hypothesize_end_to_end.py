@@ -78,6 +78,12 @@ def repo_layout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     worker.write_text("#!/bin/sh\n")
     worker.chmod(0o755)
 
+    # PROMPT_API.md is loaded by the CLI and embedded into the stage-3
+    # prompt; missing file aborts before the workflow runs.
+    prompt_api = tmp_path / "crates" / "engine-rt" / "PROMPT_API.md"
+    prompt_api.parent.mkdir(parents=True)
+    prompt_api.write_text("# PROMPT_API stub\n")
+
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     monkeypatch.chdir(tmp_path)
     return tmp_path
