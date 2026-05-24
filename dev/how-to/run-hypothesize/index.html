@@ -2341,12 +2341,12 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="o">[</span>--baseline-from<span class="w"> </span>&lt;opt_run_id&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--baseline-defaults<span class="o">]</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="o">[</span>--quick<span class="o">]</span><span class="w"> </span><span class="o">[</span>--borderline-k<span class="w"> </span><span class="m">1</span>.0<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dry-run<span class="o">]</span>
 </span></code></pre></div>
-<p>The command parses inputs, prints a resolved-flags JSON summary, and (unless
-<code>--dry-run</code>) prepares the orchestrator wiring. The operator-specific
-collaborators (KB, build-pipeline, engine evaluator) are constructed by the
-CLI; in the current build the CLI stops short of invoking the full workflow
-and prints a <code>wiring_incomplete</code> status. The Python entry below is fully
-wired.</p>
+<p>The command builds the operator-specific collaborators (KB, build pipeline,
+stage reasoning client, engine evaluator, baseline tuple) from the crate at
+<code>crates/&lt;strategy&gt;-strategy/</code> and the operator's environment, invokes the
+workflow, and prints a JSON envelope mirroring <code>HypothesizeResult</code> (plus the
+<code>baseline_source</code> label). The Python entry below is the same surface for
+programmatic callers.</p>
 <p>Flags:</p>
 <table>
 <thead>

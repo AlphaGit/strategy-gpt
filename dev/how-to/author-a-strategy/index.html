@@ -2481,8 +2481,15 @@
 </ol>
 <p>Whichever option you pick, a <code>repair_budget_exhausted</code> event is appended to the decision log so the full session — including the failure trail — is preserved for replay.</p>
 <h2 id="follow-up-commands">Follow-up commands<a class="headerlink" href="#follow-up-commands" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>strategy-gpt<span class="w"> </span>hypothesize<span class="w"> </span>&lt;name&gt;<span class="w">   </span><span class="c1"># run the hypothesis loop on the authored strategy</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>strategy-gpt<span class="w"> </span>optimize<span class="w"> </span>--spec<span class="w"> </span>&lt;path-to-experiment.yaml&gt;<span class="w">  </span><span class="c1"># tune params</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Run the hypothesis loop using a smoke-run-at-defaults baseline.</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>strategy-gpt<span class="w"> </span>hypothesize<span class="w"> </span>&lt;name&gt;<span class="w"> </span>--baseline-defaults
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Tune params via the optimizer (requires experiment.yaml on disk —</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># pass --verify=batch to author to have it emitted).</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>strategy-gpt<span class="w"> </span>optimize<span class="w"> </span>--spec<span class="w"> </span>crates/&lt;name&gt;-strategy/experiment.yaml
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># Once you have an optimize run, use its result as a rigorous baseline.</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>strategy-gpt<span class="w"> </span>hypothesize<span class="w"> </span>&lt;name&gt;<span class="w"> </span>--baseline-from<span class="w"> </span>&lt;opt-run-id&gt;
 </span></code></pre></div>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
