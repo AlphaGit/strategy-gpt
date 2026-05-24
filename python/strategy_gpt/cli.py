@@ -559,7 +559,7 @@ def _run_hypothesize(  # noqa: PLR0912, PLR0913, PLR0915 — orchestrates the co
     stage_client = build_stage_client(model_overrides=typed_overrides)
 
     try:
-        evaluate_fold, dataset_manifest, fold_count = build_evaluate_fold(
+        eval_factory, evaluate_fold, dataset_manifest, fold_count = build_evaluate_fold(
             crate_paths,
             build_pipeline=build_pipeline,
             engine_worker_path=engine_worker,
@@ -643,6 +643,7 @@ def _run_hypothesize(  # noqa: PLR0912, PLR0913, PLR0915 — orchestrates the co
         dataset_manifest_hash=dataset_manifest,
         kept_bounds=kept_bounds,
         verdict_critic=verdict_critic,
+        evaluate_fold_factory=eval_factory,
     )
 
     # borderline_k is a forward-looking knob on the workflow; the

@@ -411,6 +411,16 @@ def _submit_and_extract_metrics(
     return BacktestMetrics.model_validate(raw_metrics)
 
 
+EvaluateFoldFactory = Callable[[str], EvaluateFoldFn]
+"""Factory: ``(library_path) -> EvaluateFoldFn``.
+
+Each candidate hypothesis compiles to a DIFFERENT shared library; the
+mini-optimize search MUST run that library, not the baseline's, or every
+candidate scores identically and the gate falsely rejects every change.
+The factory binds a library path at the point the candidate's build
+artifact becomes available."""
+
+
 def build_evaluate_fold(
     crate_paths: CratePaths,
     *,
@@ -418,18 +428,24 @@ def build_evaluate_fold(
     engine_worker_path: Path,
     gateway_root: Path,
     quick_fold_count: int | None = None,
-) -> tuple[EvaluateFoldFn, str, int]:
-    """Build an :class:`EvaluateFoldFn` over the crate's bars source.
+) -> tuple[EvaluateFoldFactory, EvaluateFoldFn, str, int]:
+    """Build an evaluate-fold factory + baseline evaluator pair.
 
-    Returns ``(callable, dataset_manifest_hash, fold_count)``. When the
-    crate carries an ``experiment.yaml``, fold count comes from the
-    embedded ``folds`` block; otherwise the smoke window becomes a
-    single-fold evaluator (fold 0 only).
+    Returns ``(factory, baseline_evaluator, dataset_manifest_hash,
+    fold_count)``. The factory takes a library path and returns an
+    :class:`EvaluateFoldFn` bound to that artifact. The baseline
+    evaluator is the factory applied to the baseline crate's compiled
+    library — used by ``baseline_defaults`` to compute per-fold
+    baseline metrics.
+
+    When the crate carries an ``experiment.yaml``, fold count comes
+    from the embedded ``folds`` block; otherwise the smoke window
+    becomes a single-fold evaluator (fold 0 only).
 
     ``quick_fold_count`` caps the fold count regardless of source (used
     by ``--quick`` to keep the loop cheap).
     """
-    library_path = _build_strategy_library(crate_paths, build_pipeline)
+    baseline_library_path = _build_strategy_library(crate_paths, build_pipeline)
     engine = _make_engine(engine_worker_path)
 
     import tomllib  # noqa: PLC0415
@@ -455,40 +471,43 @@ def build_evaluate_fold(
     fold_count = len(fold_slices)
     strategy_name = crate_paths.crate_dir.name.removesuffix("-strategy")
 
-    def _evaluator(params: Mapping[str, Any], fold_idx: int) -> BacktestMetrics:
-        if fold_idx < 0 or fold_idx >= fold_count:
-            msg = f"fold_idx {fold_idx} out of range [0, {fold_count})"
-            raise IndexError(msg)
-        start, end = fold_slices[fold_idx]
-        run = {
-            "params": dict(params),
-            "modes": [{"kind": "plain"}],
-            "seed": 0,
-            "slice": {"start": start.isoformat(), "end": end.isoformat()},
-        }
-        spec = {
-            "strategy": strategy_name,
-            "dataset": dataset_manifest,
-            "runs": [run],
-            "engine": {
-                "fill_model": "NextBarOpen",
-                "initial_capital": 100_000.0,
-                "commission_per_fill": 0.0,
-                "slippage_bps": 0.0,
-                "sanity": {"max_intent_size": 1e9, "max_position_size": 1e9},
-            },
-            "parallelism": 1,
-            "failure_mode": "continue",
-        }
-        return _submit_and_extract_metrics(
-            engine,
-            library_path=library_path,
-            bars=bars,
-            spec=spec,
-            dataset_manifest=dataset_manifest,
-        )
+    def factory(library_path: str) -> EvaluateFoldFn:
+        def _evaluator(params: Mapping[str, Any], fold_idx: int) -> BacktestMetrics:
+            if fold_idx < 0 or fold_idx >= fold_count:
+                msg = f"fold_idx {fold_idx} out of range [0, {fold_count})"
+                raise IndexError(msg)
+            start, end = fold_slices[fold_idx]
+            run = {
+                "params": dict(params),
+                "modes": [{"kind": "plain"}],
+                "seed": 0,
+                "slice": {"start": start.isoformat(), "end": end.isoformat()},
+            }
+            spec = {
+                "strategy": strategy_name,
+                "dataset": dataset_manifest,
+                "runs": [run],
+                "engine": {
+                    "fill_model": "NextBarOpen",
+                    "initial_capital": 100_000.0,
+                    "commission_per_fill": 0.0,
+                    "slippage_bps": 0.0,
+                    "sanity": {"max_intent_size": 1e9, "max_position_size": 1e9},
+                },
+                "parallelism": 1,
+                "failure_mode": "continue",
+            }
+            return _submit_and_extract_metrics(
+                engine,
+                library_path=library_path,
+                bars=bars,
+                spec=spec,
+                dataset_manifest=dataset_manifest,
+            )
 
-    return _evaluator, dataset_manifest, fold_count
+        return _evaluator
+
+    return factory, factory(baseline_library_path), dataset_manifest, fold_count
 
 
 def _derive_fold_slices_from_experiment(experiment_yaml: Path) -> list[tuple[Any, Any]]:
@@ -807,6 +826,7 @@ def resolve_objective_metric(
 __all__ = [
     "BaselineTuple",
     "CratePaths",
+    "EvaluateFoldFactory",
     "MissingApiKeyError",
     "MissingArtifactError",
     "MissingOptimizeRunError",

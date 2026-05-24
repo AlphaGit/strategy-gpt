@@ -303,6 +303,67 @@ def test_emit_with_repair_surfaces_last_feedback_on_exhaustion() -> None:
     assert "frob" in feedback
 
 
+def test_mini_optimize_uses_factory_with_candidate_library_path() -> None:
+    """The candidate's compiled library MUST be the one mini-optimize
+    runs through the evaluator — not the baseline's. Without this every
+    candidate scores identically.
+    """
+    from strategy_gpt.types import BacktestMetrics  # noqa: PLC0415
+
+    seen_libs: list[str] = []
+
+    def _factory(library_path: str) -> Any:
+        def _evaluator(_params: Any, _fold_idx: int) -> BacktestMetrics:
+            seen_libs.append(library_path)
+            return BacktestMetrics(
+                sharpe=1.5,
+                sortino=1.7,
+                profit_factor=1.4,
+                win_ratio=0.55,
+                max_drawdown=0.1,
+                annualized_return=0.2,
+                n_trades=50,
+                avg_trade_length_bars=5.0,
+            )
+
+        return _evaluator
+
+    base = _clients()
+    clients = dataclasses.replace(
+        base,
+        evaluate_fold_factory=_factory,
+        baseline_per_fold_scores=[1.0],
+    )
+    stage2 = Stage2Commitments(
+        falsification={
+            "primary": {"metric": "sharpe", "direction": "gt", "delta_vs_baseline": 0.1}
+        },
+        param_intent={
+            "added": [{"name": "p", "kind": "f64", "min": 0.0, "max": 1.0, "default": 0.5}],
+            "kept": [],
+            "removed": [],
+        },
+    )
+    state: dict[str, Any] = {
+        "strategy": "demo",
+        "stage1_idea": Stage1Idea(
+            candidate_name="c",
+            rationale="r",
+            expected_lift_confidence=0.5,
+            expected_side_effects=[],
+        ),
+        "stage2_parsed": stage2,
+        "candidate_library_path": "/tmp/candidate-lib.dylib",  # noqa: S108
+        "config": _config(),
+        "backtests_consumed": 0,
+        "max_backtests": None,
+    }
+    update = mini_optimize_step(state, clients)  # type: ignore[arg-type]
+    assert "candidate_attempt_result" in update
+    assert seen_libs
+    assert all(lib == "/tmp/candidate-lib.dylib" for lib in seen_libs)  # noqa: S108
+
+
 def test_mini_optimize_catches_search_space_value_error() -> None:
     """A `param_intent` that asks for a kept param without bounds (or any
     other deterministic search-space construction failure) MUST surface

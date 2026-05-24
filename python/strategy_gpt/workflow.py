@@ -124,6 +124,9 @@ class NodeClients:
     objective_metric: str
     kept_bounds: Mapping[str, Any]
     repair_config: RepairConfig = field(default_factory=RepairConfig)
+    evaluate_fold_factory: Callable[[str], EvaluateFoldFn] | None = None
+    """Per-candidate evaluator factory. See HypothesizeDeps for the
+    reason mini_optimize MUST rebind the library path per candidate."""
     progress_sink: Callable[[str], None] | None = None
     """Optional per-attempt heartbeat for long-running stage operations.
 
@@ -167,6 +170,7 @@ class HypothesizeState(TypedDict, total=False):
     stage2_parsed: Stage2Commitments
     stage3_response: str
     stage3_parsed: Stage3Files
+    candidate_library_path: str | None
     candidate_reject_kind: RejectKind | None
     candidate_reject_rationale: str
     candidate_attempt_result: AttemptWithOptimizeResult | None
@@ -422,7 +426,24 @@ def generate_stage3_step(state: HypothesizeState, clients: NodeClients) -> Hypot
             "stage3_response": response,
         }
     files = parsed["files"] if isinstance(parsed, dict) else parsed
-    return {"stage3_response": response, "stage3_parsed": files}
+    # Extract the candidate's compiled library path so mini_optimize
+    # runs the new strategy artifact instead of the baseline (the
+    # validator built it via the build_pipeline; its outcome carries
+    # the resolved library_path). Falls back to None when validate
+    # returned a parsed shape that doesn't include the build outcome
+    # (older fixture path) — mini_optimize then uses the baseline
+    # evaluator and the user sees identical metrics, which is the
+    # legacy behavior.
+    candidate_library: str | None = None
+    if isinstance(parsed, dict):
+        outcome = parsed.get("build_outcome")
+        artifact = getattr(outcome, "artifact", None)
+        candidate_library = getattr(artifact, "library_path", None)
+    return {
+        "stage3_response": response,
+        "stage3_parsed": files,
+        "candidate_library_path": candidate_library,
+    }
 
 
 def _build_falsification(stage2: Stage2Commitments) -> Falsification:
@@ -468,6 +489,19 @@ def mini_optimize_step(state: HypothesizeState, clients: NodeClients) -> Hypothe
     stage2 = state["stage2_parsed"]
     falsification = _build_falsification(stage2)
     param_intent = _build_param_intent(stage2)
+
+    # Bind the evaluator to the candidate's freshly-built library when
+    # the factory + library path are both available. Without this every
+    # candidate runs the BASELINE library through mini-optimize and the
+    # score never changes — the mechanical gate then rejects every
+    # candidate as zero-delta noise.
+    candidate_library = state.get("candidate_library_path")
+    evaluator: EvaluateFoldFn = (
+        clients.evaluate_fold_factory(candidate_library)
+        if clients.evaluate_fold_factory is not None and candidate_library is not None
+        else clients.evaluate_fold
+    )
+
     try:
         result = attempt_with_optimize(
             strategy_artifact=state["strategy"],
@@ -478,7 +512,7 @@ def mini_optimize_step(state: HypothesizeState, clients: NodeClients) -> Hypothe
             trials=trials,
             kept_bounds=clients.kept_bounds,
             objective_metric=clients.objective_metric,
-            evaluate_fold=clients.evaluate_fold,
+            evaluate_fold=evaluator,
             baseline_per_fold_scores=clients.baseline_per_fold_scores,
             baseline_metrics=clients.baseline_metrics,
         )
@@ -649,6 +683,7 @@ def rank_step(state: HypothesizeState, _clients: NodeClients) -> HypothesizeStat
         "stage1_idea": None,  # type: ignore[typeddict-item]
         "stage2_parsed": None,  # type: ignore[typeddict-item]
         "stage3_parsed": None,  # type: ignore[typeddict-item]
+        "candidate_library_path": None,
         "candidate_attempt_result": None,
         "gate_outcome": None,
         "verdict_decision": None,

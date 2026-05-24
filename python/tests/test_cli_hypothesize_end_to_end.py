@@ -163,9 +163,13 @@ def _patch_wiring(monkeypatch: pytest.MonkeyPatch, baseline_source: str) -> dict
         counters["build_stage"] += 1
         return object()
 
-    def _fake_eval(*_args: Any, **_kwargs: Any) -> tuple[Any, str, int]:
+    def _fake_eval(*_args: Any, **_kwargs: Any) -> tuple[Any, Any, str, int]:
         counters["build_eval"] += 1
-        return _evaluator, "manifest-stub", 1
+
+        def _factory(_library_path: str) -> Any:
+            return _evaluator
+
+        return _factory, _evaluator, "manifest-stub", 1
 
     def _fake_baseline_defaults(*_args: Any, **_kwargs: Any) -> hw.BaselineTuple:
         return _fake_baseline_tuple("baseline_defaults")

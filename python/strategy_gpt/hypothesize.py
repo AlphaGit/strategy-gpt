@@ -87,6 +87,16 @@ class HypothesizeDeps:
     dataset_manifest_hash: str
     kept_bounds: Mapping[str, Any] = field(default_factory=dict)
     verdict_critic: VerdictCritiqueClient | None = None
+    evaluate_fold_factory: Callable[[str], EvaluateFoldFn] | None = None
+    """Factory binding a strategy artifact's library path to an evaluator.
+
+    Mini-optimize MUST run each candidate's freshly-built shared library
+    — not the baseline's — or every candidate scores identically. When
+    set, the workflow's mini_optimize_step constructs a per-candidate
+    evaluator via ``factory(candidate_library_path)``. When unset, the
+    workflow falls back to the baseline ``evaluate_fold`` (legacy
+    behavior; still useful for offline smoke tests with a stub
+    evaluator)."""
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +408,7 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
         baseline_aggregate_score=deps.baseline_aggregate_score,
         objective_metric=deps.objective_metric,
         kept_bounds=deps.kept_bounds,
+        evaluate_fold_factory=deps.evaluate_fold_factory,
         progress_sink=attempt_sink,
     )
 
