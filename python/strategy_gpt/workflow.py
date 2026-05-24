@@ -356,8 +356,14 @@ def generate_stage2_step(state: HypothesizeState, clients: NodeClients) -> Hypot
             allowed_metrics=clients.allowed_metrics,
         )
 
+    kept_names = frozenset(clients.kept_bounds.keys()) if clients.kept_bounds else frozenset()
+
     def validate(text: str) -> Any:  # noqa: ANN401
-        return validate_stage2(text, allowed_metrics=frozenset(clients.allowed_metrics) or None)
+        return validate_stage2(
+            text,
+            allowed_metrics=frozenset(clients.allowed_metrics) or None,
+            kept_param_names=kept_names,
+        )
 
     parsed, response, kind, feedback = _emit_with_repair(
         stage=2,
@@ -462,19 +468,36 @@ def mini_optimize_step(state: HypothesizeState, clients: NodeClients) -> Hypothe
     stage2 = state["stage2_parsed"]
     falsification = _build_falsification(stage2)
     param_intent = _build_param_intent(stage2)
-    result = attempt_with_optimize(
-        strategy_artifact=state["strategy"],
-        param_intent=param_intent,
-        falsification=falsification,
-        folds=folds,
-        method="sobol",
-        trials=trials,
-        kept_bounds=clients.kept_bounds,
-        objective_metric=clients.objective_metric,
-        evaluate_fold=clients.evaluate_fold,
-        baseline_per_fold_scores=clients.baseline_per_fold_scores,
-        baseline_metrics=clients.baseline_metrics,
-    )
+    try:
+        result = attempt_with_optimize(
+            strategy_artifact=state["strategy"],
+            param_intent=param_intent,
+            falsification=falsification,
+            folds=folds,
+            method="sobol",
+            trials=trials,
+            kept_bounds=clients.kept_bounds,
+            objective_metric=clients.objective_metric,
+            evaluate_fold=clients.evaluate_fold,
+            baseline_per_fold_scores=clients.baseline_per_fold_scores,
+            baseline_metrics=clients.baseline_metrics,
+        )
+    except (ValueError, TypeError, KeyError) as exc:
+        # Search-space construction failures (kept-without-bounds,
+        # added-without-min/max, conflicting added/removed) and any
+        # other deterministic mini-optimize precondition violations
+        # surface here. These are repairable logic-level rejects — the
+        # LLM declared an inconsistent `param_intent`. Reject the
+        # candidate with a structured rationale rather than tearing
+        # down the whole loop; the next iteration's stage2 prompt
+        # already carries the prior-decisions context so the LLM can
+        # avoid the same mistake.
+        return {
+            "candidate_reject_kind": RejectKind.REJECT_SCHEMA,
+            "candidate_reject_rationale": (
+                f"mini-optimize search-space construction failed: {exc}"
+            ),
+        }
     return {
         "candidate_attempt_result": result,
         "backtests_consumed": consumed + cost,

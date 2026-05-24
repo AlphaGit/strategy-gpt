@@ -303,6 +303,39 @@ def test_emit_with_repair_surfaces_last_feedback_on_exhaustion() -> None:
     assert "frob" in feedback
 
 
+def test_mini_optimize_catches_search_space_value_error() -> None:
+    """A `param_intent` that asks for a kept param without bounds (or any
+    other deterministic search-space construction failure) MUST surface
+    as a repairable ``reject_schema`` instead of tearing down the loop
+    with an uncaught ``ValueError``.
+    """
+    clients = _clients()
+    stage2 = Stage2Commitments(
+        falsification={
+            "primary": {"metric": "sharpe", "direction": "gt", "delta_vs_baseline": 0.1}
+        },
+        # ``w_rsi`` is in `kept` but not in `clients.kept_bounds`, so
+        # _build_search_space raises ValueError. The step must catch it.
+        param_intent={"added": [], "kept": ["w_rsi"], "removed": []},
+    )
+    state: dict[str, Any] = {
+        "strategy": "demo",
+        "stage1_idea": Stage1Idea(
+            candidate_name="c",
+            rationale="r",
+            expected_lift_confidence=0.5,
+            expected_side_effects=[],
+        ),
+        "stage2_parsed": stage2,
+        "config": _config(),
+        "backtests_consumed": 0,
+        "max_backtests": None,
+    }
+    update = mini_optimize_step(state, clients)  # type: ignore[arg-type]
+    assert update["candidate_reject_kind"] is RejectKind.REJECT_SCHEMA
+    assert "w_rsi" in update["candidate_reject_rationale"]
+
+
 def test_mini_optimize_rejects_when_budget_would_exceed() -> None:
     clients = _clients()
     stage2 = Stage2Commitments(

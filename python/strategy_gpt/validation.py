@@ -62,19 +62,39 @@ def validate_stage2(
     response: str,
     *,
     allowed_metrics: frozenset[str] | None = None,
+    kept_param_names: frozenset[str] | None = None,
 ) -> ValidationOutcome:
-    """Parse a stage-2 emission. Failure → ``reject_format``.
+    """Parse a stage-2 emission. Failure → ``reject_format`` / ``reject_schema``.
 
     Metric-name validation already happens inside the parser when
     ``allowed_metrics`` is supplied; the outcome surfaces it here as
     ``reject_format`` (the parser uses the same reject kind for any
     grammar / schema mismatch — the kind taxonomy distinguishes
     *categories* of repair, not parser line numbers).
+
+    When ``kept_param_names`` is supplied, every name in the parsed
+    ``param_intent.kept`` MUST appear in that set; the set comes from
+    the baseline strategy's declared parameter schema. A miss is a
+    repairable ``reject_schema`` — the LLM was asked to keep a
+    parameter that does not exist on the baseline, which would later
+    blow up the mini-optimize search-space builder.
     """
     try:
         commitments = parse_stage2(response, allowed_metrics=allowed_metrics)
     except ParseError as e:
         return ValidationOutcome(ok=False, kind="reject_format", feedback=str(e))
+    if kept_param_names is not None:
+        kept = [str(name) for name in commitments.param_intent.get("kept", [])]
+        unknown = sorted(set(kept) - kept_param_names)
+        if unknown:
+            allowed = sorted(kept_param_names) or ["(none — baseline declares no params)"]
+            feedback = (
+                f"stage-2 `param_intent.kept` references unknown parameter(s): {unknown}. "
+                f"Allowed kept names (declared by the baseline strategy schema): {allowed}. "
+                "Remove the unknown name(s) or move them to `added` with explicit "
+                "kind/min/max/default."
+            )
+            return ValidationOutcome(ok=False, kind="reject_schema", feedback=feedback)
     return ValidationOutcome(ok=True, parsed=commitments)
 
 

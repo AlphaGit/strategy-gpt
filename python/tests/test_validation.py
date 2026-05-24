@@ -61,6 +61,52 @@ def test_validate_stage2_with_metric_allowlist() -> None:
     assert isinstance(outcome.parsed, Stage2Commitments)
 
 
+def test_validate_stage2_rejects_unknown_kept_param() -> None:
+    """A stage-2 ``kept`` name that does not appear in the baseline
+    schema MUST surface as a repairable ``reject_schema`` so the LLM
+    fixes it on the next attempt rather than blowing up later in
+    mini-optimize.
+    """
+    text = (
+        "# Falsification\n\n"
+        "```yaml\n"
+        "primary: { metric: sharpe, direction: gt, delta_vs_baseline: 0.1 }\n"
+        "```\n\n"
+        "# ParamIntent\n\n"
+        "```yaml\n"
+        "added: []\nkept: [w_rsi, threshold_entry]\nremoved: []\n"
+        "```\n"
+    )
+    outcome = validate_stage2(
+        text,
+        allowed_metrics=frozenset({"sharpe"}),
+        kept_param_names=frozenset({"threshold_entry"}),
+    )
+    assert not outcome.ok
+    assert outcome.kind == "reject_schema"
+    assert "w_rsi" in outcome.feedback
+    assert "threshold_entry" in outcome.feedback  # in the allowed list
+
+
+def test_validate_stage2_accepts_kept_subset_of_allowed() -> None:
+    text = (
+        "# Falsification\n\n"
+        "```yaml\n"
+        "primary: { metric: sharpe, direction: gt, delta_vs_baseline: 0.1 }\n"
+        "```\n\n"
+        "# ParamIntent\n\n"
+        "```yaml\n"
+        "added: []\nkept: [a]\nremoved: []\n"
+        "```\n"
+    )
+    outcome = validate_stage2(
+        text,
+        allowed_metrics=frozenset({"sharpe"}),
+        kept_param_names=frozenset({"a", "b"}),
+    )
+    assert outcome.ok
+
+
 def test_validate_stage2_rejects_unknown_metric() -> None:
     text = (
         "# Falsification\n\n"
