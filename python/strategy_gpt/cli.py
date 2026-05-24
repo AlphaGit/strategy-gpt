@@ -633,6 +633,7 @@ def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the constructio
         dataset_manifest_hash=dataset_manifest,
         kept_bounds=kept_bounds,
         verdict_critic=verdict_critic,
+        engine_rt_src_dir=(crates_dir / "engine-rt" / "src").resolve(),
     )
 
     # borderline_k is a forward-looking knob on the workflow; the

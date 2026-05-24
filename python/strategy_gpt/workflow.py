@@ -36,6 +36,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -124,6 +125,14 @@ class NodeClients:
     objective_metric: str
     kept_bounds: Mapping[str, Any]
     repair_config: RepairConfig = field(default_factory=RepairConfig)
+    engine_rt_src_dir: Path | None = None
+    """Path to ``crates/engine-rt/src/``.
+
+    When set, the stage-3 prompt embeds every ``.rs`` file under that
+    directory as the authoritative trait surface. Reading from disk per
+    call means trait edits (new ``Context`` method, renamed type, …)
+    flow into the next LLM call automatically with zero prompt
+    maintenance."""
     progress_sink: Callable[[str], None] | None = None
     """Optional per-attempt heartbeat for long-running stage operations.
 
@@ -391,6 +400,7 @@ def generate_stage3_step(state: HypothesizeState, clients: NodeClients) -> Hypot
             stage2_parsed=stage2,
             prompt_api=clients.prompt_api,
             baseline_files=dict(clients.baseline_files),
+            engine_rt_src_dir=clients.engine_rt_src_dir,
         )
 
     def validate(text: str) -> Any:  # noqa: ANN401
