@@ -176,6 +176,99 @@ def test_should_continue_respects_max_backtests() -> None:
     assert state["termination_reason"] is TerminationReason.BUDGET_EXHAUSTED
 
 
+def test_emit_with_repair_forwards_feedback_and_prev_emission_to_retry() -> None:
+    """Stage retries MUST receive validator feedback + previous emission.
+
+    Without this, the LLM repeats the same broken output. The retry
+    user prompt must contain both the validator's error message and
+    the verbatim previous attempt.
+    """
+    from strategy_gpt.prompts import StagePrompt  # noqa: PLC0415
+    from strategy_gpt.repair import (  # noqa: PLC0415
+        RepairConfig,
+        ValidationOutcome,
+    )
+    from strategy_gpt.workflow import _emit_with_repair  # noqa: PLC0415
+
+    seen_users: list[str] = []
+    responses = iter(["broken attempt 1", "fixed attempt 2"])
+
+    class _RecordingClient:
+        def emit_stage(self, *, prompt: Any, stage: int, model: Any, **_: Any) -> str:
+            del stage, model
+            seen_users.append(prompt.user)
+            return next(responses)
+
+    outcomes = iter(
+        [
+            ValidationOutcome(
+                ok=False, kind="reject_build", feedback="error[E0425]: foo not in scope"
+            ),
+            ValidationOutcome(ok=True, kind="ok", parsed={"files": {}}),
+        ]
+    )
+
+    def validate(_text: str) -> ValidationOutcome:
+        return next(outcomes)
+
+    parsed, response, kind, feedback = _emit_with_repair(
+        stage=3,
+        build_prompt=lambda: StagePrompt(system="sys", user="initial user payload"),
+        validate=validate,
+        client=_RecordingClient(),
+        model=_model(),
+        repair_config=RepairConfig(k_repair=2),
+    )
+    assert kind is RejectKind.OK
+    assert response == "fixed attempt 2"
+    assert parsed == {"files": {}}
+    assert feedback == ""
+    assert seen_users[0] == "initial user payload"
+    # The retry payload must carry both the validator's error and the
+    # broken previous emission so the LLM can patch in place.
+    retry_user = seen_users[1]
+    assert "initial user payload" in retry_user
+    assert "E0425" in retry_user
+    assert "broken attempt 1" in retry_user
+    assert "PREVIOUS_EMISSION" in retry_user
+
+
+def test_emit_with_repair_surfaces_last_feedback_on_exhaustion() -> None:
+    """When repair exhausts, the validator's final feedback (rustc error,
+    lint reason, etc.) MUST be returned so the orchestrator can stamp it
+    onto ``candidate_reject_rationale`` instead of a generic placeholder.
+    """
+    from strategy_gpt.prompts import StagePrompt  # noqa: PLC0415
+    from strategy_gpt.repair import RepairConfig, ValidationOutcome  # noqa: PLC0415
+    from strategy_gpt.workflow import _emit_with_repair  # noqa: PLC0415
+
+    class _AlwaysBrokenClient:
+        def emit_stage(self, *, prompt: Any, stage: int, model: Any, **_: Any) -> str:
+            del prompt, stage, model
+            return "broken"
+
+    def validate(_text: str) -> ValidationOutcome:
+        return ValidationOutcome(
+            ok=False,
+            kind="reject_build",
+            feedback="error[E0425]: cannot find function `frob` in this scope",
+        )
+
+    parsed, response, kind, feedback = _emit_with_repair(
+        stage=3,
+        build_prompt=lambda: StagePrompt(system="sys", user="initial"),
+        validate=validate,
+        client=_AlwaysBrokenClient(),
+        model=_model(),
+        repair_config=RepairConfig(k_repair=1),
+    )
+    assert parsed is None
+    assert response == "broken"
+    assert kind is RejectKind.REJECT_BUILD
+    assert "E0425" in feedback
+    assert "frob" in feedback
+
+
 def test_mini_optimize_rejects_when_budget_would_exceed() -> None:
     clients = _clients()
     stage2 = Stage2Commitments(

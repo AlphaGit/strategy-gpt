@@ -103,5 +103,53 @@ def test_synthesize_feedback_mentions_stage_and_kind() -> None:
     assert "Earlier stages" in text
 
 
+def test_synthesize_feedback_embeds_previous_emission() -> None:
+    outcome = ValidationOutcome(
+        ok=False,
+        kind="reject_build",
+        feedback="error[E0425]: cannot find value `foo` in this scope",
+    )
+    prev = "## src/lib.rs\n```rust\nfn run() { foo(); }\n```\n"
+    text = synthesize_repair_feedback(outcome, stage=3, prev_response=prev)
+    assert "PREVIOUS_EMISSION" in text
+    assert "fn run() { foo(); }" in text
+    assert "E0425" in text
+
+
+def test_repair_loop_threads_previous_response_into_feedback() -> None:
+    feedbacks: list[str] = []
+
+    def emit(feedback: str) -> str:
+        feedbacks.append(feedback)
+        return f"attempt-{len(feedbacks)}: emitted source"
+
+    outcomes = iter(
+        [
+            ValidationOutcome(ok=False, kind="reject_build", feedback="rustc error X"),
+            ValidationOutcome(ok=False, kind="reject_build", feedback="rustc error Y"),
+            ValidationOutcome(ok=True, kind="ok", parsed={"files": {}}),
+        ]
+    )
+
+    def validate(_response: str) -> ValidationOutcome:
+        return next(outcomes)
+
+    result = run_stage_with_repair(
+        stage=3,
+        emit_fn=emit,
+        validate_fn=validate,
+        config=RepairConfig(k_repair=2),
+    )
+    assert result.accepted
+    # First attempt is the initial call (empty feedback). Subsequent
+    # attempts must carry the previous emission verbatim so the LLM can
+    # patch the broken file in place.
+    assert feedbacks[0] == ""
+    assert "attempt-1: emitted source" in feedbacks[1]
+    assert "rustc error X" in feedbacks[1]
+    assert "attempt-2: emitted source" in feedbacks[2]
+    assert "rustc error Y" in feedbacks[2]
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

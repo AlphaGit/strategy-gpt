@@ -94,25 +94,51 @@ class StageRepairResult(Generic[T]):
 # ---------------------------------------------------------------------------
 
 
-def synthesize_repair_feedback(outcome: ValidationOutcome, *, stage: int) -> str:
+_PREV_RESPONSE_MAX_CHARS = 8000
+
+
+def synthesize_repair_feedback(
+    outcome: ValidationOutcome,
+    *,
+    stage: int,
+    prev_response: str | None = None,
+) -> str:
     """Build the user-facing feedback for the next attempt.
 
     Centralized so the format stays consistent across stages. The model
-    sees:
-
-        Your previous stage-N attempt was rejected as `<kind>`.
-        <validator-feedback>
-
-        Please re-emit the same stage following the same contract.
-        Stages 1..N-1 (if any) remain locked.
+    sees the reject kind, the validator's error message, and (when
+    available) the verbatim previous attempt so it can edit-in-place
+    instead of starting from scratch.
     """
-    return (
-        f"Your previous stage-{stage} attempt was rejected as "
-        f"`{outcome.kind}`.\n"
-        f"{outcome.feedback}\n\n"
-        f"Please re-emit the same stage following the same contract. "
-        f"Earlier stages (if any) remain locked and MUST NOT be re-opened."
+    parts = [
+        f"Your previous stage-{stage} attempt was rejected as `{outcome.kind}`.",
+        outcome.feedback or "(no validator feedback)",
+    ]
+    if prev_response:
+        truncated = prev_response
+        if len(truncated) > _PREV_RESPONSE_MAX_CHARS:
+            head = truncated[: _PREV_RESPONSE_MAX_CHARS // 2]
+            tail = truncated[-_PREV_RESPONSE_MAX_CHARS // 2 :]
+            truncated = f"{head}\n... [truncated] ...\n{tail}"
+        parts.extend(
+            [
+                "",
+                "Your previous emission was:",
+                "<<<PREVIOUS_EMISSION",
+                truncated,
+                "PREVIOUS_EMISSION>>>",
+            ]
+        )
+    parts.extend(
+        [
+            "",
+            "Re-emit the same stage following the same contract. Fix the "
+            "specific issue(s) named above; keep everything that already "
+            "worked. Earlier stages (if any) remain locked and MUST NOT be "
+            "re-opened.",
+        ]
     )
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +200,11 @@ def run_stage_with_repair(
                 final_reject_kind="ok",
                 attempts=attempts,
             )
-        feedback = synthesize_repair_feedback(outcome, stage=stage)
+        feedback = synthesize_repair_feedback(
+            outcome,
+            stage=stage,
+            prev_response=response,
+        )
 
     last = attempts[-1]
     return StageRepairResult(

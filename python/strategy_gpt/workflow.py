@@ -66,6 +66,7 @@ from .per_strategy_ledger import (
     ParamIntent,
 )
 from .prompts import (
+    StagePrompt,
     build_stage1_prompt,
     build_stage2_prompt,
     build_stage3_prompt,
@@ -203,11 +204,32 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
     client: StageReasoningClient,
     model: Any,  # noqa: ANN401 — ReasoningModel value-object; protocol-typed at call site
     repair_config: RepairConfig,
-) -> tuple[Any, str, RejectKind]:
+) -> tuple[Any, str, RejectKind, str]:
+    """Run a stage through the repair loop.
+
+    Returns ``(parsed, response, kind, last_feedback)``. ``last_feedback``
+    is the validator's verbatim feedback from the final failing attempt
+    (empty string on success); orchestrator nodes propagate it into
+    ``candidate_reject_rationale`` so the progress renderer and the
+    per-strategy ledger surface the actual rustc / lint / format error
+    instead of a generic placeholder.
+    """
     prompt = build_prompt()
 
-    def emit(_feedback: str) -> str:
-        return client.emit_stage(prompt=prompt, stage=stage, model=model)
+    def emit(feedback: str) -> str:
+        # On a retry, append the validator's feedback (which now carries
+        # the previous attempt's verbatim emission, see
+        # synthesize_repair_feedback) to the user payload so the LLM
+        # sees its own broken output plus the rustc/lint error and can
+        # patch in place rather than re-emit blind.
+        if feedback:
+            retry_prompt = StagePrompt(
+                system=prompt.system,
+                user=f"{prompt.user}\n\n---\n\n{feedback}",
+            )
+        else:
+            retry_prompt = prompt
+        return client.emit_stage(prompt=retry_prompt, stage=stage, model=model)
 
     outcome = run_stage_with_repair(
         stage=stage,
@@ -220,8 +242,11 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
             kind = RejectKind(outcome.final_reject_kind)
         except ValueError:
             kind = RejectKind.EXHAUSTED_REPAIR_BUDGET
-        return None, outcome.final_response, kind
-    return outcome.final_parsed, outcome.final_response, RejectKind.OK
+        last_feedback = (
+            outcome.attempts[-1].outcome.feedback if outcome.attempts else ""
+        )
+        return None, outcome.final_response, kind, last_feedback
+    return outcome.final_parsed, outcome.final_response, RejectKind.OK, ""
 
 
 def generate_stage1_step(state: HypothesizeState, clients: NodeClients) -> HypothesizeState:
@@ -236,7 +261,7 @@ def generate_stage1_step(state: HypothesizeState, clients: NodeClients) -> Hypot
             intra_run_history=state.get("intra_run_history", []),
         )
 
-    parsed, response, kind = _emit_with_repair(
+    parsed, response, kind, feedback = _emit_with_repair(
         stage=1,
         build_prompt=build_prompt,
         validate=validate_stage1,
@@ -245,10 +270,11 @@ def generate_stage1_step(state: HypothesizeState, clients: NodeClients) -> Hypot
         repair_config=clients.repair_config,
     )
     if kind is not RejectKind.OK:
+        detail = feedback or "stage-1 emission failed validation"
         return {
             "candidate_reject_kind": kind,
             "candidate_reject_rationale": format_rationale(
-                section="# Idea", detail="stage-1 emission failed validation"
+                section="# Idea", detail=detail
             ).summary,
             "stage1_response": response,
         }
@@ -290,7 +316,7 @@ def generate_stage2_step(state: HypothesizeState, clients: NodeClients) -> Hypot
     def validate(text: str) -> Any:  # noqa: ANN401
         return validate_stage2(text, allowed_metrics=frozenset(clients.allowed_metrics) or None)
 
-    parsed, response, kind = _emit_with_repair(
+    parsed, response, kind, feedback = _emit_with_repair(
         stage=2,
         build_prompt=build_prompt,
         validate=validate,
@@ -301,7 +327,7 @@ def generate_stage2_step(state: HypothesizeState, clients: NodeClients) -> Hypot
     if kind is not RejectKind.OK:
         return {
             "candidate_reject_kind": kind,
-            "candidate_reject_rationale": "stage-2 emission failed validation",
+            "candidate_reject_rationale": feedback or "stage-2 emission failed validation",
             "stage2_response": response,
         }
     return {"stage2_response": response, "stage2_parsed": parsed}
@@ -330,7 +356,7 @@ def generate_stage3_step(state: HypothesizeState, clients: NodeClients) -> Hypot
             stage2_param_intent=stage2.param_intent,
         )
 
-    parsed, response, kind = _emit_with_repair(
+    parsed, response, kind, feedback = _emit_with_repair(
         stage=3,
         build_prompt=build_prompt,
         validate=validate,
@@ -341,7 +367,7 @@ def generate_stage3_step(state: HypothesizeState, clients: NodeClients) -> Hypot
     if kind is not RejectKind.OK:
         return {
             "candidate_reject_kind": kind,
-            "candidate_reject_rationale": "stage-3 emission failed validation",
+            "candidate_reject_rationale": feedback or "stage-3 emission failed validation",
             "stage3_response": response,
         }
     files = parsed["files"] if isinstance(parsed, dict) else parsed
@@ -529,11 +555,20 @@ def rank_step(state: HypothesizeState, _clients: NodeClients) -> HypothesizeStat
                 )
             )
         else:
+            kind_obj = state.get("candidate_reject_kind")
+            kind_str: str | None
+            if kind_obj is None:
+                kind_str = None
+            elif isinstance(kind_obj, RejectKind):
+                kind_str = kind_obj.value
+            else:
+                kind_str = str(kind_obj)
             rejected.append(
                 RejectedHypothesis(
                     candidate=candidate,
                     reason=state.get("candidate_reject_rationale", "rejected"),
                     rejected_at=now,
+                    reject_kind=kind_str,
                 )
             )
     accepted.sort(key=lambda a: rank_score(a.candidate), reverse=True)
