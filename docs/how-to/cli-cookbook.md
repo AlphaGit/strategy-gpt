@@ -345,7 +345,43 @@ The `baseline_source` field in the result envelope is `"baseline_defaults"` or `
 - `--model-stage1` / `--model-stage2` / `--model-stage3` / `--model-critique` / `--model-rank` — per-stage reasoning model overrides. Defaults pick the most capable model the env's API keys allow.
 - `--llm-critic` — opt into the LLM verdict critic (deterministic critic is the default; full LLM critic surface is a follow-up — the flag currently falls back to the deterministic critic with a warning).
 - `--quick` — single-fold evaluator, small mini-optimize budget. Useful for iteration.
+- `--quiet` — suppress the per-node + per-LLM-attempt + per-trial heartbeats on stderr. The stdout JSON envelope is unchanged.
 - `--dry-run` — print the resolved dep summary (baseline source, fold source, per-stage models, engine-worker path, budgets) without invoking the workflow.
+
+### Decision outcomes (logic vs mechanical)
+
+Each candidate persists with one of three outcomes in the per-strategy ledger:
+
+| Outcome  | Trigger | Affects future ideation? |
+|----------|---------|---------------------------|
+| `accepted` | Workflow accepted | Yes |
+| `rejected` | **Logic** failure (`reject_schema`, `reject_smoke`, `reject_noise`, `reject_variance`, `reject_verdict`) | Yes — `cheap_critique`'s duplicate-similarity check biases against similar ideas |
+| `deferred` | **Mechanical** failure (`reject_build`, `reject_lint`, `reject_format`, `reject_deps`, `exhausted_repair_budget` on stages 1–3) | **No** — the LLM couldn't compile the code; the hypothesis is preserved and future runs may re-propose it |
+
+The progress renderer reports deferred separately:
+`• rank: 0 accepted, 1 rejected, 2 deferred so far`.
+
+### Stage-3 repair behavior
+
+Each generate stage runs through a bounded repair loop. On a retry the
+LLM sees:
+
+- The validator's **verbatim error** (rustc output, lint reasons, schema mismatch, …)
+- The **previous emission** verbatim (capped at 8 KiB head + tail)
+
+so it can patch in place rather than re-emit blind. After
+`k_repair=2` total retries (3 attempts), the candidate is recorded as
+**deferred** with the actual rustc / lint error in the rationale
+(previously a generic placeholder).
+
+### Per-candidate library binding
+
+Stage-3 compiles each candidate to its own shared library. The
+orchestrator routes mini-optimize through the **candidate's** library
+via an `evaluate_fold_factory` rather than reusing the baseline's, so
+per-trial backtests actually exercise the new strategy code. Without
+this, every candidate scored identically and the mechanical gate
+rejected all changes as zero-delta noise.
 
 ### Prerequisites
 

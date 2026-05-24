@@ -56,6 +56,11 @@ python/strategy_gpt/    Orchestrator (LangGraph workflows, optimizer, tester,
                         author, CLI, smoke run). `author.py` drives the
                         interactive intent dialog and the emit/build/smoke
                         loop for the `strategy-gpt author` command.
+                        `hypothesize_wiring.py` builds `HypothesizeDeps`
+                        end-to-end (crate paths, KB lazy-build, per-stage
+                        reasoning router, evaluate-fold factory, baseline
+                        resolution) for the `strategy-gpt hypothesize`
+                        command.
 kb/                     Curated source list, starter corpus, recorded fixtures
 cache/                  Year-segmented content-addressed parquet (gitignored)
 ledger/                 SQLite ledger + parquet sidecars (gitignored)
@@ -78,7 +83,7 @@ See [docs/explanation/domain-vocabulary.md](docs/explanation/domain-vocabulary.m
 - **Strategy Runtime (`engine-rt`)** — sealed `Strategy` trait, `Context` capability handle, `RunnerVersion`, semver, no backwards compatibility.
 - **Build Pipeline** — lint, allowed-crate whitelist (no version pinning), `cargo build` with sccache, content-addressed artifact cache.
 - **Author** — interactive LLM-driven creation (and editing) of strategy crates. `run_intent_dialog` elicits a structured `AuthorIntent` from the operator, `author_strategy` runs the emit/build/smoke repair loop, and `run_author_session` wraps both with repair-budget recovery. The authoritative dialog state lives in `crates/<name>-strategy/.author/decisions.jsonl` (a typed event log) — the LLM's chat history is non-load-bearing, so compaction never loses locked-in decisions. On-disk crate (with `intent.toml` + `smoke.toml`) is the durable artifact. No ledger row, no verdict — success means the crate compiles and smoke passes.
-- **Hypothesis Loop** — LangGraph workflow (`diagnose`, `kb_query`, `generate`, `critique`, `rank`, `select`) with internal iteration and persisted decision log.
+- **Hypothesis Loop** — LangGraph workflow (`diagnose`, `kb_query`, `generate`, `critique`, `rank`, `select`) with internal iteration and persisted decision log. Driven from `strategy-gpt hypothesize <name>`; the CLI builds `HypothesizeDeps` via `hypothesize_wiring.py` (crate paths, KB client, stage reasoning client, build pipeline, **per-candidate evaluator factory** — mini-optimize runs the candidate's freshly-built library, not the baseline's). Each stage emission goes through a bounded repair loop that feeds the LLM the previous emission + validator error so retries patch in place. Mechanical code-emission failures (`reject_build` / `reject_lint` / `reject_format` / `reject_deps` / `exhausted_repair_budget`) persist as `deferred` (NOT `rejected`) and do NOT bias future ideation — the hypothesis is preserved. Per-stage + per-attempt + per-trial progress streams to stderr; `--quiet` suppresses.
 - **Tester** — translate hypothesis to artifact, run lint + smoke + full batch, report verdict against falsification criterion.
 - **Parameter Optimizer** — in-house per-fold search (grid, random, Sobol, Bayesian/TPE, recursive grid, LHS+Hooke-Jeeves, successive halving, CMA-ES, differential evolution) over the experiment-spec fold scheme, multi-metric objectives, overfitting-aware selection layer, LLM-generated rationale.
 - **Knowledge Base** — hybrid graph + vector retrieval over a SQLite-backed store, curated ingestion, citation-friendly retrieval.
