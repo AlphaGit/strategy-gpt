@@ -86,6 +86,44 @@ def test_persist_candidate_writes_deferred_for_mechanical_failure(tmp_path: Path
     assert decisions[0].outcome.stage == "reject_build"
 
 
+def test_persist_candidate_handles_empty_falsification(tmp_path: Path) -> None:
+    """Candidates rejected before stage-2 parsed never received a
+    `primary` falsification block. Persistence MUST tolerate that
+    instead of dying with `KeyError: 'primary'`.
+    """
+    led = PerStrategyLedger(tmp_path, "demo")
+    candidate = HypothesisCandidate(
+        name="rejected_before_stage2",
+        target_metric="sharpe",
+        falsification={},  # empty — never made it past stage-1
+        proposed_change={},
+        kb_cites=[],
+        estimated_lift_confidence=0.1,
+    )
+    rejected = RejectedHypothesis(
+        candidate=candidate,
+        reason="stage-1 emission failed validation",
+        rejected_at=datetime.now(UTC),
+        reject_kind="reject_format",
+    )
+    from strategy_gpt.hypothesize import _persist_candidate, _snapshot_for_persist  # noqa: PLC0415
+
+    snap_state = _snapshot_for_persist({}, rejected=rejected)  # type: ignore[arg-type,typeddict-item]
+    decision_id = _persist_candidate(
+        led,
+        strategy="demo",
+        state=snap_state,
+        decision_kind=DecisionKind.REJECTED,
+        rationale=rejected.reason,
+        evidence={"reject_kind": "reject_format"},
+        baseline_files_hash="basehash",
+    )
+    assert decision_id
+    decisions = list(led.decisions_iter())
+    assert len(decisions) == 1
+    assert decisions[0].outcome.kind == "rejected"
+
+
 def test_project_prior_decisions_skips_deferred(tmp_path: Path) -> None:
     led = PerStrategyLedger(tmp_path, "demo")
 

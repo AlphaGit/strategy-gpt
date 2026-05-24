@@ -269,17 +269,26 @@ def _persist_candidate(  # noqa: PLR0913 — orchestration seam, mutually releva
     )
 
     if stage2 is not None:
-        primary_raw = stage2.falsification["primary"]
-        falsification = Falsification(
-            primary=FalsificationPrimary(
-                metric=primary_raw["metric"],
-                direction=primary_raw["direction"],
-                delta_vs_baseline=float(primary_raw["delta_vs_baseline"]),
-            ),
-            guard_constraints=[
-                GuardConstraint(**g) for g in stage2.falsification.get("guard_constraints", [])
-            ],
+        primary_raw = (
+            stage2.falsification.get("primary") if isinstance(stage2.falsification, dict) else None
         )
+        if isinstance(primary_raw, dict) and "metric" in primary_raw:
+            falsification = Falsification(
+                primary=FalsificationPrimary(
+                    metric=primary_raw["metric"],
+                    direction=primary_raw.get("direction", "gt"),
+                    delta_vs_baseline=float(primary_raw.get("delta_vs_baseline", 0.0)),
+                ),
+                guard_constraints=[
+                    GuardConstraint(**g) for g in stage2.falsification.get("guard_constraints", [])
+                ],
+            )
+        else:
+            falsification = Falsification(
+                primary=FalsificationPrimary(
+                    metric="sharpe", direction="gt", delta_vs_baseline=0.0
+                ),
+            )
         param_intent = ParamIntent(
             added=[AddedParam(**a) for a in stage2.param_intent.get("added", [])],
             kept=list(stage2.param_intent.get("kept", [])),
@@ -544,15 +553,21 @@ def _snapshot_for_persist(
     pi = pc.get("param_intent", {}) if isinstance(pc, dict) else {}
     default_primary = {
         "primary": {
-            "metric": entry.target_metric,
+            "metric": entry.target_metric or "sharpe",
             "direction": "gt",
             "delta_vs_baseline": 0.0,
         }
     }
+    # Candidates rejected before stage-2 ever parsed (stage-1
+    # validation failure, cheap_critique reject, …) carry an empty
+    # `falsification` dict; the persistor reads `falsification["primary"]`
+    # so a missing key blows up the run. Synthesize a minimal primary
+    # block from the candidate's target metric in that case.
+    raw_fal = entry.falsification if isinstance(entry.falsification, dict) else {}
+    if not isinstance(raw_fal.get("primary"), dict):
+        raw_fal = {**raw_fal, **default_primary}
     snap["stage2_parsed"] = Stage2Commitments(
-        falsification=entry.falsification
-        if isinstance(entry.falsification, dict)
-        else default_primary,
+        falsification=raw_fal,
         param_intent=pi if isinstance(pi, dict) else {},
     )
     files_manifest = pc.get("files_manifest", {}) if isinstance(pc, dict) else {}
