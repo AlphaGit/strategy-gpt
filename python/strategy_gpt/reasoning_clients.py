@@ -225,17 +225,53 @@ class OpenAIReasoningClient:
         if model.provider != "openai":
             msg = f"OpenAIReasoningClient cannot serve {model.provider} model"
             raise ValueError(msg)
-        response = self._client.chat.completions.create(
-            model=model.model_id,
-            max_completion_tokens=max_tokens,
-            temperature=temperature,
-            response_format={"type": "json_schema", "json_schema": _MARKDOWN_JSON_SCHEMA},
-            messages=[
+        effective_max = max_tokens
+        if _is_reasoning_only_model(model.model_id):
+            # Reasoning-class models consume reasoning tokens from the
+            # `max_completion_tokens` budget *before* emitting any
+            # output. The 8 k caller default leaves no room for the
+            # stage-3 source bundle once reasoning eats its share;
+            # scale up so the visible payload survives.
+            effective_max = max(max_tokens, _REASONING_MAX_COMPLETION_TOKENS)
+        kwargs: dict[str, Any] = {
+            "model": model.model_id,
+            "max_completion_tokens": effective_max,
+            "response_format": {"type": "json_schema", "json_schema": _MARKDOWN_JSON_SCHEMA},
+            "messages": [
                 {"role": "system", "content": prompt.system},
                 {"role": "user", "content": prompt.user},
             ],
-        )
+        }
+        # Reasoning-class models (o1, o3, o4, gpt-5*) reject any
+        # temperature override; the API only accepts the default (1).
+        # Older chat models (gpt-4o, gpt-4) still honor a custom value.
+        if not _is_reasoning_only_model(model.model_id):
+            kwargs["temperature"] = temperature
+        response = self._client.chat.completions.create(**kwargs)
         return _extract_openai_markdown(response, stage=stage)
+
+
+_REASONING_ONLY_PREFIXES: tuple[str, ...] = ("o1", "o3", "o4", "gpt-5")
+
+_REASONING_MAX_COMPLETION_TOKENS = 32768
+"""Default ``max_completion_tokens`` floor for reasoning-only models.
+
+Reasoning tokens come out of the same budget as visible output, so the
+caller default of 8 k leaves stage-3 (multi-file Rust bundle) emitting
+zero characters. 32 k gives reasoning + output enough headroom for the
+largest payloads the workflow emits while staying well under per-model
+caps (o3: 100k, gpt-5: 128k)."""
+
+
+def _is_reasoning_only_model(model_id: str) -> bool:
+    """Return True when ``model_id`` belongs to the reasoning-only family.
+
+    Reasoning-only OpenAI models (o1 / o3 / o4 / gpt-5*) reject any
+    ``temperature`` override at the API surface — only the default
+    (1) is accepted. Detected by id prefix so the dispatcher can drop
+    the parameter before the request goes out.
+    """
+    return model_id.startswith(_REASONING_ONLY_PREFIXES)
 
 
 def _extract_openai_markdown(response: Any, *, stage: Stage) -> str:  # noqa: ANN401
@@ -250,7 +286,21 @@ def _extract_openai_markdown(response: Any, *, stage: Stage) -> str:  # noqa: AN
         raise RuntimeError(msg)
     content = getattr(message, "content", None)
     if not isinstance(content, str) or not content.strip():
-        msg = f"OpenAI stage-{stage} response content was empty"
+        finish_reason = getattr(choices[0], "finish_reason", None)
+        usage = getattr(response, "usage", None)
+        reasoning_tokens = None
+        if usage is not None:
+            details = getattr(usage, "completion_tokens_details", None)
+            reasoning_tokens = getattr(details, "reasoning_tokens", None)
+        hint = ""
+        if finish_reason == "length":
+            hint = (
+                " (finish_reason=length — increase max_completion_tokens; "
+                f"reasoning_tokens={reasoning_tokens})"
+            )
+        elif finish_reason is not None:
+            hint = f" (finish_reason={finish_reason})"
+        msg = f"OpenAI stage-{stage} response content was empty{hint}"
         raise RuntimeError(msg)
     try:
         payload = json.loads(content)

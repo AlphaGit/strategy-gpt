@@ -174,6 +174,39 @@ def test_openai_raises_when_markdown_field_missing() -> None:
         )
 
 
+def test_openai_omits_temperature_for_reasoning_models() -> None:
+    payload = json.dumps({"markdown": "ok\n"})
+    stub = _StubOpenAIClient(
+        _OpenAIResponse(choices=[_OpenAIChoice(message=_OpenAIMessage(content=payload))]),
+    )
+    client = OpenAIReasoningClient(client=stub)
+    for model_id in ("o1", "o3-mini", "o4-mini", "gpt-5", "gpt-5-mini"):
+        client.emit_stage(
+            prompt=StagePrompt(system="", user=""),
+            stage=1,
+            model=ReasoningModel(provider="openai", model_id=model_id),
+            temperature=0.7,
+        )
+    for call in stub.completions.calls:
+        assert "temperature" not in call
+
+
+def test_openai_keeps_temperature_for_chat_models() -> None:
+    payload = json.dumps({"markdown": "ok\n"})
+    stub = _StubOpenAIClient(
+        _OpenAIResponse(choices=[_OpenAIChoice(message=_OpenAIMessage(content=payload))]),
+    )
+    client = OpenAIReasoningClient(client=stub)
+    client.emit_stage(
+        prompt=StagePrompt(system="", user=""),
+        stage=1,
+        model=ReasoningModel(provider="openai", model_id="gpt-4o"),
+        temperature=0.4,
+    )
+    call = stub.completions.calls[0]
+    assert call["temperature"] == 0.4
+
+
 def test_openai_requires_key_or_client() -> None:
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
         OpenAIReasoningClient(api_key=None)
