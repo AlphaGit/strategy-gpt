@@ -63,6 +63,7 @@ from .optimization_ledger import (
     read_trials,
     reselect,
 )
+from .optimization_progress import StderrProgressRenderer, TeePersistWriter
 from .optimization_runner import SelectionOverrides, run_optimization
 from .types import AdjustmentPolicy, Bar, BarRequest, CacheMode, Resolution
 
@@ -1692,6 +1693,13 @@ def optimize_root(  # noqa: PLR0913 — CLI options + composition.
             help="Publish a best despite a rejected_pbo decision; the override is recorded.",
         ),
     ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            "--quiet",
+            help="Suppress per-trial progress output on stderr.",
+        ),
+    ] = False,
 ) -> None:
     """Run a per-fold optimization or invoke an ``optimize`` subcommand."""
     if ctx.invoked_subcommand is not None:
@@ -1748,6 +1756,15 @@ def optimize_root(  # noqa: PLR0913 — CLI options + composition.
     if benchmark_report is not None:
         # write_benchmark requires start() to have set opt_dir; do that lazily.
         pass
+    # Centralized stderr progress: tees the persist-writer call stream so
+    # every search method's per-trial emit_row is observed in one place,
+    # no per-algorithm logging needed. Suppressed under --quiet/--json so
+    # stdout JSON output stays clean for downstream tooling.
+    persist_writer: TeePersistWriter | OptimizationLedger
+    if quiet or json_out:
+        persist_writer = writer
+    else:
+        persist_writer = TeePersistWriter(writer, StderrProgressRenderer())
     overrides = SelectionOverrides(
         force=force,
         pbo_threshold=pbo_threshold,
@@ -1761,7 +1778,7 @@ def optimize_root(  # noqa: PLR0913 — CLI options + composition.
         bars=bars_list,
         dataset_manifest=dataset_manifest,
         opt_id=opt_id,
-        persist_writer=writer,
+        persist_writer=persist_writer,
         selection_overrides=overrides,
     )
     if benchmark_report is not None:

@@ -211,3 +211,34 @@ The `strategy-gpt optimize` command SHALL accept `--robust-objective` (overrides
 - **WHEN** the user runs `strategy-gpt optimize reselect <opt_id> --pbo-threshold 0.7`
 - **THEN** a `best_<timestamp>.json` is created next to the original `best.json`, the original is unchanged, and the manifest's history records the reselection event
 
+### Requirement: Centralized stderr progress reporter
+
+The optimizer SHALL stream per-trial progress and running metrics to stderr from a single, search-method-agnostic component so adding or modifying a search method requires no UI changes. The reporter MUST wrap the persistence writer protocol so every trial observed by the orchestrator (regardless of which search method produced it) flows through one stderr renderer. Reporter output MUST be confined to stderr; stdout is reserved for command results. The `strategy-gpt optimize` command SHALL accept a `--quiet` flag that suppresses progress output, and progress MUST be suppressed automatically when `--json` is set so machine-readable stdout stays clean.
+
+During per-fold training search the renderer SHALL print at most one line per trial, and only when the trial is a new best for its phase. Cross-validation per-OOS-trial rows MUST NOT produce per-trial output; instead the renderer MUST emit one aggregated line per fold winner once the optimization completes. The reporter MUST NOT mutate `TrialRow` or `OptimizationResult` payloads, MUST NOT write to the experiment ledger, and MUST NOT affect determinism or byte-identity of replayed results.
+
+#### Scenario: New best in a fold prints a single progress line
+
+- **WHEN** the optimizer observes a trial whose phase is `train_fold_2` and whose `accepted=true` score exceeds the running best for that fold
+- **THEN** the reporter writes exactly one new-best line for that trial to stderr containing the trial id, parameters, primary metric, and score; subsequent non-improving accepted trials in the same fold do not produce additional per-trial lines
+
+#### Scenario: Quiet flag silences stderr progress
+
+- **WHEN** `strategy-gpt optimize --spec experiment.yaml --quiet` is run
+- **THEN** the reporter is not installed, no per-trial progress lines appear on stderr, and the optimization's stdout output is identical to the same run without `--quiet`
+
+#### Scenario: JSON mode suppresses stderr progress
+
+- **WHEN** `strategy-gpt optimize --spec experiment.yaml --json` is run
+- **THEN** the reporter is suppressed automatically and stderr contains no progress lines, so consumers parsing stdout JSON are not affected by interleaved stderr text
+
+#### Scenario: New search method requires no reporter changes
+
+- **WHEN** a new file `python/strategy_gpt/search/<name>.py` is added that implements the `SearchMethod` protocol and emits trial rows through the standard persist-writer pipeline
+- **THEN** the centralized reporter renders its trials without any modification to `optimization_progress.py` or any per-method logging code
+
+#### Scenario: Cross-validation summary aggregates per winner
+
+- **WHEN** the cross-fold OOS validation phase observes trials across many `final_cross_<fold>` phases
+- **THEN** the reporter emits exactly one line per fold winner at completion, carrying the aggregate primary metric, aggregate score, and accepted/rejected verdict; no per-OOS-trial lines are written
+
