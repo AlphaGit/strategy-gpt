@@ -81,8 +81,15 @@ Whichever option you pick, a `repair_budget_exhausted` event is appended to the 
 ## Follow-up commands
 
 ```bash
-strategy-gpt hypothesize <name>   # run the hypothesis loop on the authored strategy
-strategy-gpt optimize --spec <path-to-experiment.yaml>  # tune params
+# Run the hypothesis loop using a smoke-run-at-defaults baseline.
+strategy-gpt hypothesize <name> --baseline-defaults
+
+# Tune params via the optimizer (requires experiment.yaml on disk —
+# pass --verify=batch to author to have it emitted).
+strategy-gpt optimize --spec crates/<name>-strategy/experiment.yaml
+
+# Once you have an optimize run, use its result as a rigorous baseline.
+strategy-gpt hypothesize <name> --baseline-from <opt-run-id>
 ```
 
 ## Limitations

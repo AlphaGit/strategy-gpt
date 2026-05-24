@@ -25,12 +25,12 @@ strategy-gpt hypothesize <strategy> \
     [--quick] [--borderline-k 1.0] [--dry-run]
 ```
 
-The command parses inputs, prints a resolved-flags JSON summary, and (unless
-`--dry-run`) prepares the orchestrator wiring. The operator-specific
-collaborators (KB, build-pipeline, engine evaluator) are constructed by the
-CLI; in the current build the CLI stops short of invoking the full workflow
-and prints a `wiring_incomplete` status. The Python entry below is fully
-wired.
+The command builds the operator-specific collaborators (KB, build pipeline,
+stage reasoning client, engine evaluator, baseline tuple) from the crate at
+`crates/<strategy>-strategy/` and the operator's environment, invokes the
+workflow, and prints a JSON envelope mirroring `HypothesizeResult` (plus the
+`baseline_source` label). The Python entry below is the same surface for
+programmatic callers.
 
 Flags:
 

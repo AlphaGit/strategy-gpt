@@ -20,10 +20,10 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 import typer
 
@@ -267,7 +267,7 @@ def ingest() -> None:
 
 
 @app.command()
-def hypothesize(  # noqa: PLR0913 — surface mirrors the workflow knobs
+def hypothesize(  # noqa: PLR0913 — CLI surface mirrors the workflow knobs
     strategy: Annotated[
         str, typer.Argument(help="Strategy crate name (e.g. vxx_volatility_range).")
     ],
@@ -303,6 +303,69 @@ def hypothesize(  # noqa: PLR0913 — surface mirrors the workflow knobs
         int,
         typer.Option(help="Inner-loop iteration cap."),
     ] = 4,
+    objective: Annotated[
+        str | None,
+        typer.Option("--objective", help="Objective metric (default: sharpe)."),
+    ] = None,
+    llm_critic: Annotated[
+        bool,
+        typer.Option(
+            "--llm-critic",
+            help="Use the LLM-backed verdict critic in place of the deterministic one.",
+        ),
+    ] = False,
+    engine_worker: Annotated[
+        Path,
+        typer.Option("--engine-worker", help="Path to the engine-worker binary."),
+    ] = Path("crates/target/debug/engine-worker"),
+    cache_root: Annotated[
+        Path,
+        typer.Option("--cache-root", help="Build pipeline cache root."),
+    ] = Path("cache/builds"),
+    work_root: Annotated[
+        Path,
+        typer.Option("--work-root", help="Build pipeline scratch directory."),
+    ] = Path("cache/build-work"),
+    gateway_root: Annotated[
+        Path,
+        typer.Option("--gateway-root", help="Gateway cache root used for bars."),
+    ] = Path("cache"),
+    crates_dir: Annotated[
+        Path,
+        typer.Option(help="Workspace crates directory."),
+    ] = Path("crates"),
+    kb_store: Annotated[
+        Path | None,
+        typer.Option("--kb-store", help="KB store path (default: kb/store/)."),
+    ] = None,
+    rebuild_kb: Annotated[
+        bool,
+        typer.Option("--rebuild-kb", help="Force-rebuild the KB store from sources.toml."),
+    ] = False,
+    model_stage1: Annotated[
+        str | None,
+        typer.Option("--model-stage1", help="Override the stage-1 reasoning model."),
+    ] = None,
+    model_stage2: Annotated[
+        str | None,
+        typer.Option("--model-stage2", help="Override the stage-2 reasoning model."),
+    ] = None,
+    model_stage3: Annotated[
+        str | None,
+        typer.Option("--model-stage3", help="Override the stage-3 reasoning model."),
+    ] = None,
+    model_critique: Annotated[
+        str | None,
+        typer.Option("--model-critique", help="Override the critique-stage model."),
+    ] = None,
+    model_rank: Annotated[
+        str | None,
+        typer.Option("--model-rank", help="Override the rank-stage model."),
+    ] = None,
+    quiet: Annotated[
+        bool,
+        typer.Option("--quiet", help="Suppress per-node progress output on stderr."),
+    ] = False,
     dry_run: Annotated[
         bool,
         typer.Option(help="Validate inputs and exit without invoking the workflow."),
@@ -310,53 +373,606 @@ def hypothesize(  # noqa: PLR0913 — surface mirrors the workflow knobs
 ) -> None:
     """Hypothesis loop entry — runs the multi-stage emission + evaluation flow.
 
-    The command resolves the per-strategy ledger, loads or computes the
-    baseline-best result, compiles the LangGraph workflow, invokes it,
-    and prints the result summary as JSON to stdout. Persistence under
-    ``ledger/strategies/<strategy>/`` is on by default; pass
-    ``--dry-run`` to validate inputs without invoking the workflow.
-
-    The full collaborator wiring (KB, reasoning client, build pipeline,
-    engine evaluator) is constructed inside this command from the
-    environment. Tests drive the orchestrator directly via
+    Builds :class:`HypothesizeDeps` from the named crate plus the
+    operator's environment, then invokes
+    :func:`strategy_gpt.hypothesize.hypothesize` and prints a JSON
+    summary. Failure modes detected before the workflow surface as
+    typer errors naming the missing artifact and the suggested next
+    step (run ``author`` first, run ``optimize`` first, set an API
+    key, …). Tests drive the orchestrator directly via
     :func:`strategy_gpt.hypothesize.hypothesize` with stubs.
     """
     if baseline_from is not None and baseline_defaults:
         msg = "--baseline-from and --baseline-defaults are mutually exclusive"
         raise typer.BadParameter(msg)
+    if baseline_from is None and not baseline_defaults:
+        typer.echo(
+            "no baseline provided; pass --baseline-from <optimize-run-id> or --baseline-defaults",
+            err=True,
+        )
+        raise typer.Exit(code=2)
 
-    summary = {
-        "strategy": strategy,
-        "ledger_root": str(ledger_root),
-        "baseline_from": baseline_from,
-        "baseline_defaults": baseline_defaults,
-        "max_backtests": max_backtests,
-        "quick": quick,
-        "borderline_k": borderline_k,
-        "k_candidates": k_candidates,
-        "iteration_budget": iteration_budget,
-    }
+    model_overrides: dict[str, str] = {}
+    for stage_key, value in (
+        ("stage1", model_stage1),
+        ("stage2", model_stage2),
+        ("stage3", model_stage3),
+        ("critique", model_critique),
+        ("rank", model_rank),
+    ):
+        if value is not None:
+            model_overrides[stage_key] = value
+
+    _run_hypothesize(
+        strategy=strategy,
+        ledger_root=ledger_root,
+        baseline_from=baseline_from,
+        baseline_defaults=baseline_defaults,
+        max_backtests=max_backtests,
+        quick=quick,
+        borderline_k=borderline_k,
+        k_candidates=k_candidates,
+        iteration_budget=iteration_budget,
+        objective=objective,
+        llm_critic=llm_critic,
+        engine_worker=engine_worker,
+        cache_root=cache_root,
+        work_root=work_root,
+        gateway_root=gateway_root,
+        crates_dir=crates_dir,
+        kb_store=kb_store,
+        rebuild_kb=rebuild_kb,
+        model_overrides=model_overrides,
+        quiet=quiet,
+        dry_run=dry_run,
+    )
+
+
+def _run_hypothesize(  # noqa: PLR0913, PLR0915 — orchestrates the construction surface
+    *,
+    strategy: str,
+    ledger_root: Path,
+    baseline_from: str | None,
+    baseline_defaults: bool,
+    max_backtests: int | None,
+    quick: bool,
+    borderline_k: float,
+    k_candidates: int,
+    iteration_budget: int,
+    objective: str | None,
+    llm_critic: bool,
+    engine_worker: Path,
+    cache_root: Path,
+    work_root: Path,
+    gateway_root: Path,
+    crates_dir: Path,
+    kb_store: Path | None,
+    rebuild_kb: bool,
+    model_overrides: dict[str, str],
+    quiet: bool,
+    dry_run: bool,
+) -> None:
+    """Construct deps + invoke the workflow. Surfaces as JSON on stdout."""
+    from .author import load_intent_toml  # noqa: PLC0415
+    from .build_pipeline import BuildPipeline  # noqa: PLC0415
+    from .hypothesize import (  # noqa: PLC0415
+        HypothesizeDeps,
+        hypothesize,
+        hypothesize_result_to_json,
+    )
+    from .hypothesize_wiring import (  # noqa: PLC0415
+        MissingApiKeyError,
+        MissingArtifactError,
+        MissingOptimizeRunError,
+        build_evaluate_fold,
+        build_kb_client,
+        build_stage_client,
+        compute_baseline_defaults,
+        load_baseline_from_optimize,
+        resolve_crate_paths,
+        resolve_kept_bounds,
+        resolve_objective_metric,
+        verify_api_keys,
+    )
+    from .per_strategy_ledger import PerStrategyLedger  # noqa: PLC0415
+    from .reasoning import HypothesisLoopConfig, select_reasoning_model  # noqa: PLC0415
+
+    try:
+        crate_paths = resolve_crate_paths(strategy, crates_dir)
+    except MissingArtifactError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from None
+
+    try:
+        verify_api_keys()
+    except MissingApiKeyError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from None
+
+    if not engine_worker.is_file():
+        typer.echo(
+            f"engine-worker binary not found at {engine_worker}; "
+            "build it via 'cd crates && cargo build -p engine-worker'",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    intent = load_intent_toml(crate_paths.crate_dir)
+    objective_metric = resolve_objective_metric(
+        {"objective_metric": None, **intent.param_schema_sketch},
+        objective,
+    )
+
+    kb_store_path = kb_store if kb_store is not None else Path("kb/store")
+    kb_sources_path = Path("kb/sources.toml")
+
     if dry_run:
-        typer.echo(json.dumps({"dry_run": True, "resolved": summary}, indent=2))
+        summary = {
+            "dry_run": True,
+            "strategy": strategy,
+            "ledger_root": str(ledger_root),
+            "baseline_source": (
+                f"optimize_run:{baseline_from}" if baseline_from else "baseline_defaults"
+            ),
+            "objective_metric": objective_metric,
+            "fold_source": (
+                "experiment.yaml"
+                if crate_paths.experiment_yaml is not None
+                else "smoke.toml (single fold)"
+            ),
+            "stage_models": {**model_overrides},
+            "engine_worker": str(engine_worker),
+            "kb_store": str(kb_store_path),
+            "rebuild_kb": rebuild_kb,
+            "max_backtests": max_backtests,
+            "quick": quick,
+            "iteration_budget": iteration_budget,
+            "k_candidates": k_candidates,
+            "borderline_k": borderline_k,
+            "llm_critic": llm_critic,
+        }
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True, default=str))
         return
 
-    typer.echo(
-        json.dumps(
-            {
-                "status": "wiring_incomplete",
-                "message": (
-                    "hypothesize CLI is wired through to the workflow but the "
-                    "engine + KB collaborator construction is operator-specific "
-                    "and not finalized in Phase D. Drive via "
-                    "`strategy_gpt.hypothesize.hypothesize` from Python with a "
-                    "fully populated HypothesizeDeps."
-                ),
-                "resolved": summary,
-            },
-            indent=2,
-        )
+    build_pipeline = BuildPipeline(
+        cache_root=cache_root.resolve(),
+        work_root=work_root.resolve(),
+        engine_rt_path=(crates_dir / "engine-rt").resolve(),
+        whitelist_path=(crates_dir / "build-pipeline" / "whitelist.toml").resolve(),
     )
-    raise typer.Exit(code=0)
+
+    try:
+        kb_client = build_kb_client(
+            kb_store_path,
+            kb_sources_path,
+            rebuild=rebuild_kb,
+            banner=lambda msg: typer.echo(msg, err=True),
+        )
+    except MissingArtifactError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from None
+
+    typed_overrides = cast(
+        "dict[Any, str] | None",
+        model_overrides or None,
+    )
+    stage_client = build_stage_client(model_overrides=typed_overrides)
+
+    try:
+        evaluate_fold, dataset_manifest, fold_count = build_evaluate_fold(
+            crate_paths,
+            build_pipeline=build_pipeline,
+            engine_worker_path=engine_worker,
+            gateway_root=gateway_root,
+            quick_fold_count=1 if quick else None,
+        )
+    except MissingArtifactError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from None
+
+    try:
+        if baseline_from is not None:
+            baseline = load_baseline_from_optimize(
+                baseline_from,
+                ledger_root,
+                crate_paths=crate_paths,
+                objective_metric=objective_metric,
+            )
+        else:
+            baseline = compute_baseline_defaults(
+                crate_paths,
+                evaluate_fold,
+                fold_count,
+                objective_metric=objective_metric,
+            )
+    except (MissingArtifactError, MissingOptimizeRunError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from None
+
+    kept_bounds = resolve_kept_bounds(intent.param_schema_sketch)
+
+    config = HypothesisLoopConfig.with_defaults(
+        reasoning_model=select_reasoning_model(),
+        target_candidates=k_candidates,
+        iteration_budget=iteration_budget,
+    )
+
+    verdict_critic: Any = None
+    if llm_critic:
+        # An LLM-backed critic is a follow-up; fall back to the
+        # deterministic critic and warn so the operator knows.
+        typer.echo(
+            "--llm-critic requested but no LLM critic is wired yet; "
+            "using DeterministicVerdictCritic.",
+            err=True,
+        )
+
+    deps = HypothesizeDeps(
+        kb=cast("Any", kb_client),
+        stage_client=stage_client,
+        build_pipeline=build_pipeline,
+        evaluate_fold=evaluate_fold,
+        prompt_api=strategy,
+        allowed_metrics=[
+            "sharpe",
+            "sortino",
+            "profit_factor",
+            "win_ratio",
+            "max_drawdown",
+            "annualized_return",
+            "n_trades",
+            "avg_trade_length_bars",
+        ],
+        baseline_result=baseline.result,
+        baseline_files=baseline.files,
+        baseline_params_schema=baseline.params_schema,
+        baseline_per_fold_scores=list(baseline.per_fold_scores),
+        baseline_metrics=baseline.metrics,
+        baseline_aggregate_score=baseline.aggregate_score,
+        objective_metric=objective_metric,
+        dataset_manifest_hash=dataset_manifest,
+        kept_bounds=kept_bounds,
+        verdict_critic=verdict_critic,
+    )
+
+    # borderline_k is a forward-looking knob on the workflow; the
+    # current HypothesisLoopConfig dataclass is frozen+slotted so the
+    # value cannot be stamped onto it without a schema change. The flag
+    # is preserved on the CLI for forward compatibility but does not
+    # override the workflow's default at this layer.
+    del borderline_k
+
+    ledger = PerStrategyLedger(ledger_root, strategy)
+
+    if not quiet:
+        typer.echo(
+            f"[hypothesize] strategy={strategy} baseline={baseline.source} "
+            f"folds={fold_count} objective={objective_metric} "
+            f"budget(iter={iteration_budget},backtests={max_backtests or 'unbounded'})",
+            err=True,
+        )
+    progress = None if quiet else _hypothesize_progress_renderer(
+        iteration_budget=iteration_budget
+    )
+
+    result = hypothesize(
+        strategy,
+        ledger=ledger,
+        deps=deps,
+        config=config,
+        persist=True,
+        max_backtests=max_backtests,
+        progress=progress,
+    )
+
+    if not quiet:
+        typer.echo(
+            f"[hypothesize] done: accepted={len(result.accepted)} "
+            f"rejected={len(result.rejected)} "
+            f"termination={result.termination_reason.value} "
+            f"iterations={result.iterations} "
+            f"backtests_consumed={result.backtests_consumed}",
+            err=True,
+        )
+
+    payload = json.loads(hypothesize_result_to_json(result))
+    payload["baseline_source"] = baseline.source
+    typer.echo(json.dumps(payload, indent=2, default=str))
+
+
+def _hypothesize_progress_renderer(  # noqa: PLR0915 — one branch per workflow node
+    *,
+    iteration_budget: int,
+) -> Callable[[str, Mapping[str, Any], Mapping[str, Any]], None]:
+    """Per-node progress renderer that prints to stderr.
+
+    Output is operator-facing: each line names what just happened plus
+    the most relevant facts (candidate name + rationale, falsification
+    criterion, observed vs claimed delta, gate stats with sigma,
+    verdict reasons). The renderer reads the workflow's typed deltas
+    so the summary stays accurate when the workflow evolves.
+    """
+    counter = {"iter": 0}
+
+    def _first_sentence(text: str, *, max_chars: int = 180) -> str:
+        cleaned = " ".join((text or "").split())
+        if not cleaned:
+            return ""
+        if "." in cleaned:
+            head = cleaned.split(".", 1)[0].strip()
+            if head:
+                cleaned = head
+        return cleaned if len(cleaned) <= max_chars else cleaned[: max_chars - 1] + "…"
+
+    def _echo(line: str, *, indent: int = 0) -> None:
+        prefix = "  " * indent
+        typer.echo(f"{prefix}{line}", err=True)
+
+    def _diagnose(delta: Mapping[str, Any]) -> None:
+        d = delta.get("diagnosis")
+        if d is None:
+            _echo("• diagnose: (no diagnosis emitted)")
+            return
+        metrics = getattr(d, "metrics", None)
+        sharpe = getattr(metrics, "sharpe", None) if metrics is not None else None
+        ar = getattr(metrics, "annualized_return", None) if metrics is not None else None
+        dd = getattr(metrics, "max_drawdown", None) if metrics is not None else None
+        n_trades = getattr(metrics, "n_trades", None) if metrics is not None else None
+        head = (
+            f"• diagnose: baseline sharpe={sharpe:.3f} return={ar:.2%} "
+            f"max_dd={dd:.2%} trades={n_trades}"
+            if metrics is not None
+            else "• diagnose: baseline metrics unavailable"
+        )
+        _echo(head)
+        regimes = getattr(d, "regime_performance", []) or []
+        if regimes:
+            worst = min(regimes, key=lambda r: getattr(r, "sharpe", 0.0))
+            label = getattr(worst, "label", "?")
+            sh = getattr(worst, "sharpe", 0.0)
+            _echo(f"weakest regime: {label} (sharpe={sh:.3f})", indent=2)
+        misfires = getattr(d, "signal_misfires", []) or []
+        if misfires:
+            names = [getattr(m, "signal", "?") for m in misfires[:3]]
+            _echo("signal misfires: " + ", ".join(names), indent=2)
+
+    def _kb(delta: Mapping[str, Any], label: str) -> None:
+        cites = delta.get("kb_cites") or []
+        if not cites:
+            _echo(f"• {label}: no relevant citations found")
+            return
+        sources: list[str] = []
+        for c in cites[:3]:
+            src = getattr(c, "source", None) or (c.get("source") if isinstance(c, dict) else None)
+            if src:
+                sources.append(str(src))
+        snippet = ", ".join(sources) if sources else "various sources"
+        _echo(f"• {label}: {len(cites)} citation(s) ({snippet})")
+
+    def _stage1(delta: Mapping[str, Any]) -> None:
+        counter["iter"] += 1
+        header = f"━━━ iteration {counter['iter']}/{iteration_budget} ━━━"
+        _echo(header)
+        reject = delta.get("candidate_reject_kind")
+        if reject:
+            _echo(f"✗ stage1 (idea) failed: {reject}", indent=1)
+            return
+        idea = delta.get("stage1_idea")
+        if idea is None:
+            _echo("✗ stage1 emitted no idea", indent=1)
+            return
+        name = getattr(idea, "candidate_name", "?")
+        conf = getattr(idea, "expected_lift_confidence", 0.0)
+        side = list(getattr(idea, "expected_side_effects", []) or [])
+        rationale = _first_sentence(getattr(idea, "rationale", ""))
+        _echo(f"✓ stage1 idea: {name} (confidence={conf:.0%})", indent=1)
+        if rationale:
+            _echo(f"why: {rationale}", indent=2)
+        if side:
+            _echo(f"expected side-effects: {', '.join(side[:3])}", indent=2)
+
+    def _cheap_critique(delta: Mapping[str, Any]) -> None:
+        reject = delta.get("candidate_reject_kind")
+        if reject:
+            rationale = _first_sentence(str(delta.get("candidate_reject_rationale", "")))
+            tail = f" — {rationale}" if rationale else ""
+            _echo(f"✗ cheap_critique rejected ({reject}){tail}", indent=1)
+        else:
+            _echo("✓ cheap_critique passed (idea worth committing)", indent=1)
+
+    def _stage2(delta: Mapping[str, Any]) -> None:
+        reject = delta.get("candidate_reject_kind")
+        if reject:
+            _echo(f"✗ stage2 (commitments) failed: {reject}", indent=1)
+            return
+        stage2 = delta.get("stage2_parsed")
+        if stage2 is None:
+            _echo("✓ stage2 ok", indent=1)
+            return
+        fal = getattr(stage2, "falsification", {}) or {}
+        primary = fal.get("primary", {}) if isinstance(fal, dict) else {}
+        metric = primary.get("metric", "?")
+        direction = primary.get("direction", "?")
+        delta_v = primary.get("delta_vs_baseline", 0.0)
+        guard_count = len(fal.get("guard_constraints", [])) if isinstance(fal, dict) else 0
+        _echo(
+            f"✓ stage2 commitments: must beat baseline {metric} by {direction} {delta_v:+.4f} "
+            f"({guard_count} guard(s))",
+            indent=1,
+        )
+        pi = getattr(stage2, "param_intent", {}) or {}
+        if isinstance(pi, dict):
+            added = [a.get("name", "?") for a in pi.get("added", [])]
+            kept = list(pi.get("kept", []))
+            removed = list(pi.get("removed", []))
+            parts = []
+            if added:
+                parts.append(f"adds {','.join(added)}")
+            if kept:
+                parts.append(f"keeps {','.join(kept)}")
+            if removed:
+                parts.append(f"removes {','.join(removed)}")
+            if parts:
+                _echo("params: " + "; ".join(parts), indent=2)
+
+    stage3_names_preview = 4
+    rank_names_preview = 3
+
+    def _stage3(delta: Mapping[str, Any]) -> None:
+        reject = delta.get("candidate_reject_kind")
+        if reject:
+            rationale = _first_sentence(str(delta.get("candidate_reject_rationale", "")))
+            tail = f" — {rationale}" if rationale else ""
+            _echo(f"✗ stage3 (code emission) failed: {reject}{tail}", indent=1)
+            return
+        files = delta.get("stage3_parsed")
+        file_map = getattr(files, "files", {}) or {} if files else {}
+        names = sorted(file_map.keys())
+        head = ", ".join(names[:stage3_names_preview]) + (
+            "..." if len(names) > stage3_names_preview else ""
+        )
+        _echo(f"✓ stage3 built strategy crate ({len(names)} files: {head})", indent=1)
+
+    def _mini_optimize(delta: Mapping[str, Any]) -> None:
+        reject = delta.get("candidate_reject_kind")
+        if reject:
+            rationale = _first_sentence(str(delta.get("candidate_reject_rationale", "")))
+            tail = f" — {rationale}" if rationale else ""
+            _echo(f"✗ mini_optimize rejected ({reject}){tail}", indent=1)
+            return
+        attempt = delta.get("candidate_attempt_result")
+        if attempt is None:
+            _echo("✓ mini_optimize completed (no result detail)", indent=1)
+            return
+        agg = getattr(attempt, "aggregate_score", 0.0)
+        base = getattr(attempt, "baseline_aggregate_score", 0.0)
+        per_fold = list(getattr(attempt, "per_fold_best_scores", []) or [])
+        consumed = delta.get("backtests_consumed")
+        delta_pct = ((agg - base) / abs(base)) * 100 if base else float("inf")
+        trend = "↑" if agg > base else ("↓" if agg < base else "≈")
+        _echo(
+            f"✓ mini_optimize {trend} candidate={agg:.4f} vs baseline={base:.4f} "
+            f"({delta_pct:+.1f}% on objective; backtests_consumed={consumed})",
+            indent=1,
+        )
+        if per_fold:
+            fold_str = ", ".join(f"{s:.3f}" for s in per_fold)
+            _echo(f"per-fold best: [{fold_str}]", indent=2)
+        best = getattr(attempt, "best_params", {}) or {}
+        if best:
+            params_str = ", ".join(f"{k}={v}" for k, v in list(best.items())[:5])
+            _echo(f"best params: {params_str}", indent=2)
+        check = getattr(attempt, "falsification_check", None)
+        if check is not None:
+            classification = getattr(check, "classification", "?")
+            observed = getattr(check, "primary_observed_delta", 0.0)
+            target = getattr(check, "primary_delta_target", 0.0)
+            _echo(
+                f"falsification: {classification} (observed Δ={observed:+.4f}, "
+                f"required {target:+.4f})",
+                indent=2,
+            )
+        flags = list(getattr(attempt, "side_effect_flags", []) or [])
+        if flags:
+            _echo("side-effect flags: " + ", ".join(flags), indent=2)
+
+    def _mechanical_gate(delta: Mapping[str, Any]) -> None:
+        outcome = delta.get("gate_outcome")
+        if outcome is None:
+            return
+        accept = getattr(outcome, "accept", False)
+        rationale = _first_sentence(getattr(outcome, "rationale", "") or "")
+        score_delta = getattr(outcome, "score_delta", 0.0)
+        sigma = getattr(outcome, "sigma_combined", 0.0)
+        k = getattr(outcome, "k", 1.0)
+        floor = k * sigma
+        fold_cv = getattr(outcome, "fold_cv", 0.0)
+        cv_thresh = getattr(outcome, "fold_cv_threshold", 0.5)
+        verdict = "✓ accept" if accept else "✗ reject"
+        _echo(
+            f"{verdict} mechanical_gate: delta={score_delta:+.4f} "
+            f"vs floor {k}*sigma={floor:.4f} "
+            f"(fold_cv={fold_cv:.3f}/{cv_thresh})",
+            indent=1,
+        )
+        if rationale:
+            _echo(f"why: {rationale}", indent=2)
+
+    def _verdict(delta: Mapping[str, Any]) -> None:
+        decision = delta.get("verdict_decision")
+        if decision is None:
+            return
+        accept = getattr(decision, "accept", False)
+        reasons = list(getattr(decision, "reasons", []) or [])
+        rationale = _first_sentence(getattr(decision, "rationale", "") or "")
+        verdict = "✓ accept" if accept else "✗ reject"
+        suffix = f" ({', '.join(reasons)})" if reasons else ""
+        _echo(f"{verdict} verdict_critique{suffix}", indent=1)
+        if rationale:
+            _echo(f"why: {rationale}", indent=2)
+
+    def _rank(delta: Mapping[str, Any]) -> None:
+        accepted = list(delta.get("accepted") or [])
+        rejected = list(delta.get("rejected") or [])
+        if accepted:
+            top = [
+                getattr(a.candidate, "name", "?") for a in accepted[:rank_names_preview]
+            ]
+            suffix = "..." if len(accepted) > rank_names_preview else ""
+            _echo(
+                f"• rank: {len(accepted)} accepted "
+                f"[{', '.join(top)}{suffix}], "
+                f"{len(rejected)} rejected so far",
+                indent=1,
+            )
+        else:
+            _echo(
+                f"• rank: 0 accepted, {len(rejected)} rejected so far",
+                indent=1,
+            )
+
+    def _select(delta: Mapping[str, Any]) -> None:
+        accepted = list(delta.get("accepted") or [])
+        reason = delta.get("termination_reason")
+        reason_val = getattr(reason, "value", reason)
+        _echo("━━━ loop complete ━━━")
+        if accepted:
+            for a in accepted:
+                name = getattr(a.candidate, "name", "?")
+                metric = getattr(a.candidate, "target_metric", "?")
+                rationale = _first_sentence(getattr(a, "rationale", "") or "")
+                tail = f" — {rationale}" if rationale else ""
+                _echo(f"✓ accepted: {name} (target={metric}){tail}", indent=1)
+        else:
+            _echo("no hypotheses accepted this run", indent=1)
+        _echo(f"termination: {reason_val}", indent=1)
+
+    dispatch: dict[str, Callable[[Mapping[str, Any]], None]] = {
+        "diagnose": _diagnose,
+        "kb_query": lambda d: _kb(d, "kb_query"),
+        "kb_filter": lambda d: _kb(d, "kb_filter"),
+        "generate_stage1_idea": _stage1,
+        "cheap_critique": _cheap_critique,
+        "generate_stage2_commitments": _stage2,
+        "generate_stage3_files": _stage3,
+        "mini_optimize": _mini_optimize,
+        "mechanical_gate": _mechanical_gate,
+        "verdict_critique": _verdict,
+        "rank": _rank,
+        "select": _select,
+    }
+
+    def render(
+        node_name: str,
+        delta: Mapping[str, Any],
+        state: Mapping[str, Any],
+    ) -> None:
+        del state
+        fn = dispatch.get(node_name)
+        if fn is not None:
+            fn(delta)
+
+    return render
 
 
 # ---------------------------------------------------------------------------
@@ -747,9 +1363,7 @@ def author(  # noqa: PLR0913 — typer surface
     from .author_decisions import DecisionRecord  # noqa: PLC0415
     from .author_events import noop_sink  # noqa: PLC0415
 
-    event_sink = (
-        noop_sink if quiet else _cli_event_renderer(verbose=verbose)
-    )
+    event_sink = noop_sink if quiet else _cli_event_renderer(verbose=verbose)
     opened_record: list[DecisionRecord] = []
     try:
         intent = run_intent_dialog(

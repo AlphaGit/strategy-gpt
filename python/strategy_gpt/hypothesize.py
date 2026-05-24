@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -329,6 +329,16 @@ def _persist_candidate(  # noqa: PLR0913 — orchestration seam, mutually releva
 # ---------------------------------------------------------------------------
 
 
+ProgressCallback = Callable[[str, Mapping[str, Any], Mapping[str, Any]], None]
+"""Per-node progress hook.
+
+Signature: ``(node_name, delta, state) -> None``. ``delta`` is the
+node's state contribution; ``state`` is the cumulative state after the
+node ran. Callers use this to render human-readable progress without
+parsing the workflow internals.
+"""
+
+
 def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually relevant args
     strategy: str,
     *,
@@ -338,6 +348,7 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
     persist: bool = True,
     max_backtests: int | None = None,
     prior_decision_limit: int = 50,
+    progress: ProgressCallback | None = None,
 ) -> HypothesizeResult:
     """Drive the hypothesis loop end-to-end.
 
@@ -397,7 +408,22 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
     # LangGraph default recursion_limit is 25; raise so the inner loop
     # can iterate up to the configured budget without tripping it.
     recursion = max(25, 12 * (config.iteration_budget + 1))
-    final_state: HypothesizeState = graph.invoke(initial, {"recursion_limit": recursion})
+    if progress is None:
+        final_state = graph.invoke(initial, {"recursion_limit": recursion})
+    else:
+        final_state = dict(initial)
+        for chunk in graph.stream(
+            initial,
+            {"recursion_limit": recursion},
+            stream_mode=["updates", "values"],
+        ):
+            mode, payload = chunk
+            if mode == "values" and isinstance(payload, dict):
+                final_state = payload
+            elif mode == "updates" and isinstance(payload, dict):
+                for node_name, delta in payload.items():
+                    if isinstance(delta, dict):
+                        progress(node_name, delta, final_state)
 
     persisted_ids: list[str] = []
     if persist:
@@ -525,6 +551,7 @@ def hypothesize_result_to_json(result: HypothesizeResult) -> str:
 __all__ = [
     "HypothesizeDeps",
     "HypothesizeResult",
+    "ProgressCallback",
     "hypothesize",
     "hypothesize_result_to_json",
 ]

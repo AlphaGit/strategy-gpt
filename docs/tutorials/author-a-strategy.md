@@ -166,10 +166,10 @@ The same record is what the hypothesize loop will read when you hand the strateg
 ### 6. Hand the strategy off to the hypothesize loop
 
 ```bash
-strategy-gpt hypothesize spy-sma-crossover --dry-run
+strategy-gpt hypothesize spy-sma-crossover --baseline-defaults --dry-run
 ```
 
-Expected: a JSON envelope confirming the resolved strategy name, ledger root, and the orchestrator wiring's `wiring_incomplete` status. The dry-run validates the strategy is discoverable from the workspace without running the full loop.
+Expected: a JSON envelope confirming the resolved baseline source, fold source, per-stage models, and budgets — the dry-run validates the dep surface is resolvable without invoking the workflow (and without spending tokens). Drop `--dry-run` to run the loop end-to-end against the freshly-authored crate.
 
 ## What you just did
 

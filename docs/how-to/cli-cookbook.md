@@ -317,64 +317,55 @@ Each emitted hypothesis carries: a name, the metric it targets, a **falsificatio
 
 Every accepted *and* rejected decision is persisted to the ledger with its rationale; subsequent loop runs read the decision log so the loop doesn't re-propose what was already rejected.
 
-### CLI status — currently stubbed
+### CLI usage
 
 ```bash
-strategy-gpt hypothesize
-# `hypothesize` is not implemented yet.
+# Quick path: smoke-run the crate at its default params as the baseline.
+strategy-gpt hypothesize spy_atr --baseline-defaults
+
+# Rigorous path: lift the baseline from a prior optimize run.
+strategy-gpt hypothesize spy_atr --baseline-from <opt-run-id>
 ```
 
-The CLI subcommand is reserved but the driver isn't wired. Drive the loop from Python directly.
+`--baseline-from` and `--baseline-defaults` are mutually exclusive; one of the two MUST be supplied. The success-path stdout is a JSON envelope mirroring `HypothesizeResult` (`strategy`, `accepted`, `rejected`, `termination_reason`, `iterations`, `backtests_consumed`, `persisted_decision_ids`) plus the `baseline_source` label so downstream tooling can see what was compared against.
 
-### Python invocation pattern
+### Baseline modes
 
-```python
-from datetime import UTC, datetime
-from strategy_gpt.diagnose import diagnose
-from strategy_gpt.hypothesis_loop import (
-    HypothesisLoopState, bootstrap_state_from_ledger,
-)
-from strategy_gpt.kb_query import kb_query_node
-from strategy_gpt.ledger import Ledger
-from strategy_gpt.nodes import run_inner_loop
-from strategy_gpt.reasoning import HypothesisLoopConfig, select_reasoning_model
+- `--baseline-defaults`: the wiring builds an `evaluate_fold` over the crate's `smoke.toml` (or `experiment.yaml` if present), then invokes it at the parameter defaults declared in `intent.toml.param_schema_sketch`. Cheapest path; the comparison space matches the candidates' but the baseline is less rigorous than an optimized one.
+- `--baseline-from <opt-run-id>`: the wiring reads `best.json` (+ per-fold `oos_metrics`) from `ledger/optimizations/<opt-run-id>/`. Use after a real optimize run; the per-fold scores come from the OOS folds the optimizer cross-validated.
 
-# 1. Load prior decisions so the loop doesn't re-propose rejected ideas.
-ledger = Ledger("ledger")
-state = bootstrap_state_from_ledger(ledger)
+The `baseline_source` field in the result envelope is `"baseline_defaults"` or `"optimize_run:<id>"`.
 
-# 2. Diagnose a recent backtest result (from `strategy-gpt run --wait`).
-state = diagnose(state, backtest_result=last_result)
+### Notable flags
 
-# 3. Retrieve KB context relevant to the diagnosis.
-state = kb_query_node(state, kb_client=kb)
+- `--objective <metric>` — objective metric the workflow optimizes against (default `sharpe`).
+- `--engine-worker <path>` — engine-worker binary used for fold submissions (default `crates/target/debug/engine-worker`; build it via `cd crates && cargo build -p engine-worker`).
+- `--cache-root` / `--work-root` / `--gateway-root` — build-pipeline cache, scratch dir, and gateway cache. Default to `cache/builds`, `cache/build-work`, `cache/`.
+- `--kb-store <path>` — path to the SQLite-backed KB store. Default `kb/store/`; the store is built lazily from `kb/sources.toml` on first run with a one-time progress banner. `--rebuild-kb` forces a rebuild.
+- `--model-stage1` / `--model-stage2` / `--model-stage3` / `--model-critique` / `--model-rank` — per-stage reasoning model overrides. Defaults pick the most capable model the env's API keys allow.
+- `--llm-critic` — opt into the LLM verdict critic (deterministic critic is the default; full LLM critic surface is a follow-up — the flag currently falls back to the deterministic critic with a warning).
+- `--quick` — single-fold evaluator, small mini-optimize budget. Useful for iteration.
+- `--dry-run` — print the resolved dep summary (baseline source, fold source, per-stage models, engine-worker path, budgets) without invoking the workflow.
 
-# 4. Run generate → critique → rank → select.
-config = HypothesisLoopConfig(target_candidates=3, iteration_budget=5)
-model = select_reasoning_model()              # picks Anthropic or OpenAI based on env
-client = ...                                  # ReasoningClient backed by `model`
-state = run_inner_loop(state, client=client, config=config)
+### Prerequisites
 
-# 5. Hand the accepted hypotheses to the Tester to produce verdicts.
-for hyp in state.accepted:
-    print(hyp.name, hyp.falsification_criterion, hyp.proposed_change)
-```
+- The strategy crate has been authored (`strategy-gpt author <name>`).
+- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set.
+- The engine-worker binary has been built (`cd crates && cargo build -p engine-worker`).
+- For `--baseline-from`, an optimize run for the strategy exists under `ledger/optimizations/`.
 
-Requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (see `.envrc.example`). The smoke fixture (`python -m strategy_gpt.smoke`) stubs the reasoning client and runs offline; consult `python/strategy_gpt/smoke.py` for the full mock wiring.
+Failure modes (missing crate, missing `intent.toml`, no baseline flag, no API key, missing engine-worker, missing optimize-run id) surface as `typer` errors on stderr with `exit_code=2`.
 
 ### Minimum end-to-end loop (one strategy improvement cycle)
 
 ```
-1. strategy-gpt fetch              # dataset (one-time per window)
-2. (materialize bars JSON)         # one-time per window
-3. strategy-gpt run --wait         # baseline backtest
-4. Python: diagnose → kb_query → generate → critique → rank → select
-5. (Tester translates hypothesis to artifact + smoke + full batch)
-6. strategy-gpt recent-decisions   # inspect what got accepted / rejected
-7. (loop)                          # verdict feeds the next diagnose
+1. strategy-gpt author <name>             # author the crate (interactive)
+2. cd crates && cargo build -p engine-worker  # one-time
+3. strategy-gpt hypothesize <name> --baseline-defaults  # propose, test, decide
+4. strategy-gpt recent-decisions          # inspect what got accepted / rejected
+5. strategy-gpt optimize --spec ...       # once you have an accepted hypothesis
+6. strategy-gpt hypothesize <name> --baseline-from <opt-run-id>  # next iteration
 ```
-
-Steps 4-5 will collapse into `strategy-gpt hypothesize` once that CLI driver is wired (currently a stub).
 
 ---
 

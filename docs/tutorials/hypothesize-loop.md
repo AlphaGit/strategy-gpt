@@ -64,39 +64,43 @@ something to read.
 
 ### 2. Smoke-test the hypothesize CLI with `--dry-run`
 
-`strategy-gpt hypothesize <strategy>` requires operator-specific KB
-and engine collaborators wired in Python to drive a real loop run —
-the CLI alone exits at `wiring_incomplete`. `--dry-run` skips the
-loop and echoes the resolved flags so you can confirm the surface is
-healthy:
+`strategy-gpt hypothesize <strategy> --dry-run` builds none of the
+collaborators and instead echoes the resolved deps summary (baseline
+source, fold source, per-stage models, engine-worker path, budgets).
+Useful for confirming flag parsing without spending tokens:
 
 ```bash
-strategy-gpt hypothesize vxx_volatility_range --dry-run
+strategy-gpt hypothesize vxx_volatility_range --baseline-defaults --dry-run
 ```
 
-Expected:
+Expected (truncated):
 
 ```json
 {
   "dry_run": true,
-  "resolved": {
-    "strategy": "vxx_volatility_range",
-    "ledger_root": "ledger",
-    "baseline_from": null,
-    "baseline_defaults": false,
-    "max_backtests": null,
-    "quick": false,
-    "borderline_k": 1.0,
-    "k_candidates": 3,
-    "iteration_budget": 4
-  }
+  "strategy": "vxx_volatility_range",
+  "baseline_source": "baseline_defaults",
+  "objective_metric": "sharpe",
+  "fold_source": "smoke.toml (single fold)",
+  "stage_models": {},
+  "iteration_budget": 4,
+  "k_candidates": 3
 }
 ```
 
-For a real loop run see the how-to: [Run the hypothesize
-loop](../how-to/run-hypothesize.md). The Python entry
-(`hypothesize(...)`) takes a fully populated `HypothesizeDeps` and is
-where operators land in practice.
+### 2a. Drive a real loop run end-to-end
+
+With an `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`) set and the engine-worker built (`cd crates && cargo build -p engine-worker`), drop `--dry-run` to run the loop. The crate at `crates/vxx_volatility_range-strategy/` must have been authored cleanly (`intent.toml` + `smoke.toml` present); a freshly-authored crate works out of the box.
+
+```bash
+strategy-gpt hypothesize vxx_volatility_range --baseline-defaults --quick
+```
+
+The CLI builds `HypothesizeDeps` end-to-end, drives the workflow, prints a JSON envelope on stdout (`strategy`, `accepted`, `rejected`, `termination_reason`, `iterations`, `backtests_consumed`, `persisted_decision_ids`, `baseline_source`), and persists decisions under `ledger/strategies/vxx_volatility_range/`. See the how-to: [Run the hypothesize loop](../how-to/run-hypothesize.md) for the full flag surface.
+
+### 2b. Fixture replay path (no LLM, no engine)
+
+The smoke driver above is the offline replay path: the source bundles and decision rows it produced under `ledger/strategies/vxx_volatility_range/` exercise the CLI's `replay` and `diff` surfaces below without any LLM or engine collaborator wiring. Use this path when you want to walk the surfaces without spending tokens.
 
 ### 3. List the recorded decisions
 
