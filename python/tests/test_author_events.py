@@ -174,9 +174,7 @@ def test_smoke_run_completed_carries_trade_count(crates_dir: Path) -> None:
     deps = AuthorDeps(
         reasoning_client=_OneShotClient(_emission()),
         build_pipeline=_StubBuildPipeline(),
-        smoke_runner=lambda _, _spec: SmokeRunResult(
-            ok=True, feedback="trades=7, sanity_trips=2"
-        ),
+        smoke_runner=lambda _, _spec: SmokeRunResult(ok=True, feedback="trades=7, sanity_trips=2"),
         crates_dir=crates_dir,
         repair_config_emit=RepairConfig(k_repair=0),
         event_sink=sink,

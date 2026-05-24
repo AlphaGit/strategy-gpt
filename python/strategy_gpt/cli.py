@@ -665,9 +665,7 @@ def _run_hypothesize(  # noqa: PLR0912, PLR0913, PLR0915 — orchestrates the co
             f"budget(iter={iteration_budget},backtests={max_backtests or 'unbounded'})",
             err=True,
         )
-    progress = None if quiet else _hypothesize_progress_renderer(
-        iteration_budget=iteration_budget
-    )
+    progress = None if quiet else _hypothesize_progress_renderer(iteration_budget=iteration_budget)
 
     result = hypothesize(
         strategy,
@@ -858,9 +856,7 @@ def _hypothesize_progress_renderer(  # noqa: PLR0915 — one branch per workflow
             rationale = _first_sentence(str(delta.get("candidate_reject_rationale", "")))
             tail = f" — {rationale}" if rationale else ""
             label = (
-                "deferred (mechanical: hypothesis preserved)"
-                if is_mechanical(reject)
-                else "failed"
+                "deferred (mechanical: hypothesis preserved)" if is_mechanical(reject) else "failed"
             )
             _echo(f"✗ stage3 (code emission) {label}: {reject}{tail}", indent=1)
             return
@@ -959,9 +955,7 @@ def _hypothesize_progress_renderer(  # noqa: PLR0915 — one branch per workflow
         rejected = [r for r in rejected_all if r not in deferred]
         suffix_def = f", {len(deferred)} deferred" if deferred else ""
         if accepted:
-            top = [
-                getattr(a.candidate, "name", "?") for a in accepted[:rank_names_preview]
-            ]
+            top = [getattr(a.candidate, "name", "?") for a in accepted[:rank_names_preview]]
             suffix = "..." if len(accepted) > rank_names_preview else ""
             _echo(
                 f"• rank: {len(accepted)} accepted "

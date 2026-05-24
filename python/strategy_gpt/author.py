@@ -271,9 +271,7 @@ def run_intent_dialog(  # noqa: PLR0913 — dialog driver naturally takes its fu
             intent = _parse_intent_block(intent_block)
             intent = _maybe_attach_baseline(intent, crates_dir, transcript, ask_user, write_user)
             if record is not None:
-                record.append(
-                    IntentFinalized(timestamp=_now_iso(), intent=_intent_to_dict(intent))
-                )
+                record.append(IntentFinalized(timestamp=_now_iso(), intent=_intent_to_dict(intent)))
             return intent
 
         # Plain conversational turn: surface the assistant text, render
@@ -396,9 +394,7 @@ def _ingest_decisions(  # noqa: PLR0913 — driver helper takes the driver's sur
             crate_name = new_pending["crate_name"]
             rec_path = decision_record_path_for(crate_dir_for(crates_dir, crate_name))
             record = DecisionRecord.open(rec_path)
-            record.append(
-                DialogStarted(timestamp=_now_iso(), seed=seed, model=model_name)
-            )
+            record.append(DialogStarted(timestamp=_now_iso(), seed=seed, model=model_name))
             for field_name in _ORDERED_FIELDS:
                 if field_name in new_pending:
                     record.append(
@@ -417,9 +413,7 @@ def _ingest_decisions(  # noqa: PLR0913 — driver helper takes the driver's sur
     for raw_field, value in block.items():
         diff_field = cast(DecisionField, raw_field)  # validated by _extract_decisions_block
         if diff_field not in current:
-            record.append(
-                DecisionLocked(timestamp=_now_iso(), field=diff_field, value=value)
-            )
+            record.append(DecisionLocked(timestamp=_now_iso(), field=diff_field, value=value))
         elif current[diff_field] != value:
             record.append(
                 DecisionAmended(
@@ -697,22 +691,12 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
         try:
             outcome = _build_with_progress(deps.build_pipeline, source_text, manifest, sink)
         except BuildFailure as e:
-            sink(
-                CargoBuildCompleted(
-                    returncode=1, duration_seconds=time.monotonic() - build_start
-                )
-            )
+            sink(CargoBuildCompleted(returncode=1, duration_seconds=time.monotonic() - build_start))
             return _complete(
-                ValidationOutcome(
-                    ok=False, kind=f"reject_build:{e.kind.value}", feedback=e.message
-                )
+                ValidationOutcome(ok=False, kind=f"reject_build:{e.kind.value}", feedback=e.message)
             )
         except Exception as e:
-            sink(
-                CargoBuildCompleted(
-                    returncode=1, duration_seconds=time.monotonic() - build_start
-                )
-            )
+            sink(CargoBuildCompleted(returncode=1, duration_seconds=time.monotonic() - build_start))
             return _complete(
                 ValidationOutcome(
                     ok=False,
@@ -720,11 +704,7 @@ def author_strategy(intent: AuthorIntent, *, deps: AuthorDeps) -> AuthoredStrate
                     feedback=_format_smoke_exception(e),
                 )
             )
-        sink(
-            CargoBuildCompleted(
-                returncode=0, duration_seconds=time.monotonic() - build_start
-            )
-        )
+        sink(CargoBuildCompleted(returncode=0, duration_seconds=time.monotonic() - build_start))
 
         try:
             smoke_spec = _parse_smoke_toml(smoke_text)
@@ -1059,7 +1039,7 @@ def _write_files(crate_path: Path, files: dict[str, str]) -> None:
 
 
 _CARGO_ENGINE_RT_DEP_RE = re.compile(
-    r'^engine-rt\s*=.*$',
+    r"^engine-rt\s*=.*$",
     re.MULTILINE,
 )
 

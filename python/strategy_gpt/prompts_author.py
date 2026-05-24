@@ -221,10 +221,7 @@ def format_decisions_for_prompt(projection: dict[str, object]) -> str:
     if not projection:
         return ""
     body = yaml.safe_dump(projection, sort_keys=False, allow_unicode=True).rstrip()
-    return (
-        "## DecisionsSoFar (authoritative; resume from this)\n\n"
-        f"```yaml\n{body}\n```\n"
-    )
+    return f"## DecisionsSoFar (authoritative; resume from this)\n\n```yaml\n{body}\n```\n"
 
 
 # ---------------------------------------------------------------------------

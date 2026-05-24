@@ -115,7 +115,9 @@ def test_decisions_persist_to_disk_each_turn(tmp_path: Path) -> None:
     record_path = decision_record_path_for(crates_dir / "spy-atr-strategy")
     events = DecisionRecord.load(record_path)
     locked_fields = [
-        e.field for e in events if isinstance(e, DecisionLocked)  # type: ignore[attr-defined]
+        e.field
+        for e in events
+        if isinstance(e, DecisionLocked)  # type: ignore[attr-defined]
     ]
     assert "crate_name" in locked_fields
     assert "universe" in locked_fields

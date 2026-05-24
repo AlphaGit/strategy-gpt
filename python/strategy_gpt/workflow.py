@@ -259,9 +259,7 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
         t0 = time.monotonic()
         response = client.emit_stage(prompt=retry_prompt, stage=stage, model=model)
         elapsed = time.monotonic() - t0
-        _emit_sink(
-            f"stage{stage}: LLM emission received ({len(response)} chars in {elapsed:.1f}s)"
-        )
+        _emit_sink(f"stage{stage}: LLM emission received ({len(response)} chars in {elapsed:.1f}s)")
         return response
 
     def validate_with_sink(text: str) -> Any:  # noqa: ANN401 — validator return is stage-specific
@@ -288,9 +286,7 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
             kind = RejectKind(outcome.final_reject_kind)
         except ValueError:
             kind = RejectKind.EXHAUSTED_REPAIR_BUDGET
-        last_feedback = (
-            outcome.attempts[-1].outcome.feedback if outcome.attempts else ""
-        )
+        last_feedback = outcome.attempts[-1].outcome.feedback if outcome.attempts else ""
         return None, outcome.final_response, kind, last_feedback
     return outcome.final_parsed, outcome.final_response, RejectKind.OK, ""
 
@@ -320,9 +316,7 @@ def generate_stage1_step(state: HypothesizeState, clients: NodeClients) -> Hypot
         detail = feedback or "stage-1 emission failed validation"
         return {
             "candidate_reject_kind": kind,
-            "candidate_reject_rationale": format_rationale(
-                section="# Idea", detail=detail
-            ).summary,
+            "candidate_reject_rationale": format_rationale(section="# Idea", detail=detail).summary,
             "stage1_response": response,
         }
     return {"stage1_response": response, "stage1_idea": parsed, "candidate_reject_kind": None}
@@ -502,9 +496,7 @@ def _instrument_evaluator(  # noqa: PLR0913 — wiring seam carries the full sur
         if improved:
             fold_best[fold_idx] = score
         baseline_score = (
-            float(baseline_per_fold[fold_idx])
-            if 0 <= fold_idx < len(baseline_per_fold)
-            else 0.0
+            float(baseline_per_fold[fold_idx]) if 0 <= fold_idx < len(baseline_per_fold) else 0.0
         )
         running = fold_best.get(fold_idx, float("-inf"))
         delta = running - baseline_score

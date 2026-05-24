@@ -70,9 +70,7 @@ def test_projection_last_write_wins(tmp_path: Path) -> None:
     record.append(
         DecisionLocked(timestamp="2026-05-23T10:01:00Z", field="crate_name", value="spy-atr")
     )
-    record.append(
-        DecisionLocked(timestamp="2026-05-23T10:02:00Z", field="universe", value="SPY")
-    )
+    record.append(DecisionLocked(timestamp="2026-05-23T10:02:00Z", field="universe", value="SPY"))
     record.append(
         DecisionAmended(
             timestamp="2026-05-23T10:03:00Z",
@@ -90,12 +88,8 @@ def test_open_recovers_existing_events(tmp_path: Path) -> None:
     """Reopening a path that already has events loads them into memory."""
     path = _record_path(tmp_path)
     first = DecisionRecord.open(path)
-    first.append(
-        DialogStarted(timestamp="2026-05-23T10:00:00Z", seed="seed", model="m")
-    )
-    first.append(
-        DecisionLocked(timestamp="2026-05-23T10:01:00Z", field="crate_name", value="foo")
-    )
+    first.append(DialogStarted(timestamp="2026-05-23T10:00:00Z", seed="seed", model="m"))
+    first.append(DecisionLocked(timestamp="2026-05-23T10:01:00Z", field="crate_name", value="foo"))
 
     second = DecisionRecord.open(path)
     expected_event_count = 2
