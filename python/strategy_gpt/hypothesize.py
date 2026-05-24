@@ -130,6 +130,12 @@ def _project_prior_decisions(ledger: PerStrategyLedger, limit: int) -> list[Prio
     """
     out: list[PriorDecision] = []
     for decision in ledger.recent_decisions(limit=limit):
+        # Deferred candidates (mechanical code-emission failures)
+        # carry no signal about the idea's quality and MUST NOT bias
+        # future ideation. Spec: hypothesis-loop::mechanical-failures-
+        # are-deferred-not-rejected.
+        if decision.outcome.kind == DecisionKind.DEFERRED.value:
+            continue
         # Pull the matching hypothesis (record_json is full V2 shape).
         # ``hypothesis_id`` may not have a corresponding hypothesis row
         # if the parquet file got truncated; tolerate.
@@ -314,7 +320,11 @@ def _persist_candidate(  # noqa: PLR0913 — orchestration seam, mutually releva
         strategy=strategy,
         outcome=DecisionStage(
             kind=decision_kind.value,
-            stage=evidence.get("reject_kind") if decision_kind is DecisionKind.REJECTED else None,
+            stage=(
+                evidence.get("reject_kind")
+                if decision_kind in (DecisionKind.REJECTED, DecisionKind.DEFERRED)
+                else None
+            ),
         ),
         rationale=rationale,
         evidence={**evidence, "files_set_hash": files_set_hash},
@@ -439,13 +449,24 @@ def hypothesize(  # noqa: PLR0913 — top-level orchestration entry, mutually re
             )
             persisted_ids.append(decision_id)
         for rejected in final_state.get("rejected", []):
+            # Mechanical (code-emission) failures persist as ``deferred``
+            # so the candidate's idea + commitments are preserved without
+            # biasing future ideation. Spec: hypothesis-loop::mechanical-
+            # failures-are-deferred-not-rejected.
+            from .reject_taxonomy import is_mechanical  # noqa: PLC0415
+
+            decision_kind = (
+                DecisionKind.DEFERRED
+                if rejected.reject_kind is not None and is_mechanical(rejected.reject_kind)
+                else DecisionKind.REJECTED
+            )
             decision_id = _persist_candidate(
                 ledger,
                 strategy=strategy,
                 state=_snapshot_for_persist(final_state, rejected=rejected),
-                decision_kind=DecisionKind.REJECTED,
+                decision_kind=decision_kind,
                 rationale=rejected.reason,
-                evidence={},
+                evidence={"reject_kind": rejected.reject_kind} if rejected.reject_kind else {},
                 baseline_files_hash=baseline_files_hash,
             )
             persisted_ids.append(decision_id)

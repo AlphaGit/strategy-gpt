@@ -819,11 +819,18 @@ def _hypothesize_progress_renderer(  # noqa: PLR0915 — one branch per workflow
     rank_names_preview = 3
 
     def _stage3(delta: Mapping[str, Any]) -> None:
+        from .reject_taxonomy import is_mechanical  # noqa: PLC0415
+
         reject = delta.get("candidate_reject_kind")
         if reject:
             rationale = _first_sentence(str(delta.get("candidate_reject_rationale", "")))
             tail = f" — {rationale}" if rationale else ""
-            _echo(f"✗ stage3 (code emission) failed: {reject}{tail}", indent=1)
+            label = (
+                "deferred (mechanical: hypothesis preserved)"
+                if is_mechanical(reject)
+                else "failed"
+            )
+            _echo(f"✗ stage3 (code emission) {label}: {reject}{tail}", indent=1)
             return
         files = delta.get("stage3_parsed")
         file_map = getattr(files, "files", {}) or {} if files else {}
@@ -912,8 +919,13 @@ def _hypothesize_progress_renderer(  # noqa: PLR0915 — one branch per workflow
             _echo(f"why: {rationale}", indent=2)
 
     def _rank(delta: Mapping[str, Any]) -> None:
+        from .reject_taxonomy import is_mechanical  # noqa: PLC0415
+
         accepted = list(delta.get("accepted") or [])
-        rejected = list(delta.get("rejected") or [])
+        rejected_all = list(delta.get("rejected") or [])
+        deferred = [r for r in rejected_all if r.reject_kind and is_mechanical(r.reject_kind)]
+        rejected = [r for r in rejected_all if r not in deferred]
+        suffix_def = f", {len(deferred)} deferred" if deferred else ""
         if accepted:
             top = [
                 getattr(a.candidate, "name", "?") for a in accepted[:rank_names_preview]
@@ -922,12 +934,12 @@ def _hypothesize_progress_renderer(  # noqa: PLR0915 — one branch per workflow
             _echo(
                 f"• rank: {len(accepted)} accepted "
                 f"[{', '.join(top)}{suffix}], "
-                f"{len(rejected)} rejected so far",
+                f"{len(rejected)} rejected{suffix_def} so far",
                 indent=1,
             )
         else:
             _echo(
-                f"• rank: 0 accepted, {len(rejected)} rejected so far",
+                f"• rank: 0 accepted, {len(rejected)} rejected{suffix_def} so far",
                 indent=1,
             )
 

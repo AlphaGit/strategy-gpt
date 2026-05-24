@@ -5,6 +5,7 @@ from __future__ import annotations
 from strategy_gpt.reject_taxonomy import (
     RejectKind,
     deps_rationale,
+    is_mechanical,
     is_repairable,
     noise_rationale,
     schema_rationale,
@@ -57,6 +58,24 @@ def test_verdict_rationale_includes_detail() -> None:
     assert r.kind is RejectKind.REJECT_VERDICT
     evidence = r.to_evidence_dict()
     assert evidence["flags"] == ["n_trades_up_3x"]
+
+
+def test_mechanical_predicate_distinguishes_code_emission_from_logic() -> None:
+    # Mechanical (LLM couldn't compile / format / parse the strategy):
+    assert is_mechanical(RejectKind.REJECT_BUILD)
+    assert is_mechanical(RejectKind.REJECT_LINT)
+    assert is_mechanical(RejectKind.REJECT_FORMAT)
+    assert is_mechanical(RejectKind.REJECT_DEPS)
+    assert is_mechanical(RejectKind.EXHAUSTED_REPAIR_BUDGET)
+    assert is_mechanical("reject_build")
+    # Logic-level (the idea/commitments/code behavior is wrong):
+    assert not is_mechanical(RejectKind.REJECT_SCHEMA)
+    assert not is_mechanical(RejectKind.REJECT_SMOKE)
+    assert not is_mechanical(RejectKind.REJECT_NOISE)
+    assert not is_mechanical(RejectKind.REJECT_VARIANCE)
+    assert not is_mechanical(RejectKind.REJECT_VERDICT)
+    # Unknown strings are not mechanical (conservative default).
+    assert not is_mechanical("garbage")
 
 
 def test_deps_rationale_summary_sorted() -> None:

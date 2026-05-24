@@ -94,13 +94,23 @@ class RejectedHypothesis(BaseModel):
     """A candidate that failed `critique`. ``reason`` is the rejection
     rationale recorded so future iterations can reason about prior
     failures (`hypothesis-loop::past-rejected-ideas-inform-future-
-    rejections`)."""
+    rejections`).
+
+    ``reject_kind`` carries the structural reject taxonomy entry that
+    fired (``reject_build`` / ``reject_lint`` / ``reject_verdict`` /
+    …). The orchestrator reads it to distinguish *logic* rejections
+    (the hypothesis itself was bad) from *mechanical* failures (the
+    LLM couldn't translate the hypothesis into compiling Rust) — the
+    latter persist as ``deferred`` decisions and do NOT bias future
+    ideation.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     candidate: HypothesisCandidate
     reason: str
     rejected_at: datetime
+    reject_kind: str | None = None
 
 
 class TerminationReason(StrEnum):

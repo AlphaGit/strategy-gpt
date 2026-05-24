@@ -206,8 +206,19 @@ class HypothesisRecord(BaseModel):
 
 
 class DecisionKind(StrEnum):
+    """Decision-level outcome for a candidate hypothesis.
+
+    ``ACCEPTED`` / ``REJECTED`` carry the usual semantics. ``DEFERRED``
+    marks a candidate whose *implementation* (build/lint/format/source
+    emission) failed — the underlying idea + commitments are still
+    valid, so the loop does not bias future ideation against the
+    candidate's logic (see ``hypothesis-loop::mechanical-failures-are-
+    deferred-not-rejected``).
+    """
+
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    DEFERRED = "deferred"
 
 
 class DecisionRecord(BaseModel):

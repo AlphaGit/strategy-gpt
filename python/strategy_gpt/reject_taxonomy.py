@@ -71,6 +71,40 @@ _REPAIRABLE: frozenset[RejectKind] = frozenset(
 )
 
 
+_MECHANICAL: frozenset[RejectKind] = frozenset(
+    {
+        RejectKind.REJECT_FORMAT,
+        RejectKind.REJECT_BUILD,
+        RejectKind.REJECT_LINT,
+        RejectKind.REJECT_DEPS,
+        RejectKind.EXHAUSTED_REPAIR_BUDGET,
+    }
+)
+
+
+def is_mechanical(kind: RejectKind | str) -> bool:
+    """True when ``kind`` is a code-emission failure, not a logic failure.
+
+    Mechanical failures (``reject_build``, ``reject_lint``,
+    ``reject_format``, ``reject_deps``, ``exhausted_repair_budget``)
+    mean the LLM couldn't translate the hypothesis into compiling
+    Rust — they say nothing about the idea's quality. Callers use this
+    predicate to record the candidate as ``deferred`` rather than
+    ``rejected`` (see ``hypothesis-loop::mechanical-failures-are-
+    deferred-not-rejected``). ``reject_schema`` is logic-level (the
+    LLM's param_intent disagrees with the artifact's declared schema)
+    so it is intentionally absent from this set; ``reject_smoke`` is
+    logic-level too (the compiled strategy produced no trades / panic /
+    sanity trip).
+    """
+    if isinstance(kind, str):
+        try:
+            kind = RejectKind(kind)
+        except ValueError:
+            return False
+    return kind in _MECHANICAL
+
+
 def is_repairable(kind: RejectKind | str) -> bool:
     """True if ``kind`` is a structural failure the repair loop may retry.
 
@@ -261,6 +295,7 @@ __all__ = [
     "build_rationale",
     "deps_rationale",
     "format_rationale",
+    "is_mechanical",
     "is_repairable",
     "lint_rationale",
     "noise_rationale",
