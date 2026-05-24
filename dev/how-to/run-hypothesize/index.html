@@ -963,10 +963,115 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CLI surface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flag-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flag reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-workflow-validation-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-workflow validation gates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#progress-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-loop-runs-candidates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the loop runs candidates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision taxonomy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#baseline-modes-semantic-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Baseline modes — semantic details
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-candidate-library-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-candidate library binding
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known limitations
+      
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
   <a href="#python-entry-full-wiring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python entry (full wiring)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-entry-full-wiring_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Python entry (full wiring)
@@ -2253,10 +2358,115 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CLI surface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flag-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flag reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-workflow-validation-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-workflow validation gates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#progress-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-loop-runs-candidates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the loop runs candidates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision taxonomy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#baseline-modes-semantic-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Baseline modes — semantic details
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-candidate-library-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-candidate library binding
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known limitations
+      
+    </span>
+  </a>
+  
 </li>
       
         <li class="md-nav__item">
   <a href="#python-entry-full-wiring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python entry (full wiring)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-entry-full-wiring_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Python entry (full wiring)
@@ -2320,34 +2530,41 @@
 
 
 <h1 id="run-the-hypothesize-loop">Run the hypothesize loop<a class="headerlink" href="#run-the-hypothesize-loop" title="Permanent link">&para;</a></h1>
-<p>Task-oriented recipe for invoking the strategy-logic search loop on a strategy crate.</p>
+<p>Task-oriented recipe for invoking the strategy-logic search loop on an
+authored strategy crate.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A strategy crate that compiles under the build-pipeline whitelist (the reference
-  is <code>crates/vxx-strategy/</code>).</li>
-<li>A baseline <code>BacktestResult</code> for that strategy. Most operators get this from the
-  most recent <code>optimize</code> run; callers driving the Python API supply it directly.</li>
-<li>A per-strategy ledger root (defaults to <code>./ledger</code>). First-time runs create
-  <code>ledger/strategies/&lt;strategy&gt;/</code> on demand.</li>
-<li><code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> set in the environment — the workflow
-  resolves the most capable reasoning model at startup.</li>
+<li>The strategy has been <strong>authored</strong> (<code>strategy-gpt author &lt;name&gt;</code>). The
+  crate must carry <code>intent.toml</code> + <code>smoke.toml</code>; an optional
+  <code>experiment.yaml</code> (from <code>author --verify=batch</code>) unlocks multi-fold
+  evaluation.</li>
+<li>The <strong>engine-worker binary is built</strong>: <code>cd crates &amp;&amp; cargo build -p engine-worker</code>. Defaults to <code>crates/target/debug/engine-worker</code>; override with <code>--engine-worker</code>.</li>
+<li><code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> is set in the environment.</li>
+<li>A baseline source. Two modes:</li>
+<li><code>--baseline-defaults</code>: smoke-runs the crate at <code>intent.toml.param_schema_sketch</code> defaults. Cheap path; the comparison space matches the candidates but the baseline is less rigorous than an optimized one.</li>
+<li><code>--baseline-from &lt;opt_run_id&gt;</code>: lifts <code>best.json</code> + per-fold OOS metrics from <code>ledger/optimizations/&lt;opt_run_id&gt;/</code>. Use after a real optimize run.</li>
+<li>A per-strategy ledger root (defaults to <code>./ledger</code>); created on demand.</li>
 </ul>
 <h2 id="cli-surface">CLI surface<a class="headerlink" href="#cli-surface" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>strategy-gpt<span class="w"> </span>hypothesize<span class="w"> </span>&lt;strategy&gt;<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>--ledger-root<span class="w"> </span>ledger<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--max-backtests<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span>--k-candidates<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span>--iteration-budget<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="o">[</span>--baseline-from<span class="w"> </span>&lt;opt_run_id&gt;<span class="o">]</span><span class="w"> </span><span class="o">[</span>--baseline-defaults<span class="o">]</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="o">[</span>--quick<span class="o">]</span><span class="w"> </span><span class="o">[</span>--borderline-k<span class="w"> </span><span class="m">1</span>.0<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dry-run<span class="o">]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>--baseline-defaults<span class="w">                 </span><span class="c1"># OR --baseline-from &lt;opt-run-id&gt;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="o">[</span>--objective<span class="w"> </span>sharpe<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="o">[</span>--engine-worker<span class="w"> </span>crates/target/debug/engine-worker<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="o">[</span>--cache-root<span class="w"> </span>cache/builds<span class="o">]</span><span class="w"> </span><span class="o">[</span>--work-root<span class="w"> </span>cache/build-work<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="o">[</span>--gateway-root<span class="w"> </span>cache<span class="o">]</span><span class="w"> </span><span class="o">[</span>--crates-dir<span class="w"> </span>crates<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="o">[</span>--kb-store<span class="w"> </span>kb/store<span class="o">]</span><span class="w"> </span><span class="o">[</span>--rebuild-kb<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="o">[</span>--model-stage1<span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model-stage2<span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model-stage3<span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="o">[</span>--model-critique<span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model-rank<span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="o">[</span>--max-backtests<span class="w"> </span>N<span class="o">]</span><span class="w"> </span><span class="o">[</span>--k-candidates<span class="w"> </span><span class="m">3</span><span class="o">]</span><span class="w"> </span><span class="o">[</span>--iteration-budget<span class="w"> </span><span class="m">4</span><span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="o">[</span>--quick<span class="o">]</span><span class="w"> </span><span class="o">[</span>--borderline-k<span class="w"> </span><span class="m">1</span>.0<span class="o">]</span><span class="w"> </span><span class="o">[</span>--llm-critic<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="o">[</span>--quiet<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dry-run<span class="o">]</span>
 </span></code></pre></div>
-<p>The command builds the operator-specific collaborators (KB, build pipeline,
-stage reasoning client, engine evaluator, baseline tuple) from the crate at
+<p>The command builds <code>HypothesizeDeps</code> end-to-end from the crate at
 <code>crates/&lt;strategy&gt;-strategy/</code> and the operator's environment, invokes the
-workflow, and prints a JSON envelope mirroring <code>HypothesizeResult</code> (plus the
-<code>baseline_source</code> label). The Python entry below is the same surface for
-programmatic callers.</p>
-<p>Flags:</p>
+workflow, and prints a JSON envelope on stdout mirroring <code>HypothesizeResult</code>
+plus a <code>baseline_source</code> label. Per-stage progress streams to <strong>stderr</strong>
+so the stdout JSON stays pipeable.</p>
+<h3 id="flag-reference">Flag reference<a class="headerlink" href="#flag-reference" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2357,76 +2574,322 @@ programmatic callers.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>--max-backtests N</code></td>
-<td>Hard ceiling on cumulative backtests. Rejects an iteration whose mini-optimize would exceed the budget.</td>
-</tr>
-<tr>
-<td><code>--quick</code></td>
-<td>Use a small mini-optimize budget (16 trials) — useful for early iteration on a new strategy.</td>
-</tr>
-<tr>
-<td><code>--borderline-k &lt;float&gt;</code></td>
-<td>Mechanical-gate <code>k</code> coefficient. Default <code>1.0</code> (~68% Gaussian confidence).</td>
-</tr>
-<tr>
-<td><code>--k-candidates N</code></td>
-<td>Target accepted-candidate count per run (default <code>3</code>).</td>
-</tr>
-<tr>
-<td><code>--iteration-budget N</code></td>
-<td>Inner-loop iteration cap (default <code>4</code>).</td>
+<td><code>--baseline-defaults</code></td>
+<td>Smoke-run defaults as the baseline (mutex with <code>--baseline-from</code>).</td>
 </tr>
 <tr>
 <td><code>--baseline-from &lt;id&gt;</code></td>
-<td>Load the baseline-best from a recorded optimize run id.</td>
+<td>Load baseline from an optimize-run row.</td>
 </tr>
 <tr>
-<td><code>--baseline-defaults</code></td>
-<td>Use baseline-defaults (no optimize). Mutually exclusive with <code>--baseline-from</code>.</td>
+<td><code>--objective &lt;metric&gt;</code></td>
+<td>Objective metric (default <code>sharpe</code>).</td>
+</tr>
+<tr>
+<td><code>--engine-worker &lt;path&gt;</code></td>
+<td>Engine-worker binary path.</td>
+</tr>
+<tr>
+<td><code>--cache-root &lt;dir&gt;</code> / <code>--work-root &lt;dir&gt;</code></td>
+<td>Build-pipeline cache + scratch.</td>
+</tr>
+<tr>
+<td><code>--gateway-root &lt;dir&gt;</code></td>
+<td>Gateway cache root for bars.</td>
+</tr>
+<tr>
+<td><code>--crates-dir &lt;dir&gt;</code></td>
+<td>Workspace crates dir (default <code>crates</code>).</td>
+</tr>
+<tr>
+<td><code>--kb-store &lt;dir&gt;</code></td>
+<td>KB store path; default <code>kb/store/</code>. First run ingests <code>kb/sources.toml</code> lazily with a one-time progress banner.</td>
+</tr>
+<tr>
+<td><code>--rebuild-kb</code></td>
+<td>Force-rebuild the KB store.</td>
+</tr>
+<tr>
+<td><code>--model-stage{1,2,3,critique,rank} &lt;id&gt;</code></td>
+<td>Per-stage reasoning model overrides. Defaults to the env-resolved most-capable model per stage.</td>
+</tr>
+<tr>
+<td><code>--max-backtests N</code></td>
+<td>Hard ceiling on cumulative backtests.</td>
+</tr>
+<tr>
+<td><code>--quick</code></td>
+<td>Single-fold evaluator; small mini-optimize budget.</td>
+</tr>
+<tr>
+<td><code>--k-candidates N</code></td>
+<td>Target accepted-candidate count (default 3).</td>
+</tr>
+<tr>
+<td><code>--iteration-budget N</code></td>
+<td>Inner-loop iteration cap (default 4).</td>
+</tr>
+<tr>
+<td><code>--borderline-k &lt;float&gt;</code></td>
+<td>Mechanical-gate <code>k</code> coefficient (accepted but not yet propagated to workflow — see Known limitations).</td>
+</tr>
+<tr>
+<td><code>--llm-critic</code></td>
+<td>Opt into the LLM verdict critic (currently warns + falls back to the deterministic critic).</td>
+</tr>
+<tr>
+<td><code>--quiet</code></td>
+<td>Suppress per-node + per-attempt progress on stderr.</td>
 </tr>
 <tr>
 <td><code>--dry-run</code></td>
-<td>Validate inputs, print resolved flags, exit without invoking the workflow.</td>
+<td>Validate inputs, print the resolved dep summary, exit without invoking the workflow.</td>
 </tr>
 </tbody>
 </table>
+<h3 id="pre-workflow-validation-gates">Pre-workflow validation gates<a class="headerlink" href="#pre-workflow-validation-gates" title="Permanent link">&para;</a></h3>
+<p>Each gate exits with <code>exit_code=2</code> + a stderr message naming the missing
+artifact and the next step. No partial run; nothing persisted.</p>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Failure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Crate dir exists</td>
+<td><code>crates/&lt;name&gt;-strategy/ does not exist; run 'strategy-gpt author &lt;name&gt;' first</code></td>
+</tr>
+<tr>
+<td><code>intent.toml</code> / <code>smoke.toml</code> present</td>
+<td>Names the missing file</td>
+</tr>
+<tr>
+<td>API key set</td>
+<td><code>set ANTHROPIC_API_KEY or OPENAI_API_KEY before running hypothesize</code></td>
+</tr>
+<tr>
+<td>Baseline flag supplied</td>
+<td><code>no baseline provided; pass --baseline-from &lt;optimize-run-id&gt; or --baseline-defaults</code></td>
+</tr>
+<tr>
+<td>Engine-worker binary present</td>
+<td>Names the path + suggests <code>cd crates &amp;&amp; cargo build -p engine-worker</code></td>
+</tr>
+<tr>
+<td><code>PROMPT_API.md</code> readable</td>
+<td>Names the path</td>
+</tr>
+<tr>
+<td>Optimize-run exists (when <code>--baseline-from</code>)</td>
+<td>Names the missing run id</td>
+</tr>
+</tbody>
+</table>
+<h2 id="progress-output">Progress output<a class="headerlink" href="#progress-output" title="Permanent link">&para;</a></h2>
+<p>With <code>--quiet</code> off (default), stderr carries human-readable phase
+transitions while the loop runs. Sample:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[hypothesize] strategy=spy_atr baseline=baseline_defaults folds=3 objective=sharpe budget(iter=4,backtests=unbounded)
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>• diagnose: baseline sharpe=0.612 return=8.20% max_dd=18.00% trades=42
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    weakest regime: high_vol (sharpe=0.103)
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    signal misfires: rsi_oversold, atr_spike
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>• kb_query: 5 citation(s) (mertens_2008, bouchaud_2018, ang_2014)
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>• kb_filter: 3 citation(s) after prior-decision filter
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    &gt; baseline_defaults: running fold 1/3 with defaults={&#39;atr_window&#39;: 14, ...}...
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    &gt; baseline_defaults: fold 1/3 done sharpe=0.6121 (sharpe=0.6121, trades=42, max_dd=18.00%, ann_ret=8.20%)
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>━━━ iteration 1/4 ━━━
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  ✓ stage1 idea: tighten_vol_lo (confidence=70%)
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    why: Lower vol_lo entry threshold from 0.012 to 0.008 ...
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  ✓ cheap_critique passed (idea worth committing)
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    &gt; stage2: requesting LLM (initial, attempt 1/3)
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    &gt; stage2: LLM emission received (608 chars in 5.6s)
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    &gt; stage2: validating done in 0.0s (ok)
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  ✓ stage2 commitments: must beat baseline sharpe by gt +0.1000 (1 guard(s))
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    &gt; stage3: requesting LLM (initial, attempt 1/3)
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    &gt; stage3: LLM emission received (13104 chars in 25.1s)
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    &gt; stage3: compiling + linting emission...
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    &gt; stage3: compiling + linting done in 41.8s (ok)
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>  ✓ stage3 built strategy crate (3 files: Cargo.toml, params_schema.json, src/lib.rs)
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    &gt; mini_optimize trial 1/192 fold 0: sharpe=0.4510 best=0.4510 (baseline=0.6121, delta=-0.1611)
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    &gt; mini_optimize trial 2/192 fold 0: sharpe=0.8320 ↑ best=0.8320 (baseline=0.6121, delta=+0.2199)
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    ... (running best updates only as score improves)
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>  ✓ mini_optimize ↑ candidate=1.2583 vs baseline=1.0167 (+23.8% on objective; backtests_consumed=192)
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>  ✓ accept mechanical_gate: delta=+0.2416 vs floor 1.0*sigma=0.0223 (fold_cv=0.022/0.5)
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>  ✓ accept verdict_critique
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>  • rank: 1 accepted [tighten_vol_lo], 0 rejected so far
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>━━━ loop complete ━━━
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>  ✓ accepted: tighten_vol_lo (target=sharpe) — clean win, no side-effect envelope breaches
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>  termination: sufficient_candidates
+</span></code></pre></div>
+<p>Heartbeats inside <code>_emit_with_repair</code> (<code>&gt; stage{N}: requesting LLM...</code>)
+and inside <code>_instrument_evaluator</code> (<code>&gt; mini_optimize trial K/M ...</code>)
+report long-running phases — LLM requests and engine subprocess
+batches each take seconds-to-minutes; without these the loop appears
+stalled.</p>
+<h2 id="how-the-loop-runs-candidates">How the loop runs candidates<a class="headerlink" href="#how-the-loop-runs-candidates" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong><code>diagnose</code></strong> the baseline → identify weakest regime, misfiring signals.</li>
+<li><strong>KB retrieval</strong> + <strong>prior-decision filter</strong>.</li>
+<li>Inner loop (up to <code>--iteration-budget</code>):</li>
+<li><strong>stage 1 (idea)</strong> → <strong>cheap_critique</strong> → <strong>stage 2 (commitments)</strong> → <strong>stage 3 (file emission + cargo build)</strong>.</li>
+<li>Each stage runs through a bounded repair loop. Repair retries feed the LLM the previous emission <strong>verbatim</strong> plus the validator's error (rustc output, lint reasons, schema mismatch), so it can patch in place rather than re-emit blind.</li>
+<li><strong>mini_optimize</strong> runs the <strong>candidate's</strong> freshly-built shared library (not the baseline's) across folds × Sobol trials; per-trial running-best heartbeats are emitted.</li>
+<li><strong>mechanical_gate</strong> applies the variance-aware floor (<code>k · σ_combined</code>) + per-fold CV.</li>
+<li><strong>verdict_critique</strong> (deterministic; LLM variant is a follow-up).</li>
+<li><strong>rank</strong>.</li>
+<li><strong><code>select</code></strong> trims to <code>--k-candidates</code> and reports <code>termination_reason</code>.</li>
+</ol>
+<h2 id="decision-taxonomy">Decision taxonomy<a class="headerlink" href="#decision-taxonomy" title="Permanent link">&para;</a></h2>
+<p>The per-strategy ledger persists each candidate with one of three outcomes:</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Trigger</th>
+<th>Affects future ideation?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>accepted</code></td>
+<td>Workflow accepted</td>
+<td>Yes (boosts similar ideas)</td>
+</tr>
+<tr>
+<td><code>rejected</code></td>
+<td>Logic-level failure (<code>reject_schema</code>, <code>reject_smoke</code>, <code>reject_noise</code>, <code>reject_variance</code>, <code>reject_verdict</code>)</td>
+<td>Yes (biases against similar ideas via <code>cheap_critique</code> duplicate-similarity check)</td>
+</tr>
+<tr>
+<td><code>deferred</code></td>
+<td><strong>Mechanical</strong> failure: <code>reject_build</code>, <code>reject_lint</code>, <code>reject_format</code>, <code>reject_deps</code>, <code>exhausted_repair_budget</code> on stages 1–3</td>
+<td><strong>No</strong> — the LLM couldn't <em>compile</em> the code, but the underlying hypothesis is preserved. Future runs may re-propose the same idea with cleaner code.</td>
+</tr>
+</tbody>
+</table>
+<p>The CLI progress renderer surfaces deferred counts distinctly:
+<code>• rank: 0 accepted, 1 rejected, 2 deferred so far</code>.</p>
+<h2 id="baseline-modes-semantic-details">Baseline modes — semantic details<a class="headerlink" href="#baseline-modes-semantic-details" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>--baseline-defaults</code> builds the baseline by invoking the same
+  <code>evaluate_fold</code> the loop will use, at the parameter defaults declared
+  in <code>intent.toml.param_schema_sketch</code>. Per-fold heartbeats stream
+  during baseline computation so the operator sees the metrics before
+  candidates start.</li>
+<li><code>--baseline-from &lt;opt-run-id&gt;</code> reads <code>ledger/optimizations/&lt;id&gt;/best.json</code>
+  plus per-fold <code>oos_metrics</code>. Synthesises a minimal <code>BacktestResult</code>
+  from the aggregate metrics (the optimize ledger does not persist full
+  payloads); diagnosis-quality is bounded by what's present.</li>
+</ul>
+<p>The result envelope's <code>baseline_source</code> field labels which path was used: <code>"baseline_defaults"</code> or <code>"optimize_run:&lt;id&gt;"</code>.</p>
+<h2 id="per-candidate-library-binding">Per-candidate library binding<a class="headerlink" href="#per-candidate-library-binding" title="Permanent link">&para;</a></h2>
+<p>Stage-3 compiles each candidate to its own shared library via the
+build pipeline. The orchestrator routes mini-optimize through the
+<strong>candidate's</strong> library, not the baseline's, so per-trial backtests
+actually exercise the new strategy code. (Earlier wiring closure-baked
+the baseline path into the evaluator and every candidate scored
+identically — that bug is fixed.)</p>
+<h2 id="known-limitations">Known limitations<a class="headerlink" href="#known-limitations" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>--llm-critic</code> is accepted but currently falls back to the
+  deterministic critic with a stderr warning. The LLM critic surface
+  is a tracked follow-up.</li>
+<li><code>--borderline-k</code> is accepted but does not propagate to the workflow
+  yet (the underlying <code>HypothesisLoopConfig</code> is frozen + slotted; a
+  schema bump is needed). The mechanical gate runs with the default
+  <code>k=1.0</code> regardless.</li>
+<li>Reasoning-only OpenAI models (<code>o1*</code>, <code>o3*</code>, <code>o4*</code>, <code>gpt-5*</code>) reject
+  any custom <code>temperature</code> and consume reasoning tokens from
+  <code>max_completion_tokens</code>. The reasoning client gates <code>temperature</code>
+  off for those families and floors <code>max_completion_tokens</code> at 32 k so
+  stage-3 has room to emit a multi-file Rust bundle after reasoning.</li>
+</ul>
 <h2 id="python-entry-full-wiring">Python entry (full wiring)<a class="headerlink" href="#python-entry-full-wiring" title="Permanent link">&para;</a></h2>
 <p>The orchestrator entry runs the full workflow end-to-end with caller-supplied
 collaborators:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.hypothesize</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesizeDeps</span><span class="p">,</span> <span class="n">hypothesize</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.per_strategy_ledger</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerStrategyLedger</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.reasoning</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesisLoopConfig</span><span class="p">,</span> <span class="n">ReasoningModel</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">ledger</span> <span class="o">=</span> <span class="n">PerStrategyLedger</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;ledger&quot;</span><span class="p">),</span> <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">)</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">deps</span> <span class="o">=</span> <span class="n">HypothesizeDeps</span><span class="p">(</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">kb</span><span class="o">=</span><span class="n">my_kb_client</span><span class="p">,</span>                         <span class="c1"># implements `KbClient`</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">stage_client</span><span class="o">=</span><span class="n">my_stage_client</span><span class="p">,</span>            <span class="c1"># implements `StageReasoningClient`</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">build_pipeline</span><span class="o">=</span><span class="n">my_build_pipeline</span><span class="p">,</span>        <span class="c1"># implements the trusted build surface</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">evaluate_fold</span><span class="o">=</span><span class="n">my_engine_evaluator</span><span class="p">,</span>       <span class="c1"># (params, fold_idx) -&gt; BacktestMetrics</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">prompt_api</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;crates/engine-rt/PROMPT_API.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">allowed_metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span> <span class="s2">&quot;sortino&quot;</span><span class="p">,</span> <span class="s2">&quot;max_drawdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">baseline_result</span><span class="o">=</span><span class="n">baseline_backtest_result</span><span class="p">,</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">baseline_files</span><span class="o">=</span><span class="n">baseline_source_bundle</span><span class="p">,</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">baseline_params_schema</span><span class="o">=</span><span class="n">baseline_params</span><span class="p">,</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">baseline_per_fold_scores</span><span class="o">=</span><span class="p">[</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">1.05</span><span class="p">,</span> <span class="mf">1.10</span><span class="p">],</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">baseline_metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_drawdown&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">baseline_aggregate_score</span><span class="o">=</span><span class="mf">1.03</span><span class="p">,</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">objective_metric</span><span class="o">=</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">dataset_manifest_hash</span><span class="o">=</span><span class="n">manifest_hash</span><span class="p">,</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="p">)</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">result</span> <span class="o">=</span> <span class="n">hypothesize</span><span class="p">(</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">,</span>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="n">ledger</span><span class="o">=</span><span class="n">ledger</span><span class="p">,</span>
-</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="n">deps</span><span class="o">=</span><span class="n">deps</span><span class="p">,</span>
-</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="n">config</span><span class="o">=</span><span class="n">HypothesisLoopConfig</span><span class="o">.</span><span class="n">with_defaults</span><span class="p">(</span>
-</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="n">target_candidates</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>        <span class="n">iteration_budget</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="p">),</span>
-</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    <span class="n">persist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="n">max_backtests</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
-</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="p">)</span>
-</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">termination_reason</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">accepted</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.hypothesize</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesizeDeps</span><span class="p">,</span> <span class="n">hypothesize</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.per_strategy_ledger</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerStrategyLedger</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.reasoning</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesisLoopConfig</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">ledger</span> <span class="o">=</span> <span class="n">PerStrategyLedger</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;ledger&quot;</span><span class="p">),</span> <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">deps</span> <span class="o">=</span> <span class="n">HypothesizeDeps</span><span class="p">(</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">kb</span><span class="o">=</span><span class="n">my_kb_client</span><span class="p">,</span>                         <span class="c1"># implements `KbClient`</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">stage_client</span><span class="o">=</span><span class="n">my_stage_client</span><span class="p">,</span>            <span class="c1"># implements `StageReasoningClient`</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">build_pipeline</span><span class="o">=</span><span class="n">my_build_pipeline</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">evaluate_fold</span><span class="o">=</span><span class="n">my_engine_evaluator</span><span class="p">,</span>       <span class="c1"># baseline-bound; (params, fold_idx) -&gt; BacktestMetrics</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">evaluate_fold_factory</span><span class="o">=</span><span class="n">my_factory</span><span class="p">,</span>        <span class="c1"># (library_path) -&gt; EvaluateFoldFn  — see below</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">prompt_api</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;crates/engine-rt/PROMPT_API.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">allowed_metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span> <span class="s2">&quot;sortino&quot;</span><span class="p">,</span> <span class="s2">&quot;max_drawdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="n">baseline_result</span><span class="o">=</span><span class="n">baseline_backtest_result</span><span class="p">,</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="n">baseline_files</span><span class="o">=</span><span class="n">baseline_source_bundle</span><span class="p">,</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="n">baseline_params_schema</span><span class="o">=</span><span class="n">baseline_params</span><span class="p">,</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="n">baseline_per_fold_scores</span><span class="o">=</span><span class="p">[</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">1.05</span><span class="p">,</span> <span class="mf">1.10</span><span class="p">],</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="n">baseline_metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_drawdown&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="n">baseline_aggregate_score</span><span class="o">=</span><span class="mf">1.03</span><span class="p">,</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="n">objective_metric</span><span class="o">=</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="n">dataset_manifest_hash</span><span class="o">=</span><span class="n">manifest_hash</span><span class="p">,</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="p">)</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="n">result</span> <span class="o">=</span> <span class="n">hypothesize</span><span class="p">(</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">,</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>    <span class="n">ledger</span><span class="o">=</span><span class="n">ledger</span><span class="p">,</span>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>    <span class="n">deps</span><span class="o">=</span><span class="n">deps</span><span class="p">,</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>    <span class="n">config</span><span class="o">=</span><span class="n">HypothesisLoopConfig</span><span class="o">.</span><span class="n">with_defaults</span><span class="p">(</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>        <span class="n">target_candidates</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>        <span class="n">iteration_budget</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>    <span class="p">),</span>
+</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>    <span class="n">persist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>    <span class="n">max_backtests</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
+</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>    <span class="n">progress</span><span class="o">=</span><span class="n">my_progress_callback</span><span class="p">,</span>        <span class="c1"># optional (node_name, delta, state) -&gt; None</span>
+</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>    <span class="n">attempt_sink</span><span class="o">=</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span>  <span class="c1"># optional per-LLM-attempt + per-trial heartbeat</span>
+</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="p">)</span>
+</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">termination_reason</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">accepted</span><span class="p">))</span>
+</span></code></pre></div>
+<p><code>evaluate_fold_factory</code> is what enables per-candidate library binding:
+when set, the workflow's <code>mini_optimize_step</code> calls
+<code>factory(candidate_library_path)</code> to build an evaluator bound to the
+candidate's freshly-compiled <code>.so</code> / <code>.dylib</code>. When unset, the workflow
+falls back to <code>evaluate_fold</code> (the baseline-bound closure) — useful
+for offline smoke tests with a stub evaluator.</p>
+<h2 id="python-entry-full-wiring_1">Python entry (full wiring)<a class="headerlink" href="#python-entry-full-wiring_1" title="Permanent link">&para;</a></h2>
+<p>The orchestrator entry runs the full workflow end-to-end with caller-supplied
+collaborators:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.hypothesize</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesizeDeps</span><span class="p">,</span> <span class="n">hypothesize</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.per_strategy_ledger</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerStrategyLedger</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">strategy_gpt.reasoning</span><span class="w"> </span><span class="kn">import</span> <span class="n">HypothesisLoopConfig</span><span class="p">,</span> <span class="n">ReasoningModel</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">ledger</span> <span class="o">=</span> <span class="n">PerStrategyLedger</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;ledger&quot;</span><span class="p">),</span> <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">deps</span> <span class="o">=</span> <span class="n">HypothesizeDeps</span><span class="p">(</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">kb</span><span class="o">=</span><span class="n">my_kb_client</span><span class="p">,</span>                         <span class="c1"># implements `KbClient`</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">stage_client</span><span class="o">=</span><span class="n">my_stage_client</span><span class="p">,</span>            <span class="c1"># implements `StageReasoningClient`</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">build_pipeline</span><span class="o">=</span><span class="n">my_build_pipeline</span><span class="p">,</span>        <span class="c1"># implements the trusted build surface</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">evaluate_fold</span><span class="o">=</span><span class="n">my_engine_evaluator</span><span class="p">,</span>       <span class="c1"># (params, fold_idx) -&gt; BacktestMetrics</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">prompt_api</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;crates/engine-rt/PROMPT_API.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(),</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">allowed_metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span> <span class="s2">&quot;sortino&quot;</span><span class="p">,</span> <span class="s2">&quot;max_drawdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">baseline_result</span><span class="o">=</span><span class="n">baseline_backtest_result</span><span class="p">,</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">baseline_files</span><span class="o">=</span><span class="n">baseline_source_bundle</span><span class="p">,</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">baseline_params_schema</span><span class="o">=</span><span class="n">baseline_params</span><span class="p">,</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="n">baseline_per_fold_scores</span><span class="o">=</span><span class="p">[</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">1.05</span><span class="p">,</span> <span class="mf">1.10</span><span class="p">],</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="n">baseline_metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_drawdown&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;n_trades&quot;</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">baseline_aggregate_score</span><span class="o">=</span><span class="mf">1.03</span><span class="p">,</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="n">objective_metric</span><span class="o">=</span><span class="s2">&quot;sharpe&quot;</span><span class="p">,</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">dataset_manifest_hash</span><span class="o">=</span><span class="n">manifest_hash</span><span class="p">,</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="p">)</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="n">result</span> <span class="o">=</span> <span class="n">hypothesize</span><span class="p">(</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="s2">&quot;vxx_volatility_range&quot;</span><span class="p">,</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">ledger</span><span class="o">=</span><span class="n">ledger</span><span class="p">,</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>    <span class="n">deps</span><span class="o">=</span><span class="n">deps</span><span class="p">,</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>    <span class="n">config</span><span class="o">=</span><span class="n">HypothesisLoopConfig</span><span class="o">.</span><span class="n">with_defaults</span><span class="p">(</span>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>        <span class="n">target_candidates</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>        <span class="n">iteration_budget</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>    <span class="p">),</span>
+</span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>    <span class="n">persist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>    <span class="n">max_backtests</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
+</span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="p">)</span>
+</span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">termination_reason</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">accepted</span><span class="p">))</span>
 </span></code></pre></div>
 <h2 id="what-lands-on-disk">What lands on disk<a class="headerlink" href="#what-lands-on-disk" title="Permanent link">&para;</a></h2>
 <p>For each accepted/rejected candidate the orchestrator writes:</p>
@@ -2437,8 +2900,8 @@ collaborators:</p>
 <li>Stage-1/2/3 markdown blobs under <code>responses/&lt;decision_id&gt;/</code></li>
 </ul>
 <p>Replay and diff commands consume these:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>strategy-gpt<span class="w"> </span>hypothesis<span class="w"> </span>replay<span class="w"> </span>&lt;decision_id&gt;<span class="w"> </span>--ledger-root<span class="w"> </span>ledger
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>strategy-gpt<span class="w"> </span>hypothesis<span class="w"> </span>diff<span class="w">   </span>&lt;decision_id&gt;<span class="w"> </span>--ledger-root<span class="w"> </span>ledger
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>strategy-gpt<span class="w"> </span>hypothesis<span class="w"> </span>replay<span class="w"> </span>&lt;decision_id&gt;<span class="w"> </span>--ledger-root<span class="w"> </span>ledger
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>strategy-gpt<span class="w"> </span>hypothesis<span class="w"> </span>diff<span class="w">   </span>&lt;decision_id&gt;<span class="w"> </span>--ledger-root<span class="w"> </span>ledger
 </span></code></pre></div>
 <h2 id="reading-the-result">Reading the result<a class="headerlink" href="#reading-the-result" title="Permanent link">&para;</a></h2>
 <p>A typical accepted candidate carries:</p>
@@ -2454,18 +2917,43 @@ constraint was broken (e.g. drawdown rose past the stated envelope); these are
 rejected regardless of primary outcome.</p>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>reject_format</code> / <code>reject_lint</code> storms</strong> — the LLM is emitting malformed
-  stage-3 files. Inspect <code>responses/&lt;decision_id&gt;/stage3_files.md</code>; the strict
-  parser's section identifier appears in the rejection rationale.</li>
-<li><strong><code>reject_deps</code></strong> — the candidate's Cargo.toml declared a crate outside the
-  allowed-crate whitelist. Repair attempts re-prompt with a "remove this dep"
-  message; if repeated, widen the whitelist in <code>build-pipeline</code> (intentional
-  change) or improve the stage-1/2 prompts.</li>
-<li><strong><code>reject_noise</code></strong> — candidate beats the baseline but not by <code>k · σ_combined</code>.
-  Either tune <code>--borderline-k</code> lower (less stringent) or accept that the
-  candidate failed the variance-aware floor.</li>
-<li><strong>Budget exhausted</strong> — increase <code>--max-backtests</code>, lower mini-optimize trials
-  via <code>--quick</code>, or reduce <code>--k-candidates</code>.</li>
+<li><strong><code>reject_format</code> / <code>reject_lint</code> storms</strong> — the LLM is emitting
+  malformed stage-3 files. Inspect
+  <code>responses/&lt;decision_id&gt;/stage3_files.md</code>; the strict parser's
+  section identifier appears in the rejection rationale, and the
+  <code>_emit_with_repair</code> retries now feed the LLM the previous emission +
+  verbatim error so it can patch in place rather than re-emit blind.
+  Persistent failures persist as <strong>deferred</strong> decisions and do NOT bias
+  future ideation.</li>
+<li><strong><code>reject_build</code> storms</strong> — same recipe as above; rustc errors land
+  in the rejection rationale and in the repair feedback. The candidate
+  is recorded as <strong>deferred</strong> (mechanical), so a fresh stage-3 attempt
+  on the same idea is allowed in subsequent runs.</li>
+<li><strong><code>reject_deps</code></strong> — candidate's Cargo.toml declared a crate outside
+  the whitelist. Either widen <code>crates/build-pipeline/whitelist.toml</code>
+  (intentional change) or improve the stage-1/2 prompts. Persists as
+  deferred.</li>
+<li><strong><code>reject_schema</code></strong> — stage-2 named a <code>kept</code> parameter that does not
+  exist on the baseline strategy schema. The stage-2 validator now
+  catches this and feeds the LLM the allowed-names list so the next
+  attempt fixes it. Mini-optimize also wraps its search-space builder
+  in <code>try/except (ValueError, TypeError, KeyError)</code> to surface
+  malformed <code>param_intent</code> as <code>reject_schema</code> instead of crashing the
+  loop.</li>
+<li><strong>All candidates show identical scores (<code>±0.0</code> deltas)</strong> — was a
+  bug; the evaluator closure had the baseline library path baked in.
+  Fixed via <code>evaluate_fold_factory</code> per-candidate binding. If it
+  recurs, check that <code>validate_stage3</code> returned a non-None
+  <code>build_outcome.artifact.library_path</code> and that
+  <code>state["candidate_library_path"]</code> is set after stage 3.</li>
+<li><strong><code>reject_noise</code></strong> — candidate beats the baseline but not by
+  <code>k · σ_combined</code>. Tune <code>--borderline-k</code> lower (less stringent) once
+  that flag is plumbed; today it is accepted but unused — the gate
+  runs with <code>k=1.0</code>.</li>
+<li><strong>Budget exhausted</strong> — increase <code>--max-backtests</code>, lower mini-optimize trials via <code>--quick</code>, or reduce <code>--k-candidates</code>.</li>
+<li><strong>OpenAI 400: <code>temperature does not support 0.7</code></strong> — fixed; reasoning-only models (<code>o1*</code>/<code>o3*</code>/<code>o4*</code>/<code>gpt-5*</code>) now have <code>temperature</code> omitted from the request.</li>
+<li><strong>OpenAI stage-3 response content was empty</strong> — usually means reasoning tokens consumed the whole <code>max_completion_tokens</code> budget. The client floors it at 32 k for reasoning models; if you still see this, the empty-content error now includes <code>finish_reason</code> + <code>reasoning_tokens</code> for diagnosis.</li>
+<li><strong>CI / <code>maturin develop</code> fails with <code>Couldn't find a virtualenv</code></strong> — fixed in <code>.github/workflows/ci.yml</code>; deps install into <code>.venv</code> and <code>VIRTUAL_ENV</code> is exported for all subsequent steps.</li>
 </ul>
 
 
