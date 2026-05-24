@@ -570,6 +570,8 @@ def _run_hypothesize(  # noqa: PLR0912, PLR0913, PLR0915 — orchestrates the co
         typer.echo(str(e), err=True)
         raise typer.Exit(code=2) from None
 
+    attempt_sink = None if quiet else _hypothesize_attempt_sink()
+
     try:
         if baseline_from is not None:
             baseline = load_baseline_from_optimize(
@@ -584,6 +586,7 @@ def _run_hypothesize(  # noqa: PLR0912, PLR0913, PLR0915 — orchestrates the co
                 evaluate_fold,
                 fold_count,
                 objective_metric=objective_metric,
+                progress_sink=attempt_sink,
             )
     except (MissingArtifactError, MissingOptimizeRunError) as e:
         typer.echo(str(e), err=True)
@@ -665,7 +668,6 @@ def _run_hypothesize(  # noqa: PLR0912, PLR0913, PLR0915 — orchestrates the co
     progress = None if quiet else _hypothesize_progress_renderer(
         iteration_budget=iteration_budget
     )
-    attempt_sink = None if quiet else _hypothesize_attempt_sink()
 
     result = hypothesize(
         strategy,

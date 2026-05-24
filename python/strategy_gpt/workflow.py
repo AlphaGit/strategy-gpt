@@ -468,6 +468,58 @@ def _build_param_intent(stage2: Stage2Commitments) -> ParamIntent:
     )
 
 
+def _instrument_evaluator(  # noqa: PLR0913 — wiring seam carries the full surface
+    evaluator: EvaluateFoldFn,
+    *,
+    sink: Callable[[str], None],
+    objective_metric: str,
+    label: str,
+    baseline_per_fold: Sequence[float],
+    total_trials: int,
+) -> EvaluateFoldFn:
+    """Wrap ``evaluator`` so each call emits a running-best line.
+
+    Tracks per-fold best objective score across calls. Every call
+    emits a heartbeat line carrying the trial number, fold index, the
+    backtest's primary metric, the current running best for that fold,
+    and the delta vs the baseline's per-fold score. Strategies are
+    actually executed by ``evaluator`` (engine subprocess), so this is
+    where the operator wants visibility — without it the loop goes
+    silent for the duration of a candidate's mini-optimize sweep.
+    """
+    fold_best: dict[int, float] = {}
+    call_count = {"n": 0}
+
+    def _wrapped(params: Mapping[str, Any], fold_idx: int) -> Any:  # noqa: ANN401
+        metrics = evaluator(params, fold_idx)
+        call_count["n"] += 1
+        try:
+            score = float(getattr(metrics, objective_metric))
+        except (AttributeError, TypeError, ValueError):
+            score = float("nan")
+        prev_best = fold_best.get(fold_idx, float("-inf"))
+        improved = score > prev_best
+        if improved:
+            fold_best[fold_idx] = score
+        baseline_score = (
+            float(baseline_per_fold[fold_idx])
+            if 0 <= fold_idx < len(baseline_per_fold)
+            else 0.0
+        )
+        running = fold_best.get(fold_idx, float("-inf"))
+        delta = running - baseline_score
+        arrow = "↑" if improved else " "
+        sink(
+            f"{label} trial {call_count['n']}/{total_trials * max(len(baseline_per_fold), 1)} "
+            f"fold {fold_idx}: {objective_metric}={score:.4f} {arrow} "
+            f"best={running:.4f} (baseline={baseline_score:.4f}, "
+            f"delta={delta:+.4f})"
+        )
+        return metrics
+
+    return _wrapped
+
+
 def mini_optimize_step(state: HypothesizeState, clients: NodeClients) -> HypothesizeState:
     if state.get("candidate_reject_kind") is not None:
         return {}
@@ -501,6 +553,17 @@ def mini_optimize_step(state: HypothesizeState, clients: NodeClients) -> Hypothe
         if clients.evaluate_fold_factory is not None and candidate_library is not None
         else clients.evaluate_fold
     )
+
+    if clients.progress_sink is not None:
+        baseline_per_fold = list(clients.baseline_per_fold_scores)
+        evaluator = _instrument_evaluator(
+            evaluator,
+            sink=clients.progress_sink,
+            objective_metric=clients.objective_metric,
+            label="mini_optimize",
+            baseline_per_fold=baseline_per_fold,
+            total_trials=trials,
+        )
 
     try:
         result = attempt_with_optimize(

@@ -183,6 +183,32 @@ def _stub_metrics(score: float) -> BacktestMetrics:
     )
 
 
+def test_compute_baseline_defaults_emits_progress_per_fold(tmp_path: Path) -> None:
+    """Baseline computation runs strategies per fold — operator MUST
+    see metrics for each one or the loop appears stalled while engine
+    subprocesses execute.
+    """
+    crates = _make_crate(tmp_path)
+    paths = hw.resolve_crate_paths("spy_atr", crates)
+
+    def evaluator(params: Mapping[str, Any], fold_idx: int) -> BacktestMetrics:
+        del params
+        return _stub_metrics(1.0 + fold_idx * 0.1)
+
+    events: list[str] = []
+    hw.compute_baseline_defaults(
+        paths,
+        evaluator,
+        fold_count=2,
+        progress_sink=events.append,
+    )
+    joined = "\n".join(events)
+    assert "baseline_defaults: running fold 1/2" in joined
+    assert "baseline_defaults: fold 1/2 done" in joined
+    assert "baseline_defaults: running fold 2/2" in joined
+    assert "sharpe=" in joined
+
+
 def test_compute_baseline_defaults_lifts_defaults_and_per_fold(tmp_path: Path) -> None:
     crates = _make_crate(tmp_path)
     paths = hw.resolve_crate_paths("spy_atr", crates)

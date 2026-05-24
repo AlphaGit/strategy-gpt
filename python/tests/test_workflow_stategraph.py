@@ -303,6 +303,77 @@ def test_emit_with_repair_surfaces_last_feedback_on_exhaustion() -> None:
     assert "frob" in feedback
 
 
+def test_mini_optimize_emits_per_trial_progress_when_sink_set() -> None:
+    """Each evaluate_fold call MUST trigger a progress line carrying
+    trial number, objective score, running best, and delta vs baseline.
+    Without this the operator sees nothing while strategies run for
+    minutes inside attempt_with_optimize.
+    """
+    from strategy_gpt.types import BacktestMetrics  # noqa: PLC0415
+
+    events: list[str] = []
+    import itertools  # noqa: PLC0415
+
+    scores = itertools.cycle([0.5, 0.7, 0.6, 0.9])
+
+    def _eval(_params: Any, _fold_idx: int) -> BacktestMetrics:
+        return BacktestMetrics(
+            sharpe=next(scores),
+            sortino=1.0,
+            profit_factor=1.2,
+            win_ratio=0.5,
+            max_drawdown=0.1,
+            annualized_return=0.15,
+            n_trades=20,
+            avg_trade_length_bars=5.0,
+        )
+
+    def _factory(_library_path: str) -> Any:
+        return _eval
+
+    base = _clients()
+    clients = dataclasses.replace(
+        base,
+        evaluate_fold_factory=_factory,
+        baseline_per_fold_scores=[0.4],
+        progress_sink=events.append,
+    )
+    stage2 = Stage2Commitments(
+        falsification={
+            "primary": {"metric": "sharpe", "direction": "gt", "delta_vs_baseline": 0.1}
+        },
+        param_intent={
+            "added": [{"name": "p", "kind": "f64", "min": 0.0, "max": 1.0, "default": 0.5}],
+            "kept": [],
+            "removed": [],
+        },
+    )
+    state: dict[str, Any] = {
+        "strategy": "demo",
+        "stage1_idea": Stage1Idea(
+            candidate_name="c",
+            rationale="r",
+            expected_lift_confidence=0.5,
+            expected_side_effects=[],
+        ),
+        "stage2_parsed": stage2,
+        "candidate_library_path": "/tmp/lib.dylib",  # noqa: S108
+        "config": _config(),
+        "backtests_consumed": 0,
+        "max_backtests": None,
+    }
+    mini_optimize_step(state, clients)  # type: ignore[arg-type]
+    # At least one progress line, naming the metric, running best, and
+    # baseline delta.
+    assert events
+    joined = "\n".join(events)
+    assert "mini_optimize trial" in joined
+    assert "sharpe=" in joined
+    assert "best=" in joined
+    assert "baseline=" in joined
+    assert "delta=" in joined
+
+
 def test_mini_optimize_uses_factory_with_candidate_library_path() -> None:
     """The candidate's compiled library MUST be the one mini-optimize
     runs through the evaluator — not the baseline's. Without this every

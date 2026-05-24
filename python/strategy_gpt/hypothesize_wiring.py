@@ -640,6 +640,7 @@ def compute_baseline_defaults(
     fold_count: int,
     *,
     objective_metric: str = "sharpe",
+    progress_sink: Callable[[str], None] | None = None,
 ) -> BaselineTuple:
     """Build a baseline by invoking ``evaluate_fold`` at the crate's defaults.
 
@@ -648,6 +649,11 @@ def compute_baseline_defaults(
     mapping with a ``"default"`` key contributes its default. Parameters
     without a default are omitted (the strategy is expected to use its
     own coded default).
+
+    ``progress_sink`` receives per-fold heartbeat lines so the operator
+    sees what the baseline is producing while strategies execute (each
+    fold spawns an engine subprocess, which can take seconds to
+    minutes).
     """
     intent = load_intent_toml(crate_paths.crate_dir)
     defaults = _extract_param_defaults(intent.param_schema_sketch)
@@ -655,9 +661,22 @@ def compute_baseline_defaults(
     per_fold_scores: list[float] = []
     last_metrics: BacktestMetrics | None = None
     for fold_idx in range(fold_count):
+        if progress_sink is not None:
+            progress_sink(
+                f"baseline_defaults: running fold {fold_idx + 1}/{fold_count} "
+                f"with defaults={defaults}..."
+            )
         m = evaluate_fold(defaults, fold_idx)
         last_metrics = m
-        per_fold_scores.append(float(getattr(m, objective_metric)))
+        score = float(getattr(m, objective_metric))
+        per_fold_scores.append(score)
+        if progress_sink is not None:
+            progress_sink(
+                f"baseline_defaults: fold {fold_idx + 1}/{fold_count} done "
+                f"{objective_metric}={score:.4f} (sharpe={m.sharpe:.4f}, "
+                f"trades={m.n_trades}, max_dd={m.max_drawdown:.2%}, "
+                f"ann_ret={m.annualized_return:.2%})"
+            )
 
     if last_metrics is None:
         msg = "compute_baseline_defaults: evaluate_fold was not invoked (fold_count=0)"
