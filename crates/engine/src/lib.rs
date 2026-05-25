@@ -15,6 +15,7 @@ pub mod metrics;
 pub mod modes;
 pub mod plugin;
 pub mod position_book;
+pub mod progress;
 pub mod regime;
 pub mod result;
 pub mod runtime;

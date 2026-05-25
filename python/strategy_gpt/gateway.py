@@ -56,8 +56,12 @@ class Gateway:
 
     def fetch(self, request: BarRequest, mode: CacheMode = "prefer_cache") -> DatasetResponse:
         """Fetch a dataset for `request` honoring `mode`."""
+        from .progress import phase  # noqa: PLC0415
+
         payload = request.model_dump_json()
-        raw: str = self._gw.fetch(payload, mode)
+        path = f"fetch.{request.provider}.download"
+        with phase(path, msg=f"{request.symbol} {request.resolution}"):
+            raw: str = self._gw.fetch(payload, mode)
         return DatasetResponse.model_validate_json(raw)
 
     def cache_stats(self) -> CacheStats:

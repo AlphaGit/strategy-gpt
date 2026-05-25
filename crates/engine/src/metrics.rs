@@ -14,6 +14,18 @@ pub fn compute_metrics(
         return BacktestMetrics::empty();
     }
 
+    // No realized trades — the run never produced an actionable round-trip.
+    // Sharpe / sortino / profit_factor / win_ratio / annualized_return all
+    // reduce to "no information"; emit a zeroed shape rather than computing
+    // derived ratios off a flat equity curve (which would still produce
+    // 0.0 mechanically but obscures intent at the read site). `Trade`
+    // unrealized positions are converted to closed trades upstream by
+    // `TradeLog::close_remaining`, so an empty `trades` slice here means
+    // the strategy genuinely never opened a position.
+    if trades.is_empty() {
+        return BacktestMetrics::empty();
+    }
+
     let returns = bar_to_bar_returns(equity);
     let sharpe = ratio_annualized(&returns, |_| true, annualization_factor);
     let sortino = ratio_annualized(&returns, |r| *r < 0.0, annualization_factor);
@@ -34,16 +46,19 @@ pub fn compute_metrics(
                     (w, l + p.abs())
                 }
             });
-    // `f64::INFINITY` serializes as `null` under serde_json, which downstream
-    // typed consumers (the objective evaluator's `BacktestMetrics` deserializer)
-    // reject. Use a finite sentinel so the JSON wire stays valid.
-    let profit_factor = if gross_loss > 0.0 {
-        gross_win / gross_loss
-    } else if gross_win > 0.0 {
-        f64::MAX
+    // All-winners edge case: `gross_loss == 0` would yield `+inf`, which
+    // (a) serializes as JSON `null` (downstream typed deserializers reject)
+    // and (b) propagates as the `f64::MAX` sentinel through aggregators
+    // like `_aggregate_mean` and renders as a 300-digit number. Substitute
+    // a token $0.01 "loss" so the ratio is finite, monotonic in `gross_win`,
+    // and readable. With `gross_win = 0` the ratio is 0 regardless.
+    const GROSS_LOSS_FLOOR_USD: f64 = 0.01;
+    let denom = if gross_loss > 0.0 {
+        gross_loss
     } else {
-        0.0
+        GROSS_LOSS_FLOOR_USD
     };
+    let profit_factor = gross_win / denom;
 
     let wins = trades.iter().filter(|t| t.pnl > 0.0).count() as f64;
     let win_ratio = if n_trades > 0 {

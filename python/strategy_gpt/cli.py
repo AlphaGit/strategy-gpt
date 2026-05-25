@@ -17,10 +17,12 @@ Surface:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
+import signal
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
@@ -65,9 +67,72 @@ from .optimization_ledger import (
 )
 from .optimization_progress import StderrProgressRenderer, TeePersistWriter
 from .optimization_runner import SelectionOverrides, run_optimization
+from .progress import ProgressBus, set_bus
+from .progress.sinks import ProgressMode, ProgressSink, resolve_sink
 from .types import AdjustmentPolicy, Bar, BarRequest, CacheMode, Resolution
 
 app = typer.Typer(help="Strategy-GPT research loop CLI.")
+
+
+# Default is `auto` per spec: rich live renderer on a TTY, JSONL on a pipe.
+# Set via `--progress` per command; `off` disables the sink entirely.
+DEFAULT_PROGRESS_MODE: ProgressMode = ProgressMode.AUTO
+
+
+ProgressOption = Annotated[
+    ProgressMode,
+    typer.Option(
+        "--progress",
+        help="Progress UX: auto (TTY=rich, pipe=JSONL), plain, json, off.",
+        case_sensitive=False,
+    ),
+]
+
+
+def _build_progress_bus(mode: ProgressMode) -> tuple[ProgressBus | None, list[ProgressSink]]:
+    """Resolve --progress mode into a (bus, sinks) pair.
+
+    Returns (None, []) for `off` so call sites can skip bus wiring entirely.
+    Otherwise returns a configured ProgressBus plus the sink list that was
+    attached, in case the caller needs to close them on teardown.
+    """
+    sinks = resolve_sink(mode)
+    if not sinks:
+        return None, []
+    bus = ProgressBus(sinks=sinks)
+    return bus, sinks
+
+
+@contextlib.contextmanager
+def _progress_session(mode: ProgressMode) -> Iterator[ProgressBus | None]:
+    """Install the bus + SIGINT drain for the duration of one CLI command."""
+    bus, sinks = _build_progress_bus(mode)
+    if bus is None:
+        yield None
+        return
+    set_bus(bus)
+    prev_sigint = signal.getsignal(signal.SIGINT)
+
+    def _on_sigint(_sig: int, _frame: object) -> None:
+        bus.flush()
+        bus.cancel_all_open(msg="SIGINT")
+        # Restore default handler then re-raise so the existing teardown
+        # path (which signals workers) sees a KeyboardInterrupt.
+        signal.signal(signal.SIGINT, prev_sigint)
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGINT, _on_sigint)
+    try:
+        yield bus
+    finally:
+        signal.signal(signal.SIGINT, prev_sigint)
+        try:
+            bus.flush()
+        finally:
+            set_bus(None)
+            for sink in sinks:
+                with contextlib.suppress(Exception):
+                    sink.close()
 
 
 @app.callback()
@@ -171,7 +236,7 @@ def replay(
 
 
 @app.command()
-def run(
+def run(  # noqa: PLR0913 — typer commands carry a wide CLI surface
     spec: Annotated[
         Path,
         typer.Option(help="Path to an experiment-spec YAML or JSON file."),
@@ -191,6 +256,7 @@ def run(
     poll_interval_secs: Annotated[
         float, typer.Option(help="Poll interval when --wait is set.")
     ] = 0.5,
+    progress: ProgressOption = DEFAULT_PROGRESS_MODE,
 ) -> None:
     """Submit an experiment-spec to the engine.
 
@@ -203,24 +269,27 @@ def run(
     state and print the full ``JobStatus`` JSON (status + results /
     error).
     """
-    parsed = espec.load(spec)
-    bars_list, dataset_manifest = _resolve_bars(parsed, gateway_root)
-    batch_spec = parsed.to_batch_spec(dataset_manifest)
-    eng = Engine(
-        worker,
-        time_cap_secs=parsed.caps.time_cap_secs,
-        mem_cap_bytes=parsed.caps.mem_cap_bytes,
-    )
-    handle = eng.submit_batch(parsed.artifact, bars_list, batch_spec, dataset_manifest)
-    if not wait:
-        typer.echo(handle)
-        return
-    while True:
-        status = eng.poll(handle)
-        if status.status in ("completed", "failed", "cancelled"):
-            typer.echo(status.model_dump_json(indent=2))
+    with _progress_session(progress) as bus:
+        parsed = espec.load(spec)
+        bars_list, dataset_manifest = _resolve_bars(parsed, gateway_root)
+        batch_spec = parsed.to_batch_spec(dataset_manifest)
+        eng = Engine(
+            worker,
+            time_cap_secs=parsed.caps.time_cap_secs,
+            mem_cap_bytes=parsed.caps.mem_cap_bytes,
+        )
+        if bus is not None:
+            eng.attach_progress_bridge(bus)
+        handle = eng.submit_batch(parsed.artifact, bars_list, batch_spec, dataset_manifest)
+        if not wait:
+            typer.echo(handle)
             return
-        time.sleep(poll_interval_secs)
+        while True:
+            status = eng.poll(handle)
+            if status.status in ("completed", "failed", "cancelled"):
+                typer.echo(status.model_dump_json(indent=2))
+                return
+            time.sleep(poll_interval_secs)
 
 
 def _resolve_bars(

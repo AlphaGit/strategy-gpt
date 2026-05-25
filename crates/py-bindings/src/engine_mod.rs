@@ -25,11 +25,12 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use engine::coordinator::{Coordinator, CoordinatorError, ResourceCaps};
+use engine::coordinator::{Coordinator, CoordinatorError, ResourceCaps, StderrLineCallback};
 use engine::{spec::BatchSpec, RunResult};
 use engine_rt::Bar;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::PyString;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -56,6 +57,10 @@ pub struct PyEngine {
     /// defaults (30 min) — orchestrator overrides via the constructor.
     caps: ResourceCaps,
     handles: Arc<Mutex<HashMap<String, JobEntry>>>,
+    /// Python callable invoked once per worker stderr line. Set via
+    /// [`PyEngine::set_progress_callback`]; the orchestrator's progress
+    /// bridge installs it before submitting any batch.
+    progress_callback: Arc<Mutex<Option<Py<PyAny>>>>,
 }
 
 #[pymethods]
@@ -99,7 +104,24 @@ impl PyEngine {
             worker_path,
             caps,
             handles: Arc::new(Mutex::new(HashMap::new())),
+            progress_callback: Arc::new(Mutex::new(None)),
         })
+    }
+
+    /// Install a Python callable invoked once per worker stderr line.
+    ///
+    /// The callback receives a single `str` argument (the raw stderr
+    /// line, without trailing newline) and runs on a coordinator-owned
+    /// background thread. It MUST be cheap and MUST NOT raise; raised
+    /// exceptions are logged via PyErr::write and swallowed so the
+    /// stderr drain never stalls.
+    ///
+    /// Pass `None` to clear an installed callback.
+    #[pyo3(signature = (callback=None))]
+    fn set_progress_callback(&self, callback: Option<Py<PyAny>>) -> PyResult<()> {
+        let mut slot = self.progress_callback.lock().map_err(runtime_err)?;
+        *slot = callback;
+        Ok(())
     }
 
     /// Path to the `engine-worker` binary this engine dispatches to.
@@ -144,6 +166,27 @@ impl PyEngine {
         let mut coordinator = Coordinator::new(self.worker_path.clone()).with_caps(self.caps);
         if let Some(rid) = run_id.filter(|s| !s.is_empty()) {
             coordinator = coordinator.with_env([("STRATEGY_GPT_RUN_ID", rid.to_string())]);
+        }
+        // Snapshot the current progress callback; clearing it after
+        // submit_batch should not affect an already-dispatched batch.
+        let cb_snapshot: Option<Py<PyAny>> = {
+            let guard = self.progress_callback.lock().map_err(runtime_err)?;
+            guard
+                .as_ref()
+                .map(|cb| Python::with_gil(|py| cb.clone_ref(py)))
+        };
+        if let Some(cb) = cb_snapshot {
+            let sink: StderrLineCallback = Arc::new(move |line: &str| {
+                Python::with_gil(|py| {
+                    let py_line = PyString::new_bound(py, line);
+                    if let Err(e) = cb.call1(py, (py_line,)) {
+                        // Surface but never propagate — the stderr drain
+                        // must not stall on a misbehaving bridge.
+                        eprintln!("[progress] callback raised: {e}");
+                    }
+                });
+            });
+            coordinator = coordinator.with_stderr_line_sink(sink);
         }
         let id_clone = id.clone();
         let handles = Arc::clone(&self.handles);

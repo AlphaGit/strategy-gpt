@@ -91,6 +91,7 @@ from .verdict_critique import (
 )
 
 _STAGE_BUILD_LABEL = 3
+_REASONING_PREVIEW_MAX_CHARS = 120
 """Sentinel: only stage 3 actually runs cargo build inside its validator."""
 
 
@@ -238,6 +239,14 @@ def _emit_with_repair(  # noqa: PLR0913 — every dependency is needed at this s
     def _emit_sink(msg: str) -> None:
         if progress_sink is not None:
             progress_sink(msg)
+        # Surface the same reasoning preview on the ProgressBus. Truncated
+        # per the progress-reporting spec (≤120 chars in `msg`); full text
+        # continues to flow through `progress_sink` (CLI renderer) and
+        # structlog records emitted by the reasoning client.
+        from .progress import tick_phase  # noqa: PLC0415
+
+        short = msg if len(msg) <= _REASONING_PREVIEW_MAX_CHARS else msg[:117] + "..."
+        tick_phase(f"hypothesize.generate_stage{stage}", 0, msg=short)
 
     def emit(feedback: str) -> str:
         attempt_state["n"] += 1
@@ -798,11 +807,16 @@ def compile_workflow(clients: NodeClients) -> Any:  # noqa: ANN401 — langgraph
     is suitable for ``.invoke(state)`` from the orchestrator.
     """
 
+    from .progress import phase  # noqa: PLC0415
+
     def _bind(
         fn: Callable[[HypothesizeState, NodeClients], HypothesizeState],
     ) -> Any:  # noqa: ANN401 — langgraph add_node expects a private Runnable union
+        path = f"hypothesize.{fn.__name__.removesuffix('_step')}"
+
         def wrapper(state: HypothesizeState) -> HypothesizeState:
-            return fn(state, clients)
+            with phase(path):
+                return fn(state, clients)
 
         wrapper.__name__ = fn.__name__
         return wrapper

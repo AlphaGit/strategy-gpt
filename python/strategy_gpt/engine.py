@@ -6,6 +6,9 @@ Surface (mirrors `crates/py-bindings/src/engine_mod.rs`):
 - :meth:`Engine.poll` — read job state as a typed :class:`JobStatus`.
 - :meth:`Engine.cancel` — request cooperative cancellation.
 - :meth:`Engine.drop_handle` — discard a finished/cancelled handle.
+- :meth:`Engine.attach_progress_bridge` — route worker stderr through a
+  :class:`~strategy_gpt.progress.StderrBridge` that publishes
+  `target="progress"` records on a :class:`ProgressBus`.
 
 The `BatchSpec` and `BacktestResult` shapes are not yet mirrored as pydantic
 types in :mod:`strategy_gpt.types`; this wrapper accepts/returns them as
@@ -17,12 +20,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from ._native_shim import require_native
 from .types import Bar
+
+if TYPE_CHECKING:
+    from .progress import ProgressBus, StderrBridge
 
 _BARS_ADAPTER: TypeAdapter[list[Bar]] = TypeAdapter(list[Bar])
 
@@ -117,6 +123,28 @@ class Engine:
         """Release `handle`; returns whether the handle existed."""
         result: bool = self._engine.drop_handle(handle)
         return result
+
+    def attach_progress_bridge(self, bus: ProgressBus) -> StderrBridge:
+        """Install a :class:`StderrBridge` over the worker stderr stream.
+
+        The bridge parses every worker stderr line: progress-tagged
+        records publish onto `bus` as :class:`ProgressEvent`s; every
+        other line is forwarded verbatim to the orchestrator's stderr
+        (where structlog and Rust `tracing` records already flow).
+
+        Returns the installed bridge so the caller can detach it via
+        :meth:`detach_progress_bridge` (or call
+        ``set_progress_callback(None)`` on the underlying engine).
+        """
+        from .progress import StderrBridge  # noqa: PLC0415 — avoid cycle
+
+        bridge = StderrBridge(bus)
+        self._engine.set_progress_callback(bridge)
+        return bridge
+
+    def detach_progress_bridge(self) -> None:
+        """Clear any installed progress bridge."""
+        self._engine.set_progress_callback(None)
 
 
 __all__ = ["Engine", "JobStatus", "JobStatusKind"]

@@ -523,6 +523,8 @@ def run_smoke(  # noqa: PLR0913 — all kwargs are part of the BatchSpec wire sh
     a no-op full batch if the smoke run already covers the slice the
     Hypothesis Loop cares about.
     """
+    from .progress import phase  # noqa: PLC0415
+
     pol = policy if policy is not None else SmokePolicy()
     spec = _build_smoke_spec(
         strategy_artifact=strategy_artifact,
@@ -533,6 +535,18 @@ def run_smoke(  # noqa: PLR0913 — all kwargs are part of the BatchSpec wire sh
         seed=seed,
         engine_config=engine_config,
     )
+    with phase("tester.smoke", total=1):
+        return _run_smoke_polled(engine, strategy_artifact, bars, spec, dataset_manifest, pol)
+
+
+def _run_smoke_polled(  # noqa: PLR0913 — wire shape of the smoke job
+    engine: _EngineLike,
+    strategy_artifact: str,
+    bars: list[Bar],
+    spec: dict[str, Any],
+    dataset_manifest: str,
+    pol: SmokePolicy,
+) -> SmokeOutcome:
     handle = engine.submit_batch(strategy_artifact, bars, spec, dataset_manifest)
     deadline = time.monotonic() + pol.timeout_secs
     try:
@@ -835,12 +849,15 @@ def attempt_logic_change(
     payloads land in the ledger as ``rejected: build_failed`` decisions
     before the engine is invoked (`tester::compile-and-lint-validation`).
     """
-    try:
-        return translate_logic_change(
-            candidate, base_params=base_params, build_pipeline=build_pipeline
-        )
-    except (BuildFailure, LogicChangeTranslationError) as exc:
-        return reject_build_failure(ledger, candidate, exc, now=now)
+    from .progress import phase  # noqa: PLC0415
+
+    with phase("tester.build"):
+        try:
+            return translate_logic_change(
+                candidate, base_params=base_params, build_pipeline=build_pipeline
+            )
+        except (BuildFailure, LogicChangeTranslationError) as exc:
+            return reject_build_failure(ledger, candidate, exc, now=now)
 
 
 # ---------------------------------------------------------------------------

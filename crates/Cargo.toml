@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["*"]
-exclude = ["experiment-spec", ".pytest_cache", "target"]
+exclude = ["experiment-spec", ".pytest_cache", ".ruff_cache", "target"]
 
 [workspace.package]
 edition = "2021"

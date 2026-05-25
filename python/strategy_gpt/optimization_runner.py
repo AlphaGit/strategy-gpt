@@ -407,6 +407,12 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
     selection_overrides: SelectionOverrides | None = None,
 ) -> OptimizationResult:
     """Run a full optimization (per-fold train search + cross-fold OOS validation)."""
+    from .progress import (  # noqa: PLC0415 — lazy to keep import surface small.
+        PhaseStatus,
+        begin_phase,
+        end_phase,
+    )
+
     if experiment.optimize is None or experiment.folds is None:
         msg = "run_optimization: experiment spec is missing `optimize` or `folds` block."
         raise ValueError(msg)
@@ -439,6 +445,9 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
             folds=folds,
         )
 
+    begin_phase("optimize", total=len(folds), msg=f"opt_id={opt_id}")
+    persist_writer = _ProgressTeeWriter(persist_writer)
+    begin_phase("optimize.search", total=len(folds))
     fold_winners.extend(
         _run_search_phase(
             experiment=experiment,
@@ -458,6 +467,9 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
         )
     )
 
+    end_phase("optimize.search", status=PhaseStatus.OK)
+
+    begin_phase("optimize.oos", total=len(folds))
     cross = _cross_validate(
         experiment=experiment,
         objective=objective,
@@ -474,6 +486,7 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
         poll_interval_secs=poll_interval_secs,
         persist_writer=persist_writer,
     )
+    end_phase("optimize.oos", status=PhaseStatus.OK)
 
     final = _select_final(cross)
     selection = _run_selection_layer(
@@ -500,6 +513,7 @@ def run_optimization(  # noqa: PLR0913 — orchestrator carries the full IO surf
     )
     if persist_writer is not None:
         persist_writer.finish(result)
+    end_phase("optimize", status=PhaseStatus.OK)
     return result
 
 
@@ -924,6 +938,83 @@ class _PersistWriter(Protocol):
     def flush(self) -> None: ...
 
     def finish(self, result: OptimizationResult) -> None: ...
+
+
+class _ProgressTeeWriter:
+    """Wrap an optional :class:`_PersistWriter` and emit `phase_progress`
+    ticks per accepted trial through the ambient ProgressBus.
+
+    Adapter only — the underlying writer (when present) sees the same
+    calls in the same order. When `inner is None` this collapses to a
+    progress-only tee.
+    """
+
+    def __init__(self, inner: _PersistWriter | None) -> None:
+        self._inner = inner
+        self._trial_count = 0
+        self._best_score: float | None = None
+
+    def start(  # noqa: PLR0913 — mirror of the persist-writer wire shape.
+        self,
+        *,
+        experiment: ExperimentSpec,
+        objective: Mapping[str, Any],
+        dataset_manifest: str,
+        artifact_path: Path,
+        opt_id: str,
+        resolved_parallelism: int,
+        seed: int,
+        started_at: datetime,
+        folds: Sequence[FoldRange],
+    ) -> None:
+        if self._inner is not None:
+            self._inner.start(
+                experiment=experiment,
+                objective=objective,
+                dataset_manifest=dataset_manifest,
+                artifact_path=artifact_path,
+                opt_id=opt_id,
+                resolved_parallelism=resolved_parallelism,
+                seed=seed,
+                started_at=started_at,
+                folds=folds,
+            )
+
+    def emit_row(self, row: TrialRow) -> None:
+        if self._inner is not None:
+            self._inner.emit_row(row)
+        from .progress import tick_phase  # noqa: PLC0415
+
+        self._trial_count += 1
+        if row.accepted and (self._best_score is None or row.score > self._best_score):
+            self._best_score = row.score
+        path = f"optimize.fold_{row.fold_index}.{row.phase}"
+        # Surface the score alongside the metrics that produced it so a
+        # human reading the progress stream can see *what* the score
+        # reflects, not just its numeric value. Non-numeric entries
+        # (strings, bools, None) are skipped — `metrics` is `dict[str,
+        # float]` on the wire.
+        metrics: dict[str, float] = {"score": float(row.score)}
+        if self._best_score is not None:
+            metrics["best"] = float(self._best_score)
+        for name, value in row.metrics.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            metrics[name] = float(value)
+        tick_phase(
+            path,
+            self._trial_count,
+            msg=f"trial #{row.trial_id}",
+            metrics=metrics,
+        )
+
+    def flush(self) -> None:
+        if self._inner is not None:
+            self._inner.flush()
+
+    def finish(self, result: OptimizationResult) -> None:
+        if self._inner is not None:
+            self._inner.finish(result)
 
 
 __all__ = [

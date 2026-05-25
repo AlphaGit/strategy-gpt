@@ -82,3 +82,28 @@ jobs:
               'python -m strategy_gpt.smoke --write kb/fixtures/smoke_run.json'
           )
           "
+
+      - name: smoke run emits progress JSONL on non-TTY
+        run: |
+          cd python && python -c "
+          import io
+          import json
+          import sys
+          from strategy_gpt.progress import ProgressBus, set_bus
+          from strategy_gpt.progress.sinks.jsonl import JsonlSink
+          from strategy_gpt.smoke import run_smoke
+
+          stream = io.StringIO()
+          bus = ProgressBus(sinks=[JsonlSink(stream=stream)])
+          set_bus(bus)
+          try:
+              run_smoke()
+          finally:
+              set_bus(None)
+              bus.flush()
+          lines = [json.loads(l) for l in stream.getvalue().splitlines() if l.strip()]
+          kinds = [l.get('kind') for l in lines]
+          assert 'phase_begin' in kinds, 'no phase_begin in progress stream'
+          assert 'phase_end' in kinds, 'no phase_end in progress stream'
+          print(f'progress stream: {len(lines)} events ({kinds.count(\"phase_begin\")} begin / {kinds.count(\"phase_end\")} end)')
+          "

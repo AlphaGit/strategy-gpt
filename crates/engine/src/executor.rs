@@ -17,6 +17,7 @@ use crate::indicators::IndicatorRegistry;
 use crate::intent::IntentBook;
 use crate::metrics::compute_metrics;
 use crate::position_book::PositionBook;
+use crate::progress as engine_progress;
 use crate::result::{BacktestResult, ResultMeta};
 use crate::runtime::RuntimeContext;
 use crate::spec::{BatchSpec, EngineConfig, RunSpec};
@@ -50,6 +51,17 @@ pub fn run_one(
     if bars.is_empty() {
         return Err(ExecutionError::EmptyDataset);
     }
+
+    let bars_path = bars_progress_path();
+    let total_bars = bars.iter().filter(|b| run.slice.contains(b.ts)).count();
+    let mut bar_coalescer = bars_path
+        .as_ref()
+        .map(|p| engine_progress::TickCoalescer::new(p.clone()));
+    if let Some(p) = bars_path.as_ref() {
+        engine_progress::emit_begin(p, Some(total_bars as u64));
+    }
+    let bars_started = std::time::Instant::now();
+    let mut bars_seen: u64 = 0;
 
     let mut intents = IntentBook::new();
     let mut positions = PositionBook::new();
@@ -97,6 +109,10 @@ pub fn run_one(
     };
 
     for bar in bars.iter().filter(|b| run.slice.contains(b.ts)) {
+        bars_seen += 1;
+        if let Some(coalescer) = bar_coalescer.as_mut() {
+            coalescer.tick(bars_seen, Some(total_bars as u64));
+        }
         if !symbol_set.iter().any(|s| s == &bar.symbol) {
             symbol_set.push(bar.symbol.clone());
         }
@@ -220,6 +236,11 @@ pub fn run_one(
             .map_err(|e| ExecutionError::StrategyError(format!("on_end: {e}")))?;
     }
 
+    if let (Some(p), Some(coalescer)) = (bars_path.as_ref(), bar_coalescer.as_mut()) {
+        coalescer.flush(bars_seen, Some(total_bars as u64));
+        engine_progress::emit_end(p, "ok", bars_started.elapsed().as_secs_f64());
+    }
+
     let trade_records = trades.into_closed();
     let equity_points = equity.into_points();
     let metrics = compute_metrics(&equity_points, &trade_records, DAILY_ANNUALIZATION);
@@ -244,6 +265,18 @@ pub fn run_one(
 
 fn positions_realized_total(positions: &PositionBook, symbols: &[String]) -> f64 {
     symbols.iter().map(|s| positions.realized_pnl(s)).sum()
+}
+
+/// Build the bars-loop progress path from coordinator-supplied env vars.
+/// When either var is absent (e.g. in-process tests calling `run_one`
+/// directly), returns None and the executor skips per-bar emission.
+fn bars_progress_path() -> Option<String> {
+    let batch_id = std::env::var("STRATEGY_GPT_BATCH_ID").ok()?;
+    let run_index = std::env::var("STRATEGY_GPT_RUN_INDEX").ok()?;
+    if batch_id.is_empty() || run_index.is_empty() {
+        return None;
+    }
+    Some(format!("worker.batch_{batch_id}.run_{run_index}.bars"))
 }
 
 /// Strategy factory used by the batch runner: produces a fresh strategy

@@ -4,6 +4,8 @@ Common command lines for the workflows you'll run most often. The full subcomman
 
 > **Conventions.** Examples assume an activated venv (`source .venv/bin/activate`) and that `cargo build -p vxx-strategy` + `maturin develop` have already been run. Defaults: cache root `./cache`, ledger root `./ledger`. The reference strategy throughout is VXX; substitute your own symbol / artifact path freely.
 
+> **Progress output.** Every long-running command below (`fetch`, `run --wait`, `optimize`, `hypothesize`, `tester`, `smoke`) accepts `--progress {auto,plain,json,off}`. `auto` (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See [Read progress output](./read-progress-output.md) for the event vocabulary and filter recipes.
+
 ---
 
 ## Datasets — download, reference, replay

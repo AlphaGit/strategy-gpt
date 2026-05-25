@@ -168,3 +168,45 @@ The following commands SHALL emit progress events covering their full lifecycle:
 
 - **WHEN** `strategy-gpt fetch --provider yfinance ...` runs against a cold cache
 - **THEN** `phase_begin path="fetch.yfinance.download"` and a matching `phase_end` appear in the event stream, with at least one `phase_progress` event reflecting bytes or rows downloaded
+
+### Requirement: Score events surface their underlying metrics
+
+Whenever a progress event reports a score (orchestrator-side `phase_progress` events emitted by the parameter optimizer, the rich live renderer's metric inline display, and the legacy `StderrProgressRenderer`'s accepted-trial / cross-validation / final-pick lines), the same event or output line MUST also surface the metric values that produced that score. The intent is that a human reading the progress stream sees *what* the score reflects — primary metric plus guard metrics, OOS aggregates, etc. — not just its numeric value.
+
+Numeric values that pass through ProgressBus's `metrics` mapping continue to be `dict[str, float]`; non-numeric or boolean values (e.g. counts, flags) MUST be filtered out at the emitter, not at the sink.
+
+#### Scenario: Trial-tick metrics include the score components
+
+- **WHEN** the optimizer emits a `phase_progress` event for an accepted trial via the orchestrator's progress tee
+- **THEN** the event's `metrics` mapping contains `score`, `best`, and every numeric entry from the trial's `metrics` (e.g. `sharpe`, `sortino`, `max_drawdown`), so a downstream JSONL consumer can join score to its drivers without consulting the ledger
+
+#### Scenario: Phase-end summary surfaces winning metrics
+
+- **WHEN** the `StderrProgressRenderer` flushes a phase that had at least one accepted trial
+- **THEN** the rendered summary line carries the best primary metric and the score, AND a follow-up line carries every numeric metric of the winning trial
+
+### Requirement: Number formatting and column alignment
+
+All numeric values rendered to a human-facing progress sink (TTY live renderer, plain-text sink, `StderrProgressRenderer`) MUST follow a consistent format:
+
+- Decimals: fractional values render with at most 4 places after the decimal point. No scientific notation, no `.4g` rounding to fewer digits than the human eye expects.
+- Integer-valued numbers: trade counts, bar counts, volumes, and any other integer-valued metric (including floats whose value equals their integer truncation, e.g. `14.0`) MUST render without a decimal point or trailing zeros — `14`, not `14.0000`.
+- Large quantities (integer counts, trial totals, bar counts, monetary amounts): rendered with a thousands separator using the user's locale-independent default (`","`).
+- Whenever multiple values are shown across rows (cross-validation winners table, OOS aggregate metrics list, per-fold summary), values in the same column MUST be left-/right-padded so the columns visually align — score columns right-align, label columns left-align.
+
+JSON / JSONL output is exempt: machine-readable streams use the JSON number representation unchanged.
+
+#### Scenario: Score values use 4 decimals and thousands separators
+
+- **WHEN** the renderer emits a score of `1234.56789012` for a trial
+- **THEN** the rendered text is `1,234.5679` — four decimals, comma thousands separator — and not `1234.56789012`, `1234.57`, or scientific notation
+
+#### Scenario: Integer-valued metrics render without decimals
+
+- **WHEN** the renderer emits an integer-valued metric (e.g. `n_trades=14.0`, `avg_trade_length_bars=9_557_640.0`, a bar count, a trial-total volume)
+- **THEN** the rendered text is `14`, `9,557,640` — no decimal point, no trailing `.0000` — even when the underlying value is a `float`
+
+#### Scenario: Cross-validation table aligns columns
+
+- **WHEN** the optimization renderer prints two or more `cross_validation` winner rows
+- **THEN** the winner label column is left-padded to the widest label, the primary-metric column and the score column are right-padded to their widest value, so the columns line up visually regardless of the number of fold winners

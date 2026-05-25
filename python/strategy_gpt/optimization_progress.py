@@ -38,11 +38,34 @@ def _primary_metric_name(objective: Mapping[str, Any]) -> str:
     return "sharpe"
 
 
+def _fmt_num_no_sep(value: float) -> str:
+    """Same shape as :func:`_fmt_num` but without thousands separators.
+
+    Parameter values often live in tight ranges (`threshold=0.5`,
+    `w_rsi=-0.42`) and embed in `params={ k=v,k=v }` strings; a
+    thousands separator on the integer side would collide with the
+    `,` already used as the param delimiter and make the line
+    visually noisier than the underlying values warrant.
+    """
+    import math  # noqa: PLC0415 — keep import local; only used here
+
+    v = float(value)
+    if math.isnan(v):
+        return "nan"
+    if math.isinf(v):
+        return "inf" if v > 0 else "-inf"
+    if abs(v) < _INT_DISPLAY_MAX_MAGNITUDE and v == round(v):
+        return f"{int(v)}"
+    return f"{v:.4f}"
+
+
 def _short(v: object) -> str:
     if isinstance(v, bool):
         return str(v)
     if isinstance(v, float):
-        return f"{v:.4g}"
+        return _fmt_num_no_sep(v)
+    if isinstance(v, int):
+        return f"{v}"
     return str(v)
 
 
@@ -60,6 +83,48 @@ def _primary_value(metrics: Mapping[str, Any], primary: str) -> float | None:
     if isinstance(v, (int, float)):
         return float(v)
     return None
+
+
+# Above this magnitude `int(v)` and `v == round(v)` are unreliable because the
+# float can't represent unit increments — fall back to the decimal format so
+# numbers like `f64::MAX` (1.8e308) don't crash through the integer branch.
+_INT_DISPLAY_MAX_MAGNITUDE = 1e15
+
+
+def _fmt_num(value: float) -> str:
+    """Format a number with thousands separator.
+
+    Integer-valued numbers (`14.0`, `9_557_640.0`, raw `int`s) render
+    without a decimal point — `14`, `9,557,640` — because counts (trade
+    counts, bar counts, volumes) read worse with trailing `.0000`.
+    Genuinely fractional values render with up to 4 decimals,
+    `1,234.5678`.
+    """
+    import math  # noqa: PLC0415 — keep import local; only used here
+
+    v = float(value)
+    if math.isnan(v):
+        return "nan"
+    if math.isinf(v):
+        return "inf" if v > 0 else "-inf"
+    if abs(v) < _INT_DISPLAY_MAX_MAGNITUDE and v == round(v):
+        return f"{int(v):,d}"
+    return f"{v:,.4f}"
+
+
+def _fmt_all_metrics(metrics: Mapping[str, Any]) -> str:
+    """Format every numeric entry in `metrics` as `k=v`, comma-joined.
+
+    Bool, None, and non-numeric values are skipped — they have no place
+    on a score line. Order matches `metrics.items()` so callers control
+    presentation by passing an ordered dict if they care.
+    """
+    parts: list[str] = []
+    for k, v in metrics.items():
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            continue
+        parts.append(f"{k}={_fmt_num(v)}")
+    return ", ".join(parts)
 
 
 class _InnerWriter(Protocol):
@@ -101,6 +166,7 @@ class StderrProgressRenderer:
         self._best_score: float = float("-inf")
         self._best_primary: float | None = None
         self._best_params: Mapping[str, Any] | None = None
+        self._best_metrics: Mapping[str, Any] | None = None
         self._trials_in_phase: int = 0
 
     def on_start(  # noqa: PLR0913 — mirror of the persist-writer wire shape.
@@ -144,13 +210,17 @@ class StderrProgressRenderer:
         self._best_score = row.score
         self._best_primary = _primary_value(row.metrics, self._primary)
         self._best_params = dict(row.params)
+        self._best_metrics = dict(row.metrics)
         primary_disp = (
-            f"{self._primary}={self._best_primary:.4f}"
+            f"{self._primary}={_fmt_num(self._best_primary)}"
             if self._best_primary is not None
             else f"{self._primary}=n/a"
         )
         self._echo(f"  trial #{row.trial_id} | params={{ {_fmt_params(row.params)} }}")
-        self._echo(f"      {primary_disp} score={row.score:.4f} ✓ accepted (new best)")
+        self._echo(f"      {primary_disp} score={_fmt_num(row.score)} ✓ accepted (new best)")
+        all_metrics = _fmt_all_metrics(row.metrics)
+        if all_metrics:
+            self._echo(f"      metrics: {{ {all_metrics} }}")
 
     def on_phase_flush(self) -> None:
         self._end_phase()
@@ -159,36 +229,57 @@ class StderrProgressRenderer:
         self._end_phase()
         if result.cross_validation:
             self._echo(f"━━━ cross_validation ({len(result.cross_validation)} winner(s)) ━━━")
+            # Pre-compute column widths so winner rows align vertically.
+            rows: list[dict[str, str]] = []
             for i, cv in enumerate(result.cross_validation):
                 primary_raw = cv.aggregate_metrics.get(self._primary)
-                primary_disp = (
-                    f"{self._primary}={float(primary_raw):.4f}"
+                primary_str = (
+                    _fmt_num(float(primary_raw))
                     if isinstance(primary_raw, (int, float)) and not isinstance(primary_raw, bool)
-                    else f"{self._primary}=n/a"
+                    else "n/a"
                 )
                 tag = (
                     "✓ accepted"
                     if cv.aggregate_accepted
                     else f"✗ rejected: {cv.aggregate_reject_reason}"
                 )
-                self._echo(
-                    f"  winner {i} (fold_{cv.fold_index}): {primary_disp} "
-                    f"agg_score={cv.aggregate_score:.4f} {tag}"
+                rows.append(
+                    {
+                        "label": f"winner {i} (fold_{cv.fold_index})",
+                        "primary": primary_str,
+                        "score": _fmt_num(cv.aggregate_score),
+                        "tag": tag,
+                        "metrics": _fmt_all_metrics(cv.aggregate_metrics),
+                    }
                 )
+            label_w = max(len(r["label"]) for r in rows)
+            primary_w = max(len(r["primary"]) for r in rows)
+            score_w = max(len(r["score"]) for r in rows)
+            for r in rows:
+                self._echo(
+                    f"  {r['label']:<{label_w}}: "
+                    f"{self._primary}={r['primary']:>{primary_w}} "
+                    f"agg_score={r['score']:>{score_w}} {r['tag']}"
+                )
+                if r["metrics"]:
+                    self._echo(f"      metrics: {{ {r['metrics']} }}")
         sel = result.selection
         if sel is not None:
             self._echo(f"━━━ selection verdict: {sel.status.value} ━━━")
         if result.final is not None:
             primary_raw = result.final.aggregate_metrics.get(self._primary)
             primary_disp = (
-                f" {self._primary}={float(primary_raw):.4f}"
+                f" {self._primary}={_fmt_num(float(primary_raw))}"
                 if isinstance(primary_raw, (int, float)) and not isinstance(primary_raw, bool)
                 else ""
             )
             self._echo(
                 f"  final pick: fold_{result.final.fold_index}"
-                f"{primary_disp} agg_score={result.final.aggregate_score:.4f}"
+                f"{primary_disp} agg_score={_fmt_num(result.final.aggregate_score)}"
             )
+            final_metrics = _fmt_all_metrics(result.final.aggregate_metrics)
+            if final_metrics:
+                self._echo(f"      metrics: {{ {final_metrics} }}")
         else:
             self._echo("  final pick: (none)")
 
@@ -197,6 +288,7 @@ class StderrProgressRenderer:
         self._best_score = float("-inf")
         self._best_primary = None
         self._best_params = None
+        self._best_metrics = None
         self._trials_in_phase = 0
         self._echo(f"━━━ {phase} ━━━")
 
@@ -209,14 +301,18 @@ class StderrProgressRenderer:
             )
         else:
             primary_disp = (
-                f"best {self._primary}={self._best_primary:.4f}"
+                f"best {self._primary}={_fmt_num(self._best_primary)}"
                 if self._best_primary is not None
                 else f"best {self._primary}=n/a"
             )
             self._echo(
-                f"  {self._current_phase}: {self._trials_in_phase} trial(s) — "
-                f"{primary_disp} score={self._best_score:.4f}"
+                f"  {self._current_phase}: {self._trials_in_phase:,d} trial(s) — "
+                f"{primary_disp} score={_fmt_num(self._best_score)}"
             )
+            if self._best_metrics is not None:
+                all_metrics = _fmt_all_metrics(self._best_metrics)
+                if all_metrics:
+                    self._echo(f"      metrics: {{ {all_metrics} }}")
         self._trials_in_phase = 0
 
     @staticmethod

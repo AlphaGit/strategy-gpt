@@ -20,10 +20,10 @@
 //! and stamps it onto every result.
 
 use std::collections::{HashMap, VecDeque};
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -34,6 +34,37 @@ use crate::regime::annotate_regimes;
 use crate::result::{BacktestResult, RunResult};
 use crate::spec::{BatchSpec, FailureMode, RunSpec};
 use crate::wire::{read_message, write_message, WireError, WorkerRequest, WorkerResponse};
+
+/// Callback invoked once per worker stderr line. Used by the orchestrator
+/// to route `target="progress"` records to its `ProgressBus`. The
+/// callback runs on the coordinator's stderr-drain thread; it MUST be
+/// cheap and MUST NOT block, since the per-worker stderr drain is what
+/// keeps the kernel buffer empty.
+pub type StderrLineCallback = Arc<dyn Fn(&str) + Send + Sync>;
+
+/// Monotonic batch counter so coordinator-side and worker-side progress
+/// paths share a stable `worker.batch_<n>.*` prefix. One id per
+/// [`Coordinator::execute`] call.
+static BATCH_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn emit_phase_begin(sink: Option<&StderrLineCallback>, path: &str, total: Option<u64>) {
+    let Some(sink) = sink else { return };
+    let line = match total {
+        Some(t) => format!(
+            "{{\"target\":\"progress\",\"kind\":\"phase_begin\",\"path\":\"{path}\",\"total\":{t}}}"
+        ),
+        None => format!("{{\"target\":\"progress\",\"kind\":\"phase_begin\",\"path\":\"{path}\"}}"),
+    };
+    sink(&line);
+}
+
+fn emit_phase_end(sink: Option<&StderrLineCallback>, path: &str, status: &str, wall_secs: f64) {
+    let Some(sink) = sink else { return };
+    let line = format!(
+        "{{\"target\":\"progress\",\"kind\":\"phase_end\",\"path\":\"{path}\",\"status\":\"{status}\",\"wall_secs\":{wall_secs}}}"
+    );
+    sink(&line);
+}
 
 /// Per-run resource caps the coordinator enforces.
 ///
@@ -57,7 +88,7 @@ impl Default for ResourceCaps {
 
 /// Coordinator handle: a path to the `engine-worker` binary plus dispatch
 /// settings. Cheap to clone.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Coordinator {
     pub worker_path: PathBuf,
     pub caps: ResourceCaps,
@@ -70,6 +101,12 @@ pub struct Coordinator {
     /// configuration and in tests to drive the worker's `STRATEGY_GPT_TEST_*`
     /// hooks (sleep, panic) without contaminating the parent's env.
     pub extra_env: HashMap<String, String>,
+    /// Optional sink invoked once per worker stderr line. The
+    /// orchestrator wires this to its `ProgressBus` bridge so JSON
+    /// `target="progress"` records produced inside workers are observed
+    /// in real time. When `None`, worker stderr is consumed exactly as
+    /// before (drained to a Vec for failure diagnostics).
+    pub stderr_line_sink: Option<StderrLineCallback>,
 }
 
 impl Coordinator {
@@ -79,7 +116,16 @@ impl Coordinator {
             caps: ResourceCaps::default(),
             poll_interval: Duration::from_millis(20),
             extra_env: HashMap::new(),
+            stderr_line_sink: None,
         }
+    }
+
+    /// Attach a callback that receives every worker stderr line. Lines
+    /// are also still accumulated to the per-run failure buffer used in
+    /// non-zero exit reporting; the callback is a *tee*.
+    pub fn with_stderr_line_sink(mut self, sink: StderrLineCallback) -> Self {
+        self.stderr_line_sink = Some(sink);
+        self
     }
 
     pub fn with_caps(mut self, caps: ResourceCaps) -> Self {
@@ -142,6 +188,15 @@ impl Coordinator {
         let first_error: Arc<Mutex<Option<CoordinatorError>>> = Arc::new(Mutex::new(None));
         let failure_mode = batch.failure_mode;
 
+        let batch_id = BATCH_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let batch_path = format!("worker.batch_{batch_id}");
+        let batch_started = Instant::now();
+        emit_phase_begin(
+            self.stderr_line_sink.as_ref(),
+            &batch_path,
+            Some(batch.runs.len() as u64),
+        );
+
         // Queue of (index, run) work items. Threads pop from the front; on
         // failure under `Abort` they drain the queue so no further work
         // starts, while under `Continue` they keep pulling.
@@ -172,11 +227,13 @@ impl Coordinator {
             let caps = self.caps;
             let poll_interval = self.poll_interval;
             let extra_env = self.extra_env.clone();
+            let stderr_sink = self.stderr_line_sink.clone();
             let bars = bars.to_vec();
             let engine = batch.engine.clone();
             let strategy_artifact = batch.strategy.0.clone();
             let manifest = dataset_manifest.to_string();
             let artifact_path_str = artifact_path_str.clone();
+            let batch_path_outer = batch_path.clone();
 
             handles.push(thread::spawn(move || {
                 while !abort.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
@@ -195,7 +252,10 @@ impl Coordinator {
                         strategy_artifact: strategy_artifact.clone(),
                         dataset_manifest: manifest.clone(),
                     };
-                    match run_one_subprocess(
+                    let run_path = format!("{batch_path_outer}.run_{idx}");
+                    let run_started = Instant::now();
+                    emit_phase_begin(stderr_sink.as_ref(), &run_path, None);
+                    let outcome = run_one_subprocess(
                         &worker_path,
                         &request,
                         caps,
@@ -203,7 +263,22 @@ impl Coordinator {
                         &extra_env,
                         &cancel,
                         &abort,
-                    ) {
+                        stderr_sink.as_ref(),
+                        batch_id,
+                        idx,
+                    );
+                    let run_status = match &outcome {
+                        Ok(_) => "ok",
+                        Err(CoordinatorError::Cancelled) => "cancelled",
+                        Err(_) => "fail",
+                    };
+                    emit_phase_end(
+                        stderr_sink.as_ref(),
+                        &run_path,
+                        run_status,
+                        run_started.elapsed().as_secs_f64(),
+                    );
+                    match outcome {
                         Ok(result) => {
                             let mut r = results.lock().expect("results mutex");
                             r[idx] = Some(RunResult::ok(idx, *result));
@@ -254,9 +329,21 @@ impl Coordinator {
             // Cancellation may race with a recorded error: prefer the cancel
             // signal — the caller asked us to stop and is not interested in
             // post-mortem run details.
+            emit_phase_end(
+                self.stderr_line_sink.as_ref(),
+                &batch_path,
+                "cancelled",
+                batch_started.elapsed().as_secs_f64(),
+            );
             return Err(CoordinatorError::Cancelled);
         }
         if let Some(err) = first_error.lock().expect("first_error mutex").take() {
+            emit_phase_end(
+                self.stderr_line_sink.as_ref(),
+                &batch_path,
+                "fail",
+                batch_started.elapsed().as_secs_f64(),
+            );
             return Err(err);
         }
 
@@ -282,6 +369,12 @@ impl Coordinator {
                 r
             })
             .collect();
+        emit_phase_end(
+            self.stderr_line_sink.as_ref(),
+            &batch_path,
+            "ok",
+            batch_started.elapsed().as_secs_f64(),
+        );
         Ok(collected)
     }
 }
@@ -347,6 +440,7 @@ enum WaitOutcome {
     Cancelled,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_one_subprocess(
     worker_path: &Path,
     request: &WorkerRequest,
@@ -355,6 +449,9 @@ fn run_one_subprocess(
     extra_env: &HashMap<String, String>,
     cancel: &Arc<AtomicBool>,
     abort: &Arc<AtomicBool>,
+    stderr_line_sink: Option<&StderrLineCallback>,
+    batch_id: u64,
+    run_index: usize,
 ) -> Result<Box<BacktestResult>, CoordinatorError> {
     let mut cmd = Command::new(worker_path);
     cmd.stdin(Stdio::piped())
@@ -363,6 +460,11 @@ fn run_one_subprocess(
     if let Some(bytes) = caps.mem_bytes {
         cmd.env("STRATEGY_GPT_MEM_BYTES", bytes.to_string());
     }
+    // Forward batch + run identity so worker-side progress paths match
+    // coordinator-emitted paths (`worker.batch_<n>.run_<m>.*`).
+    cmd.env("STRATEGY_GPT_BATCH_ID", batch_id.to_string());
+    cmd.env("STRATEGY_GPT_RUN_INDEX", run_index.to_string());
+    cmd.env("STRATEGY_GPT_LOG_FORMAT", "json");
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
@@ -395,7 +497,8 @@ fn run_one_subprocess(
         .take()
         .expect("piped stderr must be present after spawn");
     let stdout_handle = thread::spawn(move || drain_to_vec(stdout));
-    let stderr_handle = thread::spawn(move || drain_to_vec(stderr));
+    let stderr_sink_cloned = stderr_line_sink.cloned();
+    let stderr_handle = thread::spawn(move || drain_stderr_lines(stderr, stderr_sink_cloned));
 
     let outcome = wait_with_caps(&mut child, caps, poll_interval, cancel, abort)?;
 
@@ -468,6 +571,32 @@ fn wait_with_caps(
 fn drain_to_vec<R: std::io::Read>(mut reader: R) -> Vec<u8> {
     let mut buf = Vec::new();
     let _ = reader.read_to_end(&mut buf);
+    buf
+}
+
+/// Drain worker stderr line by line. Every line is appended to a Vec for
+/// failure-mode reporting (preserving the prior contract) AND, when a
+/// sink is supplied, dispatched to the orchestrator's progress bridge.
+///
+/// We dispatch every line (not just progress-tagged ones) so the bridge
+/// can also forward non-progress structlog/tracing records unchanged.
+fn drain_stderr_lines<R: std::io::Read>(reader: R, sink: Option<StderrLineCallback>) -> Vec<u8> {
+    let mut buf = Vec::new();
+    let mut reader = BufReader::new(reader);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                buf.extend_from_slice(line.as_bytes());
+                if let Some(sink) = sink.as_ref() {
+                    sink(line.trim_end_matches('\n'));
+                }
+            }
+            Err(_) => break,
+        }
+    }
     buf
 }
 

@@ -399,7 +399,9 @@ def run_smoke(
     ``strategy-gpt hypothesis replay`` / ``hypothesis diff`` commands
     read from that layout.
     """
-    with _resolve_ledger_root(ledger_root) as root:
+    from .progress import phase  # noqa: PLC0415
+
+    with phase("smoke", total=1), _resolve_ledger_root(ledger_root) as root:
         ledger = PerStrategyLedger(root, _STRATEGY)
         baseline = _toy_baseline_result()
         baseline_files = _baseline_files()
