@@ -3263,6 +3263,7 @@
 <p>Common command lines for the workflows you'll run most often. The full subcommand reference is <code>strategy-gpt --help</code>; this page is the <em>recipes</em> layer above that.</p>
 <blockquote>
 <p><strong>Conventions.</strong> Examples assume an activated venv (<code>source .venv/bin/activate</code>) and that <code>cargo build -p vxx-strategy</code> + <code>maturin develop</code> have already been run. Defaults: cache root <code>./cache</code>, ledger root <code>./ledger</code>. The reference strategy throughout is VXX; substitute your own symbol / artifact path freely.</p>
+<p><strong>Progress output.</strong> Every long-running command below (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>tester</code>, <code>smoke</code>) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
 </blockquote>
 <hr />
 <h2 id="datasets-download-reference-replay">Datasets — download, reference, replay<a class="headerlink" href="#datasets-download-reference-replay" title="Permanent link">&para;</a></h2>
