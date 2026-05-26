@@ -172,12 +172,12 @@ def test_renderer_unaccepted_trials_do_not_become_best(
 ) -> None:
     r = StderrProgressRenderer()
     r.on_trial(_row(trial_id=0, phase="train_fold_0", score=99.0, primary=9.9, accepted=False))
-    r.on_trial(_row(trial_id=1, phase="train_fold_0", score=1.0, primary=1.0))
+    r.on_trial(_row(trial_id=1, phase="train_fold_0", score=1.5, primary=1.5))
     r.on_phase_flush()
     err = capsys.readouterr().err
     assert "trial #0" not in err
     assert "trial #1" in err
-    assert "best sharpe=1.0000" in err
+    assert "best sharpe=1.5000" in err
 
 
 def test_tee_writer_forwards_every_call_to_inner(tmp_path: Path) -> None:

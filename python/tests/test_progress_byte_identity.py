@@ -74,12 +74,12 @@ def _toy_bars() -> list[Bar]:
 
 def _batch_spec(artifact: Path) -> dict[str, object]:
     return {
-        "strategy": {"artifact_id": str(artifact)},
-        "dataset": {"id": "toy", "manifest": "toy_manifest"},
+        "strategy": str(artifact),
+        "dataset": "toy_manifest",
         "runs": [
             {
-                "id": "r0",
                 "params": {},
+                "modes": [{"kind": "plain"}],
                 "slice": {
                     "start": "2024-01-02T00:00:00Z",
                     "end": "2024-01-22T00:00:00Z",
@@ -93,8 +93,8 @@ def _batch_spec(artifact: Path) -> dict[str, object]:
             "slippage_bps": 0.0,
             "commission_per_fill": 0.0,
             "sanity": {
-                "max_position_notional_pct": 5.0,
-                "max_gross_exposure_pct": 5.0,
+                "max_intent_size": 1.0e9,
+                "max_position_size": 1.0e9,
             },
         },
         "parallelism": 1,

@@ -196,7 +196,9 @@ def test_author_rejects_unknown_verify_value(
 
 
 def test_author_help_documents_surface() -> None:
-    result = runner.invoke(cli.app, ["author", "--help"])
+    # Pin a wide terminal so rich's Options panel doesn't truncate option names
+    # (e.g. `--verify` → `…`) when CliRunner runs under a narrow tty (CI).
+    result = runner.invoke(cli.app, ["author", "--help"], env={"COLUMNS": "200"})
     assert result.exit_code == 0
     for opt in ("--verify", "--k-repair-emit", "--k-repair-build", "--model", "--crates-dir"):
         assert opt in result.stdout

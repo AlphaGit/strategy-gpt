@@ -8,6 +8,10 @@ from strategy_gpt.cli import app
 
 runner = CliRunner()
 
+# Pin a wide terminal so rich's Options panel doesn't truncate option names
+# (e.g. `--run-id` → `…`) when CliRunner runs under a narrow tty (CI).
+_WIDE_ENV = {"COLUMNS": "200"}
+
 
 def test_version_prints() -> None:
     result = runner.invoke(app, ["version"])
@@ -34,7 +38,7 @@ def test_help_lists_subcommands() -> None:
 
 
 def test_replay_help_documents_options() -> None:
-    result = runner.invoke(app, ["replay", "--help"])
+    result = runner.invoke(app, ["replay", "--help"], env=_WIDE_ENV)
     assert result.exit_code == 0
     for opt in ("--run-id", "--ledger-root", "--gateway-root"):
         assert opt in result.stdout
@@ -57,7 +61,7 @@ def test_optimize_requires_spec_or_subcommand() -> None:
 
 
 def test_fetch_help_documents_options() -> None:
-    result = runner.invoke(app, ["fetch", "--help"])
+    result = runner.invoke(app, ["fetch", "--help"], env=_WIDE_ENV)
     assert result.exit_code == 0
     for opt in ("--provider", "--symbol", "--start", "--end"):
         assert opt in result.stdout
