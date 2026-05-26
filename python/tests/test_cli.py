@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from typer.testing import CliRunner
 
 from strategy_gpt.cli import app
@@ -11,6 +13,15 @@ runner = CliRunner()
 # Pin a wide terminal so rich's Options panel doesn't truncate option names
 # (e.g. `--run-id` → `…`) when CliRunner runs under a narrow tty (CI).
 _WIDE_ENV = {"COLUMNS": "200"}
+
+# Rich injects ANSI styling inside option names ("\x1b[1;36m--\x1b[0m\x1b[1;36mrun-id\x1b[0m")
+# when FORCE_COLOR is set in the environment (the case on GitHub Actions), which breaks naive
+# substring assertions. Strip CSI sequences before searching.
+_ANSI_CSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _plain(s: str) -> str:
+    return _ANSI_CSI_RE.sub("", s)
 
 
 def test_version_prints() -> None:
@@ -40,8 +51,9 @@ def test_help_lists_subcommands() -> None:
 def test_replay_help_documents_options() -> None:
     result = runner.invoke(app, ["replay", "--help"], env=_WIDE_ENV)
     assert result.exit_code == 0
+    plain = _plain(result.stdout)
     for opt in ("--run-id", "--ledger-root", "--gateway-root"):
-        assert opt in result.stdout
+        assert opt in plain
 
 
 def test_ingest_exits_unimplemented() -> None:
@@ -63,5 +75,6 @@ def test_optimize_requires_spec_or_subcommand() -> None:
 def test_fetch_help_documents_options() -> None:
     result = runner.invoke(app, ["fetch", "--help"], env=_WIDE_ENV)
     assert result.exit_code == 0
+    plain = _plain(result.stdout)
     for opt in ("--provider", "--symbol", "--start", "--end"):
-        assert opt in result.stdout
+        assert opt in plain

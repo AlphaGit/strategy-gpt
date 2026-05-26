@@ -9,6 +9,7 @@ require the native module or a real cargo build.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -198,7 +199,10 @@ def test_author_rejects_unknown_verify_value(
 def test_author_help_documents_surface() -> None:
     # Pin a wide terminal so rich's Options panel doesn't truncate option names
     # (e.g. `--verify` → `…`) when CliRunner runs under a narrow tty (CI).
+    # Strip ANSI styling so substring assertions survive rich's color codes
+    # being injected mid-option-name when FORCE_COLOR is set (GitHub Actions).
     result = runner.invoke(cli.app, ["author", "--help"], env={"COLUMNS": "200"})
     assert result.exit_code == 0
+    plain = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.stdout)
     for opt in ("--verify", "--k-repair-emit", "--k-repair-build", "--model", "--crates-dir"):
-        assert opt in result.stdout
+        assert opt in plain
