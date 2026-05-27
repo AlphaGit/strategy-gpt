@@ -313,3 +313,75 @@ def test_folds_count_floor(tmp_path: Path) -> None:
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(Exception, match="count"):
         espec.load(path)
+
+
+def test_top_level_slice_and_seed_inherit_into_runs(tmp_path: Path) -> None:
+    spec = {
+        "artifact": "./libfoo.dylib",
+        "bars": {"dataset": "deadbeef"},
+        "seed": 99,
+        "slice": {
+            "start": "2024-01-01T00:00:00Z",
+            "end": "2024-12-31T00:00:00Z",
+        },
+        "runs": [
+            {"params": {"x": 1.0}},
+            {"params": {"x": 2.0}},
+            {"params": {"x": 3.0}},
+        ],
+    }
+    path = tmp_path / "exp.yaml"
+    path.write_text(yaml.safe_dump(spec))
+    (tmp_path / "libfoo.dylib").write_bytes(b"")
+    parsed = espec.load(path)
+    assert len(parsed.runs) == 3
+    for run in parsed.runs:
+        assert run.seed == 99
+        assert run.slice.start.year == 2024
+        assert run.slice.end.year == 2024
+
+
+def test_per_run_slice_overrides_top_level(tmp_path: Path) -> None:
+    spec = {
+        "artifact": "./libfoo.dylib",
+        "bars": {"dataset": "deadbeef"},
+        "slice": {
+            "start": "2024-01-01T00:00:00Z",
+            "end": "2024-12-31T00:00:00Z",
+        },
+        "seed": 1,
+        "runs": [
+            {"params": {"x": 1.0}},  # inherits both
+            {
+                "params": {"x": 2.0},
+                "seed": 7,
+                "slice": {
+                    "start": "2022-01-01T00:00:00Z",
+                    "end": "2022-12-31T00:00:00Z",
+                },
+            },
+        ],
+    }
+    path = tmp_path / "exp.yaml"
+    path.write_text(yaml.safe_dump(spec))
+    (tmp_path / "libfoo.dylib").write_bytes(b"")
+    parsed = espec.load(path)
+    assert parsed.runs[0].seed == 1
+    assert parsed.runs[0].slice.start.year == 2024
+    assert parsed.runs[1].seed == 7
+    assert parsed.runs[1].slice.start.year == 2022
+
+
+def test_missing_slice_everywhere_rejected(tmp_path: Path) -> None:
+    spec = {
+        "artifact": "./libfoo.dylib",
+        "bars": {"dataset": "deadbeef"},
+        "runs": [
+            {"params": {"x": 1.0}},
+        ],
+    }
+    path = tmp_path / "exp.yaml"
+    path.write_text(yaml.safe_dump(spec))
+    (tmp_path / "libfoo.dylib").write_bytes(b"")
+    with pytest.raises(Exception, match="slice"):
+        espec.load(path)

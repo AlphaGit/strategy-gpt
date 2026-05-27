@@ -31,17 +31,19 @@ engine:
   sanity:
     max_intent_size: 1.0e9
     max_position_size: 1.0e9
+seed: 42
+slice:
+  start: 2018-01-01T00:00:00Z
+  end:   2026-12-31T00:00:00Z
 runs:
   - params: { vol_lo: 0.35, vol_hi: 0.80, size: 100.0, symbol: VXX }
     modes: [{ kind: plain }]
-    seed: 42
-    slice:
-      start: 2018-01-01T00:00:00Z
-      end:   2026-12-31T00:00:00Z
 parallelism: 1
 caps:
   time_cap_secs: 120
 ```
+
+Top-level `seed` and `slice` are optional **defaults** that every entry in `runs:` inherits. A run can still override either by re-declaring it inline. If neither the top level nor a run carries `slice`, the loader raises — `slice` is required somewhere.
 
 JSON is equally accepted (`.json` extension switches the parser).
 
@@ -59,10 +61,12 @@ JSON is equally accepted (`.json` extension switches the parser).
 | `engine.commission_per_fill` | number | `0.0` | Per-fill commission in price * size units. |
 | `engine.sanity.max_intent_size` | number | `1e9` | Backtest-validity ceiling on submitted intent size. |
 | `engine.sanity.max_position_size` | number | `1e9` | Backtest-validity ceiling on simulated position size. |
+| `seed` | integer | `0` | Top-level default for `runs[].seed`. Each run inherits unless it declares its own. |
+| `slice.start` / `slice.end` | RFC 3339 | absent | Top-level default for `runs[].slice`. Each run inherits unless it declares its own. |
 | `runs[].params` | object | `{}` | Opaque JSON forwarded to the strategy's `on_init`. |
 | `runs[].modes` | array | `[{kind: plain}]` | One or more `Mode` entries. |
-| `runs[].seed` | integer | `0` | Determinism anchor. |
-| `runs[].slice.start` / `runs[].slice.end` | RFC 3339 | required | Half-open `[start, end)` UTC window. |
+| `runs[].seed` | integer | inherits top-level `seed` (or `0`) | Determinism anchor. |
+| `runs[].slice.start` / `runs[].slice.end` | RFC 3339 | inherits top-level `slice` | Half-open `[start, end)` UTC window. Required: present at top level, on the run, or both. |
 | `parallelism` | integer \| `auto` | `1` | Worker fan-out cap. `auto` resolves at load time (see below). |
 | `caps.time_cap_secs` | number \| null | `null` | Per-run wall-clock cap. |
 | `caps.mem_cap_bytes` | integer \| null | `null` | Per-run memory cap (Linux). |

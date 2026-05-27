@@ -54,6 +54,15 @@
       "minItems": 1,
       "items": { "$ref": "#/$defs/RunConfig" }
     },
+    "seed": {
+      "type": "integer",
+      "default": 0,
+      "description": "Top-level default for runs[].seed. Each run inherits unless it declares its own."
+    },
+    "slice": {
+      "$ref": "#/$defs/TimeRange",
+      "description": "Top-level default for runs[].slice. Each run inherits unless it declares its own. If neither the top level nor any run carries slice, the loader raises."
+    },
     "optimize": {
       "$ref": "#/$defs/OptimizeBlock",
       "description": "Optional declarative parameter search over the run template. Requires `folds`."
@@ -114,7 +123,6 @@
     "RunConfig": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["slice"],
       "properties": {
         "params": { "type": "object", "default": {} },
         "modes": {
@@ -122,8 +130,14 @@
           "default": [{ "kind": "plain" }],
           "items": { "$ref": "#/$defs/Mode" }
         },
-        "seed": { "type": "integer", "default": 0 },
-        "slice": { "$ref": "#/$defs/TimeRange" }
+        "seed": {
+          "type": "integer",
+          "description": "Per-run determinism anchor. Inherits the top-level `seed` (default 0) when omitted."
+        },
+        "slice": {
+          "$ref": "#/$defs/TimeRange",
+          "description": "Per-run evaluation window. Inherits the top-level `slice` when omitted. Required: present at top level, on the run, or both."
+        }
       }
     },
     "Mode": {

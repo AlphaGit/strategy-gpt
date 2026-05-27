@@ -393,6 +393,37 @@ class ExperimentSpec(BaseModel):
     caps: Caps = Caps()
     strategy_label: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _inherit_run_defaults(cls, value: object) -> object:
+        """Distribute top-level `slice` and `seed` into each run that omits them.
+
+        Multi-run sweeps almost always share the same evaluation window
+        and determinism anchor; per-run repetition is just noise. Allow
+        an experiment to declare `slice:` and/or `seed:` at the top
+        level; each `runs[]` entry that lacks the same key inherits it.
+        Per-run values still override. Anything still missing after
+        inheritance falls through to ``RunConfig``'s own field
+        validation, which raises on the absent required `slice`.
+        """
+        if not isinstance(value, dict):
+            return value
+        default_slice = value.pop("slice", None)
+        default_seed = value.pop("seed", None)
+        if default_slice is None and default_seed is None:
+            return value
+        runs = value.get("runs")
+        if not isinstance(runs, list):
+            return value
+        for run in runs:
+            if not isinstance(run, dict):
+                continue
+            if default_slice is not None and "slice" not in run:
+                run["slice"] = default_slice
+            if default_seed is not None and "seed" not in run:
+                run["seed"] = default_seed
+        return value
+
     @model_validator(mode="after")
     def _check_optimize_requires_folds(self) -> ExperimentSpec:
         if self.optimize is not None and self.folds is None:
