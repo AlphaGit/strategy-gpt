@@ -51,8 +51,6 @@ export RUSTC_WRAPPER=sccache
 - [`CLAUDE.md` — Build / develop](https://github.com/AlphaGit/strategy-gpt/blob/main/CLAUDE.md#build--develop): the canonical build instructions including Rust toolchain pin.
 - [Architecture](explanation/architecture.md): why the orchestrator / Rust core / worker split exists.
 
---8<-- "cli-cross-cutting.md"
-
 ## Stage 1 — Explore the command surface {#stage-1-explore}
 
 Before driving any workflow, get a feel for what the CLI exposes. `strategy-gpt` follows the standard `--help` convention: the root command lists subcommands, and each subcommand has its own `--help` with flags, defaults, and a short purpose line. Two no-cost preview flags (`--dry-run` on `hypothesize`, `--benchmark` on `optimize`) let you inspect resolved wiring and predicted cost without spending tokens or running backtests.
@@ -92,8 +90,6 @@ strategy-gpt optimize --spec examples/vxx/experiment.yaml --benchmark --sample 3
 - [hypothesize CLI reference](reference/hypothesize-cli.md): every flag the hypothesize subcommand accepts.
 - [Experiment spec reference](reference/experiment-spec.md): the YAML/JSON shape `--spec` consumes.
 
---8<-- "cli-cross-cutting.md"
-
 ## Stage 2 — Acquire data {#stage-2-data}
 
 A *dataset* in this system is a normalized OHLCV bar stream pinned to a content-addressed manifest. The data gateway (`crates/data-gateway`) produces one when you fetch from a provider; the manifest hash identifies the exact bytes the engine saw, and the ledger stores that hash alongside every run so any backtest can be reproduced byte-for-byte. Year segmentation means a single fetch over `2018–2026` produces nine cache blobs (one per calendar year); a later fetch over `2020–2024` reuses those blobs and only hits the network for the gap.
@@ -120,6 +116,10 @@ Output:
 ```
 
 Save the `manifest_hash` — that's how every downstream surface (engine, ledger, optimizer) references this exact dataset.
+
+--8<-- "cli-roots.md"
+
+--8<-- "cli-progress.md"
 
 Use a CSV provider for bring-your-own data:
 
@@ -178,8 +178,6 @@ A one-time step per dataset window. The output JSON is reused across every subse
 
 - [Experiment spec reference](reference/experiment-spec.md): the `bars` block (`dataset` or `request`) the engine consumes downstream.
 
---8<-- "cli-cross-cutting.md"
-
 ## Stage 3 — Author a strategy {#stage-3-author}
 
 `strategy-gpt author` is the LLM-driven creation primitive. It runs an interactive dialog, locks each clarification into `crates/<name>-strategy/.author/decisions.jsonl` (the authoritative state — the LLM's chat history is non-load-bearing), then emits `Cargo.toml` + `src/lib.rs` + `intent.toml` + `smoke.toml`, runs `cargo build`, and runs a smoke backtest. Success means *compiles and smoke passes*. There is no ledger row, no verdict.
@@ -191,6 +189,8 @@ strategy-gpt author "trend-follow SPY with ATR stops, daily bars"
 ```
 
 The LLM opens with the seed and asks one focused clarifying question per turn until it has enough to commit to an `AuthorIntent`. On success it prints a JSON envelope with the crate path and a next-step hint.
+
+--8<-- "cli-env-keys.md"
 
 Invoke with no seed:
 
@@ -253,8 +253,6 @@ strategy-gpt author "vol-target SPY" --verbose
 - [How-to — Author a strategy](how-to/author-a-strategy.md): task-oriented recipe page with deeper coverage of edit-mode and `--verify=batch`.
 - [Explanation — Hand-authoring a strategy](explanation/hand-authoring-a-strategy.md): the engineer-targeted deep dive on the sealed `Strategy` trait surface author targets.
 
---8<-- "cli-cross-cutting.md"
-
 ## Stage 4 — One-shot backtest {#stage-4-one-shot}
 
 Reach for `strategy-gpt run` when you want a single deterministic backtest of an existing strategy: smoke-checking a parameter tweak, reproducing a specific configuration, or fanning out a small parameter sweep without invoking the optimizer. Each run pins `(artifact_hash, dataset_manifest, params, seed, runner_version)` and writes the result through the orchestrator; identical inputs produce a byte-identical `BacktestResult`.
@@ -307,8 +305,6 @@ The engine compiles once and fans out across `parallelism` worker subprocesses (
 
 - [Experiment spec reference](reference/experiment-spec.md): every field on the YAML, including `bars.dataset` (cache-only), the `modes` axis, and `caps`.
 - [Batch spec reference](reference/batch-spec.md): the internal `BatchSpec` shape and the `BacktestResult` output schema.
-
---8<-- "cli-cross-cutting.md"
 
 ## Stage 5 — Optimize {#stage-5-optimize}
 
@@ -417,8 +413,6 @@ strategy-gpt optimize --spec experiment.yaml --force
 - [Explanation — Overfitting & selection](explanation/overfitting-and-selection.md): PBO, Deflated Sharpe, and the robust score, with limitations.
 - [How-to — Interpret a PBO rejection](how-to/interpret-pbo-rejection.md): operator actions when `decision.status == "rejected_pbo"`.
 
---8<-- "cli-cross-cutting.md"
-
 ## Stage 6 — Hypothesize improvements + KB {#stage-6-hypothesize}
 
 The hypothesis loop is a LangGraph workflow (`diagnose → kb_query → generate → critique → rank → select`) over an immutable pydantic state. Each iteration of the inner `generate → critique → rank` cycle produces fresh hypothesis candidates informed by the knowledge base; the loop exits when enough candidates pass critique, the iteration budget is exhausted, or new candidates closely resemble prior rejections. Every accepted *and* rejected decision is persisted to the per-strategy ledger so subsequent runs don't re-propose what's already been rejected.
@@ -500,8 +494,6 @@ strategy-gpt hypothesis diff <decision-id> --strategy spy_atr
 - [How-to — Run the hypothesize loop](how-to/run-hypothesize.md): task-oriented recipe coverage of every flag.
 - [How-to — Read progress output](how-to/read-progress-output.md): per-node / per-LLM-attempt / per-trial heartbeat vocabulary on stderr.
 
---8<-- "cli-cross-cutting.md"
-
 ## Stage 7 — Iterate {#stage-7-iterate}
 
 One improvement cycle is `optimize → hypothesize → accept → re-optimize`. The "iterate" stage is the second and subsequent passes of that cycle: an accepted hypothesis changes the strategy code or parameter space, so the previously-best parameters are no longer authoritative — you re-optimize, then re-run `hypothesize` with the new optimize-run id as the rigorous baseline.
@@ -532,8 +524,6 @@ The decision log is the durable cross-iteration artifact. Every `recent-decision
 
 - [Stage 5 — Optimize](#stage-5-optimize): the re-optimize step.
 - [Stage 6 — Hypothesize improvements + KB](#stage-6-hypothesize): the re-hypothesize step.
-
---8<-- "cli-cross-cutting.md"
 
 ## Stage 8 — Reproduce and debug {#stage-8-reproduce}
 
@@ -570,5 +560,3 @@ For the curious: `ledger/optimizations.sqlite` is the index of every optimize ru
 ### See also
 
 - [Explanation — Domain vocabulary](explanation/domain-vocabulary.md): every term used in the rest of the docs, defined once, including the reproducibility primitives.
-
---8<-- "cli-cross-cutting.md"

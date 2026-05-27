@@ -398,26 +398,27 @@ The stages and their minimum CLI coverage are:
 - **WHEN** Stage 0 is rendered
 - **THEN** it includes one sentence stating that `make lint`, `make test`, `pre-commit`, and `cargo check --workspace` are contributor / CI commands rather than operator commands, with a pointer to the contributor docs
 
-### Requirement: Reusable cross-cutting snippet is embedded in every walkthrough stage
+### Requirement: Cross-cutting CLI reminders are split per concern and placed contextually
 
-A single canonical reminder of cross-cutting CLI concerns (progress modes, env vars, root paths) SHALL exist at `docs/_includes/cli-cross-cutting.md`. Every stage of the guided walkthrough MUST embed this snippet via the mkdocs-material snippets directive (`--8<-- "_includes/cli-cross-cutting.md"`). The `pymdownx.snippets` extension MUST be enabled in `mkdocs.yml` with a `base_path` that resolves the `_includes/` directory.
+The walkthrough SHALL split the cross-cutting CLI reminders into one snippet per concern, each living under `docs/_includes/` and each embedded via the mkdocs-material snippets directive (`--8<-- "<name>.md"`) at most once on the page — placed immediately after the first command snippet that makes the reminder load-bearing, not appended to every stage. The `pymdownx.snippets` extension MUST be enabled in `mkdocs.yml` with a `base_path` that resolves the `_includes/` directory.
 
-The snippet MUST cover, at minimum:
+The required snippets are:
 
-- The `--progress {auto,plain,json,off}` flag and its default behavior across long-running commands.
-- The LLM-stage env vars `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` and which commands consume them.
-- The recommended `RUSTC_WRAPPER=sccache` for Rust rebuild speed.
-- The configurable root flags `--cache-root`, `--ledger-root`, `--gateway-root`, `--work-root`.
+- `docs/_includes/cli-progress.md` — covers the `--progress {auto,plain,json,off}` flag and its default behavior across long-running commands. Placed after the first long-running command in the walkthrough (Stage 2, the first `fetch` invocation).
+- `docs/_includes/cli-env-keys.md` — covers the LLM-stage env vars `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` and which commands consume them. Placed at Stage 3, after the first `strategy-gpt author` invocation.
+- `docs/_includes/cli-roots.md` — covers the configurable root flags `--cache-root`, `--ledger-root`, `--gateway-root`, `--work-root`. Placed after the first command in the walkthrough that uses a root flag (Stage 2, the first `fetch` invocation).
 
-#### Scenario: Snippet file exists at the documented path
+The recommended `RUSTC_WRAPPER=sccache` is covered inline in Stage 0's setup snippets rather than via an include, because it is a one-time env-var export rather than a per-command reminder.
+
+#### Scenario: Snippet files exist at the documented paths
 
 - **WHEN** `mkdocs build --strict` runs
-- **THEN** `docs/_includes/cli-cross-cutting.md` exists and resolves via the configured snippets `base_path`
+- **THEN** `docs/_includes/cli-progress.md`, `docs/_includes/cli-env-keys.md`, and `docs/_includes/cli-roots.md` exist and resolve via the configured snippets `base_path`
 
-#### Scenario: Every stage embeds the snippet
+#### Scenario: Each snippet is embedded once at its contextual home
 
-- **WHEN** Stages 0 through 8 are rendered
-- **THEN** each stage contains the rendered output of `docs/_includes/cli-cross-cutting.md` (identical text across stages), confirming that no stage hand-copies a divergent version
+- **WHEN** the walkthrough is rendered
+- **THEN** each of the three snippets appears exactly once, immediately following the first command snippet that makes the reminder load-bearing (progress + roots after the first `fetch` in Stage 2; env keys after the first `author` in Stage 3); no stage appends the reminders out of context
 
 #### Scenario: Snippets extension is enabled
 
