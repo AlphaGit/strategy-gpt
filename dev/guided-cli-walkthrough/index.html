@@ -2736,12 +2736,6 @@
 <li><a href="https://github.com/AlphaGit/strategy-gpt/blob/main/CLAUDE.md#build--develop"><code>CLAUDE.md</code> — Build / develop</a>: the canonical build instructions including Rust toolchain pin.</li>
 <li><a href="../explanation/architecture/">Architecture</a>: why the orchestrator / Rust core / worker split exists.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-1-explore">Stage 1 — Explore the command surface<a class="headerlink" href="#stage-1-explore" title="Permanent link">&para;</a></h2>
 <p>Before driving any workflow, get a feel for what the CLI exposes. <code>strategy-gpt</code> follows the standard <code>--help</code> convention: the root command lists subcommands, and each subcommand has its own <code>--help</code> with flags, defaults, and a short purpose line. Two no-cost preview flags (<code>--dry-run</code> on <code>hypothesize</code>, <code>--benchmark</code> on <code>optimize</code>) let you inspect resolved wiring and predicted cost without spending tokens or running backtests.</p>
 <p>List the root surface:</p>
@@ -2765,12 +2759,6 @@
 <li><a href="../reference/hypothesize-cli/">hypothesize CLI reference</a>: every flag the hypothesize subcommand accepts.</li>
 <li><a href="../reference/experiment-spec/">Experiment spec reference</a>: the YAML/JSON shape <code>--spec</code> consumes.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-2-data">Stage 2 — Acquire data<a class="headerlink" href="#stage-2-data" title="Permanent link">&para;</a></h2>
 <p>A <em>dataset</em> in this system is a normalized OHLCV bar stream pinned to a content-addressed manifest. The data gateway (<code>crates/data-gateway</code>) produces one when you fetch from a provider; the manifest hash identifies the exact bytes the engine saw, and the ledger stores that hash alongside every run so any backtest can be reproduced byte-for-byte. Year segmentation means a single fetch over <code>2018–2026</code> produces nine cache blobs (one per calendar year); a later fetch over <code>2020–2024</code> reuses those blobs and only hits the network for the gap.</p>
 <p>Download VXX history through the yfinance provider:</p>
@@ -2789,6 +2777,14 @@
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Save the <code>manifest_hash</code> — that's how every downstream surface (engine, ledger, optimizer) references this exact dataset.</p>
+<div class="admonition note">
+<p class="admonition-title">Root flags</p>
+<p>Four root flags pin where the CLI reads and writes filesystem state: <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--gateway-root</code> (alias used by <code>run</code> / <code>optimize</code> / <code>replay</code> to resolve bars, default <code>cache</code>), <code>--ledger-root</code> (run history + per-strategy decisions, default <code>ledger</code>), <code>--work-root</code> (build-pipeline scratch, default <code>cache/build-work</code>). The four roots are independent; pointing them at a fresh directory tree gives you an isolated workspace with no implicit shared state.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Progress output</p>
+<p>Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe; <code>json</code> forces line-delimited JSON for ingestion; <code>off</code> silences progress entirely. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
+</div>
 <p>Use a CSV provider for bring-your-own data:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>strategy-gpt<span class="w"> </span>fetch<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>--provider<span class="w"> </span>my_csv<span class="w"> </span>--symbol<span class="w"> </span>VXX<span class="w"> </span><span class="se">\</span>
@@ -2832,18 +2828,16 @@
 <ul>
 <li><a href="../reference/experiment-spec/">Experiment spec reference</a>: the <code>bars</code> block (<code>dataset</code> or <code>request</code>) the engine consumes downstream.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-3-author">Stage 3 — Author a strategy<a class="headerlink" href="#stage-3-author" title="Permanent link">&para;</a></h2>
 <p><code>strategy-gpt author</code> is the LLM-driven creation primitive. It runs an interactive dialog, locks each clarification into <code>crates/&lt;name&gt;-strategy/.author/decisions.jsonl</code> (the authoritative state — the LLM's chat history is non-load-bearing), then emits <code>Cargo.toml</code> + <code>src/lib.rs</code> + <code>intent.toml</code> + <code>smoke.toml</code>, runs <code>cargo build</code>, and runs a smoke backtest. Success means <em>compiles and smoke passes</em>. There is no ledger row, no verdict.</p>
 <p>Invoke with a one-line seed:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>strategy-gpt<span class="w"> </span>author<span class="w"> </span><span class="s2">&quot;trend-follow SPY with ATR stops, daily bars&quot;</span>
 </span></code></pre></div>
 <p>The LLM opens with the seed and asks one focused clarifying question per turn until it has enough to commit to an <code>AuthorIntent</code>. On success it prints a JSON envelope with the crate path and a next-step hint.</p>
+<div class="admonition note">
+<p class="admonition-title">LLM credentials</p>
+<p>LLM-driven commands (<code>author</code> and <code>hypothesize</code>) need either <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> exported in the environment; the rest of the CLI surface (<code>fetch</code>, <code>run</code>, <code>optimize</code>, <code>replay</code>, <code>cache-stats</code>, <code>recent-decisions</code>) does not. The chosen <code>--model</code> decides which key is consumed; if neither is set, the command fails fast on stderr with <code>exit_code=2</code>.</p>
+</div>
 <p>Invoke with no seed:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>strategy-gpt<span class="w"> </span>author
 </span></code></pre></div>
@@ -2885,12 +2879,6 @@
 <li><a href="../how-to/author-a-strategy/">How-to — Author a strategy</a>: task-oriented recipe page with deeper coverage of edit-mode and <code>--verify=batch</code>.</li>
 <li><a href="../explanation/hand-authoring-a-strategy/">Explanation — Hand-authoring a strategy</a>: the engineer-targeted deep dive on the sealed <code>Strategy</code> trait surface author targets.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-4-one-shot">Stage 4 — One-shot backtest<a class="headerlink" href="#stage-4-one-shot" title="Permanent link">&para;</a></h2>
 <p>Reach for <code>strategy-gpt run</code> when you want a single deterministic backtest of an existing strategy: smoke-checking a parameter tweak, reproducing a specific configuration, or fanning out a small parameter sweep without invoking the optimizer. Each run pins <code>(artifact_hash, dataset_manifest, params, seed, runner_version)</code> and writes the result through the orchestrator; identical inputs produce a byte-identical <code>BacktestResult</code>.</p>
 <p>Submit and block until completion:</p>
@@ -2926,12 +2914,6 @@
 <li><a href="../reference/experiment-spec/">Experiment spec reference</a>: every field on the YAML, including <code>bars.dataset</code> (cache-only), the <code>modes</code> axis, and <code>caps</code>.</li>
 <li><a href="../reference/batch-spec/">Batch spec reference</a>: the internal <code>BatchSpec</code> shape and the <code>BacktestResult</code> output schema.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-5-optimize">Stage 5 — Optimize<a class="headerlink" href="#stage-5-optimize" title="Permanent link">&para;</a></h2>
 <p><code>strategy-gpt optimize</code> drives a per-fold search: for each fold of the experiment's <code>folds</code> block the configured method runs against the fold's <em>train</em> slice; every fold winner is then cross-validated across every fold's <em>OOS</em> slice and the candidate with the highest OOS-aggregate score wins. Trial rows, the run manifest, and <code>best.json</code> land under <code>ledger/optimizations/&lt;opt_id&gt;/</code>; a SQLite index at <code>ledger/optimizations.sqlite</code> lists every run. An overfitting-aware selection layer (PBO, Deflated Sharpe, robust-rank) runs over the trials before <code>best.json</code> is published.</p>
 <p>Default method (whatever the spec declares, typically <code>recursive_grid</code>):</p>
@@ -3002,12 +2984,6 @@
 <li><a href="../explanation/overfitting-and-selection/">Explanation — Overfitting &amp; selection</a>: PBO, Deflated Sharpe, and the robust score, with limitations.</li>
 <li><a href="../how-to/interpret-pbo-rejection/">How-to — Interpret a PBO rejection</a>: operator actions when <code>decision.status == "rejected_pbo"</code>.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-6-hypothesize">Stage 6 — Hypothesize improvements + KB<a class="headerlink" href="#stage-6-hypothesize" title="Permanent link">&para;</a></h2>
 <p>The hypothesis loop is a LangGraph workflow (<code>diagnose → kb_query → generate → critique → rank → select</code>) over an immutable pydantic state. Each iteration of the inner <code>generate → critique → rank</code> cycle produces fresh hypothesis candidates informed by the knowledge base; the loop exits when enough candidates pass critique, the iteration budget is exhausted, or new candidates closely resemble prior rejections. Every accepted <em>and</em> rejected decision is persisted to the per-strategy ledger so subsequent runs don't re-propose what's already been rejected.</p>
 <p><strong>Baseline modes</strong> are mutually exclusive; one must be supplied.</p>
@@ -3055,12 +3031,6 @@
 <li><a href="../how-to/run-hypothesize/">How-to — Run the hypothesize loop</a>: task-oriented recipe coverage of every flag.</li>
 <li><a href="../how-to/read-progress-output/">How-to — Read progress output</a>: per-node / per-LLM-attempt / per-trial heartbeat vocabulary on stderr.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-7-iterate">Stage 7 — Iterate<a class="headerlink" href="#stage-7-iterate" title="Permanent link">&para;</a></h2>
 <p>One improvement cycle is <code>optimize → hypothesize → accept → re-optimize</code>. The "iterate" stage is the second and subsequent passes of that cycle: an accepted hypothesis changes the strategy code or parameter space, so the previously-best parameters are no longer authoritative — you re-optimize, then re-run <code>hypothesize</code> with the new optimize-run id as the rigorous baseline.</p>
 <p>The minimum end-to-end loop:</p>
@@ -3085,12 +3055,6 @@
 <li><a href="#stage-5-optimize">Stage 5 — Optimize</a>: the re-optimize step.</li>
 <li><a href="#stage-6-hypothesize">Stage 6 — Hypothesize improvements + KB</a>: the re-hypothesize step.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 <h2 id="stage-8-reproduce">Stage 8 — Reproduce and debug<a class="headerlink" href="#stage-8-reproduce" title="Permanent link">&para;</a></h2>
 <p>Every run pins <code>(artifact_hash, dataset_manifest, params, seed, runner_version)</code>. Identical inputs produce a byte-identical <code>BacktestResult</code>. The ledger stores enough to replay a run from <code>(ledger record + cache blobs)</code> without contacting the upstream provider, which is what the reproducibility guarantee is built on.</p>
 <p>Replay a recorded run from the ledger:</p>
@@ -3113,12 +3077,6 @@
 <ul>
 <li><a href="../explanation/domain-vocabulary/">Explanation — Domain vocabulary</a>: every term used in the rest of the docs, defined once, including the reproducibility primitives.</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Cross-cutting reminders</p>
-<p><strong>Progress output.</strong> Every long-running command (<code>fetch</code>, <code>run --wait</code>, <code>optimize</code>, <code>hypothesize</code>, <code>author</code>, <code>tester</code>, smoke) accepts <code>--progress {auto,plain,json,off}</code>. <code>auto</code> (the default) picks a rich phase tree on a TTY and falls back to JSONL on a pipe. See <a href="../how-to/read-progress-output/">Read progress output</a> for the event vocabulary and filter recipes.</p>
-<p><strong>Env vars.</strong> LLM-driven commands (<code>author</code>, <code>hypothesize</code>) need <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> (whichever the chosen model needs). <code>RUSTC_WRAPPER=sccache</code> is recommended for fast Rust rebuilds across <code>author</code> and <code>hypothesize</code>'s build pipeline.</p>
-<p><strong>Root flags.</strong> <code>--cache-root</code> (gateway cache, default <code>cache</code>), <code>--ledger-root</code> (run history, default <code>ledger</code>), <code>--gateway-root</code> (gateway cache alias used by some subcommands, default <code>cache</code>), <code>--work-root</code> (build scratch, default <code>cache/build-work</code>). All four are independent and persist nothing implicitly; an isolated workspace is just a fresh set of roots.</p>
-</div>
 
 
 
