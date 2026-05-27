@@ -18,11 +18,11 @@ Print the installed CLI version (sanity check that the entry point is on `PATH`)
 strategy-gpt version
 ```
 
-Build the engine worker and the reference VXX strategy. The worker is the per-batch subprocess every backtest fans out to; the VXX strategy is the bundled smoke target this walkthrough refers to throughout:
+Build the engine worker and the reference VXX strategy. The worker is the per-batch subprocess every backtest fans out to (the binary `engine-worker` ships in the `engine` crate); the VXX strategy is the bundled smoke target this walkthrough refers to throughout. Run from the repo root — the Rust workspace `Cargo.toml` lives at `crates/Cargo.toml`, so each command uses `--manifest-path` instead of changing directory:
 
 ```bash
-cd crates && cargo build -p engine-worker
-cd crates && cargo build -p vxx-strategy
+cargo build --manifest-path crates/Cargo.toml -p engine --bin engine-worker
+cargo build --manifest-path crates/Cargo.toml -p vxx-strategy
 ```
 
 Build the PyO3 bindings into the active venv. Required after a fresh checkout and after any change to the Rust crates exposed via `crates/py-bindings/`:
