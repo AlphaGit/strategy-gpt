@@ -2,198 +2,198 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
+    </url>
+    <url>
+         <loc>https://alphagit.github.io/strategy-gpt/dev/guided-cli-walkthrough/</loc>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0000-adr-template/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0001-rust-execution-layer/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0002-python-orchestration/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0003-pyo3-trusted-crate-boundary/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0004-engine-worker-subprocess-arrow-ipc/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0005-worker-process-isolation-no-sandbox/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0006-sealed-strategy-trait/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0007-sqlite-parquet-ledger/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0008-hybrid-graph-vector-kb/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0009-year-segmented-content-addressed-cache/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0010-abort-on-failure-batch-semantics/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0011-pbo-threshold-default-0_5/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0012-oos-aggregator-mean-only/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0013-rust-toolchain-pin-1-82/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0014-lint-stance/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0015-docs-platform-mkdocs-mike-pages/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0016-prompt-api-md-authoritative-llm-context/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0017-per-strategy-storage-layout/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0018-no-versioning-on-hypothesis-records/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0019-multi-stage-llm-emission/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/decisions/0020-comparative-falsification-variance-aware-epsilon/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/architecture/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/bibliography/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/domain-vocabulary/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/hand-authoring-a-strategy/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/hypothesize-loop/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/methodology-page-template/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/explanation/overfitting-and-selection/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/for-engineers/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/for-quants/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/how-to/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/how-to/author-a-strategy/</loc>
-         <lastmod>2026-05-26</lastmod>
-    </url>
-    <url>
-         <loc>https://alphagit.github.io/strategy-gpt/dev/how-to/cli-cookbook/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/how-to/interpret-pbo-rejection/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/how-to/read-progress-output/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/how-to/run-hypothesize/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/reference/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/reference/batch-spec/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/reference/experiment-spec/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/reference/hypothesize-cli/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/reference/objective-spec/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/tutorials/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/tutorials/author-a-strategy/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/tutorials/first-backtest/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/tutorials/hypothesize-loop/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
     <url>
          <loc>https://alphagit.github.io/strategy-gpt/dev/tutorials/running-an-optimization/</loc>
-         <lastmod>2026-05-26</lastmod>
+         <lastmod>2026-05-27</lastmod>
     </url>
 </urlset>
