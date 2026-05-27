@@ -1,0 +1,5 @@
+symbol = "VXX"
+resolution = "Day"
+start = "2018-01-01"
+end = "2025-12-31"
+provider = "yfinance"
