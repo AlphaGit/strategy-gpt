@@ -1,0 +1,34 @@
+name = "vxx"
+description = """
+The reference VXX volatility-range smoke strategy. VXX is the volatility-tracking
+ETN; in the dominant contango regime its term-structure roll bleeds value over
+time. The strategy holds a short VXX position while realized volatility is low
+(the "calm contango bleed" regime) and flattens once realized vol rises above an
+upper threshold (signalling backwardation or a vol spike that erodes the short
+edge). Used throughout the platform as the bundled smoke target — its product is
+exercising every downstream module (engine, ledger, optimizer, hypothesize)
+against a strategy that compiles, trades, and produces non-trivial backtest
+output, not the strategy itself."""
+mechanism_summary = """
+For every daily VXX bar:
+  - read the engine-provided `realized_vol_20` indicator (20-day realized
+    volatility, warm-up gated — the first 19 bars suppress signals).
+  - if not currently short and `vol <= vol_lo`: submit a market Short for
+    `size` units of VXX (reason `contango_low_vol_entry`).
+  - if currently short and `vol >= vol_hi`: submit a market Long for `size`
+    units (reason `backwardation_exit`) to flatten the short.
+  - otherwise log a suppressed `hold` signal with reason `threshold_band`.
+Orders execute as market orders at the next bar open. State is per-bar:
+the strategy holds at most one open VXX short and never builds up size."""
+baseline_crate = "crates/vxx-strategy"
+
+[smoke_spec]
+symbol = "VXX"
+resolution = "1d"
+start = "2018-01-01"
+end = "2025-12-31"
+provider = "yfinance"
+
+[param_schema_sketch]
+_json = '''
+{"params": [{"default": 0.01, "kind": "f64", "max": 0.05, "min": 0.001, "name": "vol_lo"}, {"default": 0.04, "kind": "f64", "max": 0.20, "min": 0.01, "name": "vol_hi"}, {"default": 100.0, "kind": "f64", "max": 10000.0, "min": 1.0, "name": "size"}, {"default": "VXX", "kind": "string", "name": "symbol"}]}'''
