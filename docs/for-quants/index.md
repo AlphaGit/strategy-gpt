@@ -9,7 +9,7 @@ Reading path for strategy authors and researchers. Read top-to-bottom on your fi
 
 ## Operate
 
-3. [CLI cookbook](../how-to/cli-cookbook.md) — recipe-style commands for the workflows you'll run most often.
+3. [Guided CLI walkthrough](../guided-cli-walkthrough.md) — the nine-stage operator manual for the CLI surface.
 4. [Experiment spec reference](../reference/experiment-spec.md) — the YAML/JSON you'll author per experiment.
 5. [Objective spec & selection knobs](../reference/objective-spec.md) — your strategy's `objective.yaml` and the optimizer's knobs.
 

@@ -178,7 +178,7 @@ You drove the author command from a one-line NL seed to a working `cdylib`. Auth
 ## What next
 
 - **How-to** — [Author a strategy](../how-to/author-a-strategy.md): the task-oriented recipe collection, including `--verify=batch`, repair-budget tuning, and edit-mode against an existing crate.
-- **How-to** — [CLI cookbook → Author a strategy](../how-to/cli-cookbook.md): the cookbook recipes for the same command in the company of `fetch`, `run`, `hypothesize`, and `optimize`.
+- **Walkthrough** — [Guided CLI walkthrough → Stage 3 (Author)](../guided-cli-walkthrough.md#stage-3-author): the same command in the company of `fetch`, `run`, `hypothesize`, and `optimize`.
 - **Explanation** — [Hand-authoring a strategy](../explanation/hand-authoring-a-strategy.md): the engineer-targeted deep dive on the sealed `Strategy` trait surface that author targets. Read this when extending the trait, debugging an author emission, or contributing to the engine.
 - **Tutorial** — [Walking the hypothesize loop](hypothesize-loop.md): drive the hypothesis loop's `hypothesize`, `hypothesis replay`, and `hypothesis diff` surface against the strategy you just authored (or a stub ledger fixture).
 - **Reference** — [`crates/engine-rt/PROMPT_API.md`](https://github.com/AlphaGit/strategy-gpt/blob/main/crates/engine-rt/PROMPT_API.md): the authoritative lifecycle + `Context` surface the LLM is targeting.

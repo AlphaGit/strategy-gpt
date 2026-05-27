@@ -232,7 +232,7 @@ You declared a fold-aware parameter search in the experiment-spec, ran ~200 back
 
 ## What next
 
-- **How-to** — [CLI cookbook → Parameter optimization](../how-to/cli-cookbook.md#parameter-optimization): every supported method (`grid`, `random`, `sobol`, `cma_es`, `differential_evolution`, `successive_halving`, `lhs_polish`) and its tuning knobs.
+- **Walkthrough** — [Guided CLI walkthrough → Stage 5 (Optimize)](../guided-cli-walkthrough.md#stage-5-optimize): every supported method (`grid`, `random`, `sobol`, `cma_es`, `differential_evolution`, `successive_halving`, `lhs_polish`) and its tuning knobs.
 - **How-to** — [Interpret a PBO rejection](../how-to/interpret-pbo-rejection.md): operator actions when `decision.status == "rejected_pbo"`.
 - **Reference** — [`experiment-spec` → Optimize](../reference/experiment-spec.md): the full `optimize` and `folds` block schemas.
 - **Reference** — [Objective spec](../reference/objective-spec.md): primary, secondary, and tradeoff knobs.

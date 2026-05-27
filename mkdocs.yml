@@ -8,6 +8,10 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site
 
+exclude_docs: |
+  _includes/
+
+
 theme:
   name: material
   features:
@@ -59,7 +63,9 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: ["docs/_includes/", "docs/"]
+      check_paths: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -78,6 +84,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Guided CLI walkthrough: guided-cli-walkthrough.md
   - For quants: for-quants/index.md
   - For engineers: for-engineers/index.md
   - Tutorials:
@@ -88,7 +95,6 @@ nav:
       - Running an optimization: tutorials/running-an-optimization.md
   - How-to:
       - how-to/index.md
-      - CLI cookbook: how-to/cli-cookbook.md
       - Author a strategy: how-to/author-a-strategy.md
       - Interpret PBO rejection: how-to/interpret-pbo-rejection.md
       - Run the hypothesize loop: how-to/run-hypothesize.md

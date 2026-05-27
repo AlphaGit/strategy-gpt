@@ -160,7 +160,7 @@ You exercised the full single-run path: Python orchestrator (`strategy-gpt run`)
 
 ## What next
 
-- **How-to** — [CLI cookbook](../how-to/cli-cookbook.md): the full set of `strategy-gpt run` recipes (CSV providers, cache modes, multi-run sweeps).
+- **Walkthrough** — [Guided CLI walkthrough → Stage 4 (One-shot backtest)](../guided-cli-walkthrough.md#stage-4-one-shot): the full set of `strategy-gpt run` recipes (CSV providers, cache modes, multi-run sweeps).
 - **Reference** — [`experiment-spec`](../reference/experiment-spec.md): every field on the YAML you just wrote, including `bars.dataset` (cache-only) and the `modes` axis.
 - **Reference** — [`BacktestResult`](../reference/batch-spec.md): the full output schema, including `signals`, `equity`, `exec_log`, `regimes`.
 - **Explanation** — [Architecture](../explanation/architecture.md): the orchestrator/Rust/worker split you just ran through, and why the trust boundaries are where they are.
