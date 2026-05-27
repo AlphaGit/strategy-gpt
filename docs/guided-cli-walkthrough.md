@@ -288,7 +288,7 @@ echo "submitted: $HANDLE"
 
 Drop `--wait` and the CLI returns the job handle immediately. Polling currently lives in Python (`Engine.poll(handle)` on the orchestrator surface); the CLI exposes blocking polls via `--wait` only.
 
-**Tweak parameters and re-run.** Parameter changes never trigger a rebuild — that's what `runs[].params` is for. Edit `examples/vxx/experiment.yaml`:
+**Tweak parameters and re-run.** Parameter changes never trigger a rebuild — that's what `runs[].params` is for. Each entry under `runs:` needs `params`, `seed` (determinism anchor; defaults to `0`), and `slice` (the half-open `[start, end)` window the run evaluates over) at the same level — only `params` changes between sweeps. Edit `examples/vxx/experiment.yaml`:
 
 ```yaml
 runs:
@@ -297,17 +297,27 @@ runs:
       vol_hi: 0.80    # change me
       size:   100.0
       symbol: VXX
+    seed: 42
+    slice:
+      start: 2018-01-01T00:00:00Z
+      end:   2026-12-31T00:00:00Z
 ```
 
 Re-run `strategy-gpt run --spec ... --wait`. The artifact hash is unchanged; the engine reuses the compiled `.dylib`.
 
-**Multi-run sweep.** Add more entries to the spec's `runs:` list:
+**Multi-run sweep.** Add more entries to the spec's `runs:` list. `seed` and `slice` are peers of `params` on each entry, not nested inside it:
 
 ```yaml
 runs:
   - params: { vol_lo: 0.30, vol_hi: 0.75, size: 100.0, symbol: VXX }
+    seed: 42
+    slice: { start: 2018-01-01T00:00:00Z, end: 2026-12-31T00:00:00Z }
   - params: { vol_lo: 0.35, vol_hi: 0.80, size: 100.0, symbol: VXX }
+    seed: 42
+    slice: { start: 2018-01-01T00:00:00Z, end: 2026-12-31T00:00:00Z }
   - params: { vol_lo: 0.40, vol_hi: 0.85, size: 100.0, symbol: VXX }
+    seed: 42
+    slice: { start: 2018-01-01T00:00:00Z, end: 2026-12-31T00:00:00Z }
 ```
 
 The engine compiles once and fans out across `parallelism` worker subprocesses (set under `engine:` or at the spec root; defaults to `auto` = `max(1, cpus - 1)`).
