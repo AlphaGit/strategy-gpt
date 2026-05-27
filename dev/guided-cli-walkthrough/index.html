@@ -2830,6 +2830,17 @@
 </ul>
 <h2 id="stage-3-author">Stage 3 — Author a strategy<a class="headerlink" href="#stage-3-author" title="Permanent link">&para;</a></h2>
 <p><code>strategy-gpt author</code> is the LLM-driven creation primitive. It runs an interactive dialog, locks each clarification into <code>crates/&lt;name&gt;-strategy/.author/decisions.jsonl</code> (the authoritative state — the LLM's chat history is non-load-bearing), then emits <code>Cargo.toml</code> + <code>src/lib.rs</code> + <code>intent.toml</code> + <code>smoke.toml</code>, runs <code>cargo build</code>, and runs a smoke backtest. Success means <em>compiles and smoke passes</em>. There is no ledger row, no verdict.</p>
+<div class="admonition warning">
+<p class="admonition-title">Strategy name → on-disk path</p>
+<p>The intent <code>name</code> you choose is the short handle. Everywhere a directory or package id is required, the platform appends <code>-strategy</code>:</p>
+<ul>
+<li>Crate directory: <code>crates/&lt;name&gt;-strategy/</code> (e.g. <code>vxx</code> → <code>crates/vxx-strategy/</code>).</li>
+<li>Cargo package id (used with <code>cargo build -p ...</code>): <code>&lt;name&gt;-strategy</code> (e.g. <code>cargo build -p vxx-strategy</code>).</li>
+<li>Compiled library on disk: <code>lib&lt;name&gt;_strategy.{dylib,so,dll}</code> — hyphens in the crate id become underscores in the library name (e.g. <code>vxx</code> → <code>libvxx_strategy.dylib</code>; <code>multi_signal_weighted</code> → <code>libmulti_signal_weighted.dylib</code>).</li>
+<li>All <code>strategy-gpt</code> subcommands that take a strategy handle (<code>hypothesize &lt;name&gt;</code>, <code>recent-decisions --strategy &lt;name&gt;</code>, <code>hypothesis replay --strategy &lt;name&gt;</code>) take the <em>short</em> form (<code>vxx</code>), not <code>vxx-strategy</code>.</li>
+</ul>
+<p>Pick a name that survives filesystem and Cargo conventions: lowercase, ASCII, snake_case or kebab-case, no spaces, no leading digits, ≤ 40 chars. Anything else will collide with <code>cargo build</code> or with one of the path layouts above.</p>
+</div>
 <p>Invoke with a one-line seed:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>strategy-gpt<span class="w"> </span>author<span class="w"> </span><span class="s2">&quot;trend-follow SPY with ATR stops, daily bars&quot;</span>
 </span></code></pre></div>
