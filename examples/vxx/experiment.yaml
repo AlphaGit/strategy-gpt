@@ -26,9 +26,6 @@ runs:
       symbol: VXX
     modes:
       - { kind: plain }
-  - params: { vol_lo: 0.30, vol_hi: 0.75, size: 100.0, symbol: VXX }
-  - params: { vol_lo: 0.35, vol_hi: 0.80, size: 100.0, symbol: VXX }
-  - params: { vol_lo: 0.40, vol_hi: 0.85, size: 100.0, symbol: VXX }
 
 folds:
   count: 4

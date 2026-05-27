@@ -14,16 +14,17 @@ engine:
     max_intent_size: 1.0e9
     max_position_size: 1.0e9
 
+seed: 42
+slice:
+  start: 2018-01-01T00:00:00Z
+  end:   2024-12-31T00:00:00Z
+
 runs:
   - params:
       size: 100.0
       symbol: VXX
     modes:
       - { kind: plain }
-    seed: 42
-    slice:
-      start: 2018-01-01T00:00:00Z
-      end:   2024-12-31T00:00:00Z
 
 folds:
   count: 4

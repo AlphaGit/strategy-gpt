@@ -1,0 +1,30 @@
+# VXX multi-run sweep example.
+# Demonstrates the "tweak runs[].params and re-run" / multi-run sweep
+# pattern from Stage 4 of docs/guided-cli-walkthrough.md. No optimize
+# block — each run is evaluated as-is, in parallel up to `parallelism`.
+
+artifact: ../../crates/target/debug/libvxx_strategy.dylib
+strategy_label: vxx-sweep
+
+bars:
+  dataset: 29bdecf5fe758d38d524025321aacfb2825daf2fbcce4a3c2c04377bf635b97b
+
+engine:
+  fill_model: NextBarOpen
+  initial_capital: 100000.0
+  commission_per_fill: 0.0
+  sanity:
+    max_intent_size: 1.0e9
+    max_position_size: 1.0e9
+
+seed: 42
+slice:
+  start: 2018-01-01T00:00:00Z
+  end:   2026-12-31T00:00:00Z
+
+runs:
+  - params: { vol_lo: 0.30, vol_hi: 0.75, size: 100.0, symbol: VXX }
+  - params: { vol_lo: 0.35, vol_hi: 0.80, size: 100.0, symbol: VXX }
+  - params: { vol_lo: 0.40, vol_hi: 0.85, size: 100.0, symbol: VXX }
+
+parallelism: auto
