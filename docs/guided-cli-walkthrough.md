@@ -182,6 +182,17 @@ A one-time step per dataset window. The output JSON is reused across every subse
 
 `strategy-gpt author` is the LLM-driven creation primitive. It runs an interactive dialog, locks each clarification into `crates/<name>-strategy/.author/decisions.jsonl` (the authoritative state — the LLM's chat history is non-load-bearing), then emits `Cargo.toml` + `src/lib.rs` + `intent.toml` + `smoke.toml`, runs `cargo build`, and runs a smoke backtest. Success means *compiles and smoke passes*. There is no ledger row, no verdict.
 
+!!! warning "Strategy name → on-disk path"
+
+    The intent `name` you choose is the short handle. Everywhere a directory or package id is required, the platform appends `-strategy`:
+
+    - Crate directory: `crates/<name>-strategy/` (e.g. `vxx` → `crates/vxx-strategy/`).
+    - Cargo package id (used with `cargo build -p ...`): `<name>-strategy` (e.g. `cargo build -p vxx-strategy`).
+    - Compiled library on disk: `lib<name>_strategy.{dylib,so,dll}` — hyphens in the crate id become underscores in the library name (e.g. `vxx` → `libvxx_strategy.dylib`; `multi_signal_weighted` → `libmulti_signal_weighted.dylib`).
+    - All `strategy-gpt` subcommands that take a strategy handle (`hypothesize <name>`, `recent-decisions --strategy <name>`, `hypothesis replay --strategy <name>`) take the *short* form (`vxx`), not `vxx-strategy`.
+
+    Pick a name that survives filesystem and Cargo conventions: lowercase, ASCII, snake_case or kebab-case, no spaces, no leading digits, ≤ 40 chars. Anything else will collide with `cargo build` or with one of the path layouts above.
+
 Invoke with a one-line seed:
 
 ```bash
